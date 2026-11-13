@@ -6,8 +6,9 @@ export function Start({ onNew, onOpen, onExample }: { onNew: () => void; onOpen:
   return (
     <div className="start-page">
       <header className="top">
-        <a className="brand" href={localPath("/")} title={t("MDitor 첫 화면")}>
-          MD<i>itor</i>
+        <a className="brand" href={localPath("/")} title={t("MDitor 라씨 첫 화면")}>
+          MD<i>itor</i>{" "}
+          <span className="sub">{t("라씨")}</span>
         </a>
         <span className="spacer" />
         <a className="btn quiet" href={localPath("/syntax")} target="_blank" rel="noreferrer">

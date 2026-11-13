@@ -3,7 +3,8 @@
 
 export const en: Record<string, string> = {
   // ── 머리 · 메뉴
-  "MDitor 첫 화면": "MDitor home",
+  "MDitor 라씨 첫 화면": "MDitor LaSee home",
+  "라씨": "LaSee",
   "파일": "File",
   "새 문서": "New document",
   "파일 열기": "Open file",

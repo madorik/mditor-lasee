@@ -1,4 +1,4 @@
-# MDitor — 화면(정적 파일)을 빌드해 API 서버 하나에 담는다.
+# MDitor LaSee(라씨) — 화면(정적 파일)을 빌드해 API 서버 하나에 담는다.
 
 # 1) 화면 빌드
 FROM node:24-slim AS web

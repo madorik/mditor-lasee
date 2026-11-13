@@ -26,7 +26,7 @@ from .render import RenderError
 from .settings import Settings, example_md, syntax_guide
 
 INSTRUCTIONS = """MDitor turns a constrained Markdown dialect into a paginated PDF document (Korean formal reports, \
-plans, minutes). The Markdown stays the single source: people edit it in the MDitor web editor, agents edit it here, \
+plans, minutes). The Markdown stays the single source: people edit it in the MDitor LaSee web editor, agents edit it here, \
 and both see the same page breaks because pages come from actually rendering the PDF.
 
 Typical flow: read `syntax_guide` once, write or edit the Markdown, run `check_markdown` until it reports ok, use \
@@ -66,7 +66,7 @@ def build(settings: Settings | None = None, *, remote: bool = False) -> MCPServe
     server = MCPServer(
         name="mditor",
         title="MDitor",
-        description="Write Markdown, get a paginated PDF. Same parser and page layout as the MDitor web editor.",
+        description="Write Markdown, get a paginated PDF. Same parser and page layout as the MDitor LaSee web editor.",
         instructions=INSTRUCTIONS,
         website_url=settings.public_url or None,
         version=__version__,
@@ -161,7 +161,7 @@ def build(settings: Settings | None = None, *, remote: bool = False) -> MCPServe
 
         @server.tool(title="Open in the web editor", annotations=_READ)
         def editor_link(markdown: Markdown) -> dict[str, Any]:
-            """Make a link that opens this document in the MDitor web editor, where a person can edit it visually,
+            """Make a link that opens this document in the MDitor LaSee web editor, where a person can edit it visually,
             see the page boundaries and download the PDF. The document travels in the URL fragment, so it is not
             uploaded or stored on the server. Give the link to the user when they want to review or hand-edit."""
             doc, result = parsed(markdown)

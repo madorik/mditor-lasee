@@ -7,5 +7,13 @@
     "app.py": {
       "excludeFiles": "{web/node_modules/**,web/src/**,web/e2e/**,web/public/**,tests/**}"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "mditor.watalabs.com" }],
+      "destination": "https://lasee.watalabs.com/:path*",
+      "statusCode": 308
+    }
+  ]
 }

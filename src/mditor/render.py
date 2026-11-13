@@ -563,7 +563,7 @@ def _build(
     buf = io.BytesIO()
     pdf = _Doc(
         buf, pagesize=page, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin + foot,
-        title=inline.plain(doc.get("title") or "") or "문서", author="MDitor", creator="MDitor (mditor)",
+        title=inline.plain(doc.get("title") or "") or "문서", author="MDitor LaSee", creator="MDitor LaSee (mditor)",
     )
     frame = Frame(margin, margin + foot, frame_w, frame_h, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     pdf.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=on_page)])

@@ -37,6 +37,11 @@ body.site {
   color: var(--guide);
 }
 
+.nav .brand .sub {
+  font-weight: 500;
+  color: var(--graphite);
+}
+
 .nav a.link {
   color: var(--ink);
   font-size: 15px;

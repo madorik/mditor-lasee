@@ -136,7 +136,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         async with mcp.session_manager.run():
             yield
 
-    app = FastAPI(title="MDitor", version=__version__, lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
+    app = FastAPI(title="MDitor LaSee", version=__version__, lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
                   openapi_url="/api/openapi.json")
     app.add_middleware(_BodyLimit, limit=settings.max_body_bytes)
     app.add_middleware(_Lang)  # 바깥쪽 — 본문 한도 문구도 요청 언어로

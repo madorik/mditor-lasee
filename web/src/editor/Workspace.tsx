@@ -296,8 +296,9 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     <div className="app">
       <div>
         <header className="top">
-          <a className="brand" href={localPath("/")} title={t("MDitor 첫 화면")}>
-            MD<i>itor</i>
+          <a className="brand" href={localPath("/")} title={t("MDitor 라씨 첫 화면")}>
+            MD<i>itor</i>{" "}
+            <span className="sub">{t("라씨")}</span>
           </a>
           <Menu label={t("파일")} align="left" className="btn quiet">
             {(close) => (

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Developer guide (MCP · API) — MDitor</title>
+    <title>Developer guide (MCP · API) — MDitor LaSee</title>
     <meta name="description" content="The MDitor MCP server and HTTP API. AI agents write documents in Markdown, check them, verify the page layout, and export PDFs." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -15,7 +15,7 @@
   </head>
   <body class="site">
     <header class="wrap nav">
-      <a class="brand" href="/en/">MD<i>itor</i></a>
+      <a class="brand" href="/en/">MD<i>itor</i> <span class="sub">LaSee</span></a>
       <a class="link hide-s" href="/en/syntax">Syntax</a>
       <a class="link hide-s" href="/en/developers" aria-current="page">Developers</a>
       <a class="lang" href="/developers" hreflang="ko" lang="ko">한국어</a>
@@ -24,7 +24,7 @@
     <main>
       <article class="prose">
         <h1>Developer guide</h1>
-        <p class="lede">MDitor offers an MCP server and an HTTP API. AI agents and your own programs can write documents in Markdown, check the syntax, verify the page layout, and export PDFs. They use the same parser and renderer as the web editor, so the results are identical.</p>
+        <p class="lede">MDitor LaSee offers an MCP server and an HTTP API. AI agents and your own programs can write documents in Markdown, check the syntax, verify the page layout, and export PDFs. They use the same parser and renderer as the web editor, so the results are identical.</p>
 
         <h2>Connecting the MCP server</h2>
         <p>Register a single URL. There’s no authentication.</p>
@@ -74,13 +74,13 @@
         <div class="note-box">This is a public service, so request rates and document sizes are limited (400,000 characters per document, 8 MB of images in total). Requests over the limit get a 429 or 413 response. For heavy use, run your own server.</div>
 
         <h2>Running it on your own machine</h2>
-        <p>The source is at <a href="https://github.com/madorik/mditor">github.com/madorik/mditor</a>. The local MCP server (stdio) writes PDFs straight to files and reads the image files a document refers to from disk. See the README in the repository for installation and usage.</p>
+        <p>The source is at <a href="https://github.com/madorik/mditor-lasee">github.com/madorik/mditor-lasee</a>. The local MCP server (stdio) writes PDFs straight to files and reads the image files a document refers to from disk. See the README in the repository for installation and usage.</p>
       </article>
       <div class="ad-slot" hidden></div>
     </main>
     <footer class="foot">
       <div class="wrap">
-        <span>MDitor</span>
+        <span>MDitor LaSee</span>
         <span class="grow"></span>
         <a href="/en/syntax">Syntax</a>
         <a href="/en/developers">Developers</a>

@@ -1,4 +1,4 @@
-# MDitor
+# MDitor LaSee (라씨)
 
 보고서 같은 정형 문서를 **보이는 모양 그대로 고치면서**, 원본은 **Markdown** 으로 남기고(AI 도 같은 MD 를 고친다),
 미리보기의 **쪽 경계가 PDF 와 같은** 문서 편집기.
@@ -7,6 +7,8 @@
   한국어(`/`)와 영어(`/en/`)로 낸다.
 - **MCP 서버** — AI 에이전트가 같은 문법으로 문서를 쓰고, 검사하고, 쪽 배치를 보고, PDF 로 낸다.
 - **HTTP API** — 같은 기능을 직접 부른다.
+
+웹 서비스의 이름은 **MDitor LaSee**(한국어로는 **MDitor 라씨**)다. 문서 형식과 MCP 서버·패키지 이름은 `MDitor`/`mditor` 그대로 둔다.
 
 셋 다 같은 파서와 렌더러(`src/mditor`)를 쓴다. 그래서 사람이 화면에서 보는 쪽과 에이전트가 보는 쪽과 PDF 의 쪽이 같다.
 
@@ -136,7 +138,8 @@ docker run -p 8000:8000 --env-file .env mditor
 
 ### Vercel
 
-지금 서비스는 Vercel 프로젝트 `mditor` 에 올라가 있다 — https://mditor.watalabs.com (함수 리전 서울 `icn1`).
+지금 서비스는 Vercel 프로젝트 `mditor` 에 올라가 있다 — https://lasee.watalabs.com (함수 리전 서울 `icn1`).
+예전 주소 https://mditor.watalabs.com 은 같은 경로의 새 주소로 넘긴다(308, `vercel.json` 의 `redirects`).
 Git 과 잇지 않았으므로 바뀐 것을 올릴 때는 이 폴더에서 직접 배포한다.
 
 ```bash
@@ -175,11 +178,11 @@ vercel deploy --prod
 ### 원격(서비스에 붙기)
 
 ```bash
-claude mcp add --transport http mditor https://mditor.watalabs.com/mcp
+claude mcp add --transport http mditor https://lasee.watalabs.com/mcp
 ```
 
 ```json
-{ "mcpServers": { "mditor": { "type": "http", "url": "https://mditor.watalabs.com/mcp" } } }
+{ "mcpServers": { "mditor": { "type": "http", "url": "https://lasee.watalabs.com/mcp" } } }
 ```
 
 ### 로컬(stdio)
@@ -187,7 +190,7 @@ claude mcp add --transport http mditor https://mditor.watalabs.com/mcp
 PDF 를 파일로 바로 쓰고, 문서에 적힌 그림 파일을 디스크에서 읽는다. 네트워크를 쓰지 않는다.
 
 ```bash
-uvx --from git+https://github.com/madorik/mditor mditor-mcp
+uvx --from git+https://github.com/madorik/mditor-lasee mditor-mcp
 ```
 
 ```json
@@ -195,8 +198,8 @@ uvx --from git+https://github.com/madorik/mditor mditor-mcp
   "mcpServers": {
     "mditor": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/madorik/mditor", "mditor-mcp"],
-      "env": { "MDITOR_PUBLIC_URL": "https://mditor.watalabs.com" }
+      "args": ["--from", "git+https://github.com/madorik/mditor-lasee", "mditor-mcp"],
+      "env": { "MDITOR_PUBLIC_URL": "https://lasee.watalabs.com" }
     }
   }
 }

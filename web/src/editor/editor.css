@@ -51,6 +51,11 @@ body {
   color: var(--guide);
 }
 
+.brand .sub {
+  font-weight: 500;
+  color: var(--graphite);
+}
+
 .docname {
   flex: 0 1 320px;
   min-width: 80px;

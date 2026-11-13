@@ -1,7 +1,7 @@
 [project]
 name = "mditor"
 version = "0.1.0"
-description = "MDitor — 원본은 Markdown, 쪽 경계는 PDF와 똑같은 문서 편집기 (코어 · API 서버 · MCP 서버)"
+description = "MDitor LaSee(라씨) — 원본은 Markdown, 쪽 경계는 PDF와 똑같은 문서 편집기 (코어 · API 서버 · MCP 서버)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
