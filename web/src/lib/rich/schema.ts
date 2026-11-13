@@ -1,15 +1,15 @@
 // 문서 편집기 스키마 — MD 와 1:1 로 맞춘다.
 // 스키마에 없는 것은 붙여넣기 때 자동으로 버려진다(워드의 글자 크기·다른 글꼴 등).
 //
-//   docTitle (h1, 글자만)            # 문서 제목 — 맨 앞에만
-//   sectionHead (h2, 글자만)         ## 섹션
-//   blockTitle (h3, 글자만)          ### 블록 제목
+//   docTitle (h1, 한 줄)             # 문서 제목 — 맨 앞에만
+//   sectionHead (h2, 한 줄)          ## 섹션
+//   blockTitle (h3, 한 줄)           ### 블록 제목      (제목에도 글 서식을 쓴다. 줄바꿈은 없다)
 //   paragraph                        문단
 //   mdList > mdItem{level}           - 항목 /   - 하위 (Tab / Shift-Tab)
 //   table > 칸(paragraph+, shade, align)   MD 표 + < / ^ + 칸 음영
 //   mdNote (blockquote)              > 비고 (줄마다 하나)
 //   mdImage{src, caption} (atom)     ![설명](이름)
-//   marks: bold · strike · underline · mdShade · mdColor{name}
+//   marks: bold · strike · italic · underline · mdShade · mdColor{name}
 //   hardBreak                        <br>
 
 import { Mark, Node, mergeAttributes, type AnyExtension } from "@tiptap/core";
@@ -28,7 +28,6 @@ function heading(name: string, tag: string) {
   return Node.create({
     name,
     content: "text*",
-    marks: "",
     defining: true,
     parseHTML() {
       return [{ tag }];
@@ -44,7 +43,6 @@ const SectionHead = heading("sectionHead", "h2");
 const BlockTitle = Node.create({
   name: "blockTitle",
   content: "text*",
-  marks: "",
   defining: true,
   parseHTML() {
     return [{ tag: "h3" }, { tag: "h4" }, { tag: "h5" }, { tag: "h6" }];
@@ -313,7 +311,6 @@ export function richExtensions(options: { resolveImage?: ImageResolver } = {}): 
       blockquote: false,
       code: false,
       codeBlock: false,
-      italic: false,
       link: false,
       horizontalRule: false,
     }),

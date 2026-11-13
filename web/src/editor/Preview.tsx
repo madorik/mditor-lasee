@@ -27,6 +27,7 @@ export function Inline({ s }: { s: string }) {
         if (seg.color) node = <span style={{ color: INLINE_COLORS[seg.color] }}>{node}</span>;
         if (seg.shade) node = <mark className="md-shade">{node}</mark>;
         if (seg.underline) node = <u>{node}</u>;
+        if (seg.italic) node = <em>{node}</em>;
         if (seg.strike) node = <s>{node}</s>;
         if (seg.bold) node = <strong>{node}</strong>;
         return <Fragment key={i}>{node}</Fragment>;
@@ -119,7 +120,11 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
     <>
       {pages?.before && <PageMark n={pages.before} />}
       <div className={`blk ${b.title ? "titled" : ""}`} data-change={change}>
-        {b.title && <h3>{b.title}</h3>}
+        {b.title && (
+          <h3>
+            <Inline s={b.title} />
+          </h3>
+        )}
         {body}
         {b.notes.map((n, i) => (
           <div className="md-note" key={i}>
@@ -174,12 +179,20 @@ export function Preview({ doc, layout, changes, images, options }: { doc: Doc; l
     <div className="desk" ref={desk}>
       <article className="paper docstyle" style={style} aria-label={t("문서 미리보기")}>
         {layout && layout.total > 1 && <span className="first-page">{t("{n}쪽", { n: 1 })}</span>}
-        {doc.title && <h1>{doc.title}</h1>}
+        {doc.title && (
+          <h1>
+            <Inline s={doc.title} />
+          </h1>
+        )}
         {empty && <p style={{ color: "#9aa4ad" }}>{t("왼쪽에 글을 쓰면 여기에 보입니다.")}</p>}
         {doc.sections.map((s) => (
           <section key={s.key}>
             {breaks.sections[s.key] && <PageMark n={breaks.sections[s.key]} />}
-            {s.title && <h2>{s.title}</h2>}
+            {s.title && (
+              <h2>
+                <Inline s={s.title} />
+              </h2>
+            )}
             {s.blocks.map((b) => (
               <BlockView key={b.id} b={b} pages={breaks.blocks[b.id]} change={changed[b.id]} images={images} />
             ))}

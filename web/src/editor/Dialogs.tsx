@@ -1,15 +1,30 @@
 import { useState } from "react";
 import * as api from "../lib/api";
+import { FONT_CSS, FONTS, type FontKey } from "../lib/fonts";
 import { t } from "../lib/i18n";
 import type { DocSummary, StoredDoc } from "../lib/store";
 import type { Doc, Options } from "../lib/types";
 import { Modal, when } from "./ui";
+
+/** 쪽 설정에 보일 글꼴 이름 */
+const fontLabel = (f: FontKey): string =>
+  ({ pretendard: t("Pretendard (고딕, 기본)"), "nanum-myeongjo": t("나눔명조 (명조)"), "nanum-gothic": t("나눔고딕 (고딕)"), "nanum-pen": t("나눔손글씨 펜 (손글씨)") })[f];
 
 export function SettingsDialog({ options, onChange, onClose }: { options: Options; onChange: (o: Options) => void; onClose: () => void }) {
   const set = <K extends keyof Options>(key: K, value: Options[K]) => onChange({ ...options, [key]: value });
   return (
     <Modal title={t("쪽 설정")} onClose={onClose} footer={<button type="button" className="btn primary" onClick={onClose}>{t("닫기")}</button>}>
       <p>{t("바꾸면 미리보기의 쪽 경계와 PDF 에 바로 반영됩니다.")}</p>
+      <label className="field">
+        <span>{t("글꼴")}</span>
+        <select value={options.font} onChange={(e) => set("font", e.target.value as FontKey)} style={{ fontFamily: FONT_CSS[options.font] }}>
+          {FONTS.map((f) => (
+            <option key={f} value={f} style={{ fontFamily: FONT_CSS[f] }}>
+              {fontLabel(f)}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="field">
         <span>{t("용지")}</span>
         <select value={options.page} onChange={(e) => set("page", e.target.value as Options["page"])}>

@@ -67,6 +67,7 @@ A body paragraph of the report.</pre></div></figure>
           <tbody>
             <tr><td><code>**bold**</code></td><td><strong>bold</strong></td></tr>
             <tr><td><code>~~strikethrough~~</code></td><td><s>strikethrough</s></td></tr>
+            <tr><td><code>{italic}italic{/italic}</code></td><td><em>italic</em></td></tr>
             <tr><td><code>{underline}underline{/underline}</code></td><td><u>underline</u></td></tr>
             <tr><td><code>{shade}shade{/shade}</code></td><td><mark style="background:#d9d9d9">shade</mark></td></tr>
             <tr><td><code>{red}red{/red}</code> <code>{blue}…</code> <code>{gray}…</code></td><td><span style="color:#c00000">red</span> <span style="color:#1f4e9b">blue</span> <span style="color:#7f7f7f">gray</span></td></tr>
@@ -77,9 +78,9 @@ A body paragraph of the report.</pre></div></figure>
           <li><code>**</code> and <code>~~</code> only pair up when the character right <strong>after</strong> the opening marker and right <strong>before</strong> the closing marker aren’t spaces. <code>** text **</code> is not formatting.</li>
           <li>Unpaired markers stay as plain text, so you can type a footnote mark like <code>1.31**</code> as is.</li>
           <li>To write a marker as plain text, put <code>\</code> in front of it: <code>\*\*</code>, <code>\{red}</code>, <code>\&lt;br&gt;</code>.</li>
-          <li>Headings and image captions don’t take formatting.</li>
+          <li>Headings (<code>#</code> <code>##</code> <code>###</code>) take formatting too. A heading is one line, so <code>&lt;br&gt;</code> becomes a space. Image captions don’t take formatting.</li>
         </ul>
-        <div class="note-box">Korean tag names work too and mean the same thing: <code>{빨강}</code> = <code>{red}</code>, <code>{파랑}</code> = <code>{blue}</code>, <code>{회색}</code> = <code>{gray}</code>, <code>{밑줄}</code> = <code>{underline}</code>, <code>{음영}</code> = <code>{shade}</code>. A document sticks to one tag language: the first tag in the document decides it, and in a document with no tags yet, the editor’s language decides.</div>
+        <div class="note-box">Korean tag names work too and mean the same thing: <code>{빨강}</code> = <code>{red}</code>, <code>{파랑}</code> = <code>{blue}</code>, <code>{회색}</code> = <code>{gray}</code>, <code>{기울임}</code> = <code>{italic}</code>, <code>{밑줄}</code> = <code>{underline}</code>, <code>{음영}</code> = <code>{shade}</code>. A document sticks to one tag language: the first tag in the document decides it, and in a document with no tags yet, the editor’s language decides.</div>
 
         <h2>Tables</h2>
         <div class="pair">

@@ -2,15 +2,15 @@
 
 web/src/lib/inline.ts 와 **같은 규칙**이다. 고치면 둘 다 고친다(공유 기준 파일 tests/test_fixture.py 가 잡는다).
 
-읽기  segments(s)  : 서식 문자열 → 조각(글자 + 굵게·취소선·밑줄·음영·색)
+읽기  segments(s)  : 서식 문자열 → 조각(글자 + 굵게·취소선·기울임·밑줄·음영·색)
 쓰기  write(segs)  : 조각 → 서식 문자열(표준 꼴 하나)
 canon(s) = write(normalize(segments(s)))  — 저장하는 문자열은 언제나 이 꼴이다.
 
 규칙
 - ``**굵게**`` ``~~취소선~~`` : 여는 기호 **뒤**와 닫는 기호 **앞**이 공백이 아니어야 짝이 된다.
   짝 없는 기호는 글자 그대로 둔다(각주 ``1.31**``).
-- ``{빨강}…{/빨강}`` ``{파랑}`` ``{회색}`` ``{밑줄}`` ``{음영}`` : 종류별로 여닫는 짝을 센다. 짝 없는 태그는 글자.
-  영어 이름 ``{red}`` ``{blue}`` ``{gray}`` ``{underline}`` ``{shade}`` 도 같은 태그다(대소문자 무시, ``{grey}`` 도 회색).
+- ``{빨강}…{/빨강}`` ``{파랑}`` ``{회색}`` ``{기울임}`` ``{밑줄}`` ``{음영}`` : 종류별로 여닫는 짝을 센다. 짝 없는 태그는 글자.
+  영어 이름 ``{red}`` ``{blue}`` ``{gray}`` ``{italic}`` ``{underline}`` ``{shade}`` 도 같은 태그다(대소문자 무시, ``{grey}`` 도 회색).
   안에서는 한국어 이름으로 다루고, 쓸 때만 문서의 태그 언어(dialect, ``ko`` | ``en``)로 쓴다.
   문서의 태그 언어는 처음 나오는 짝 맞은 태그가 정한다(``dialect_of``). 태그가 없으면 부르는 쪽이 정한다.
 - ``<br>`` : 줄바꿈.
@@ -25,9 +25,9 @@ from dataclasses import dataclass, replace
 
 COLORS = {"빨강": "#c00000", "파랑": "#1f4e9b", "회색": "#7f7f7f"}
 SHADE = "#d9d9d9"
-FLAGS = ("밑줄", "음영")
+FLAGS = ("기울임", "밑줄", "음영")
 DIALECTS = ("ko", "en")
-EN = {"빨강": "red", "파랑": "blue", "회색": "gray", "밑줄": "underline", "음영": "shade"}
+EN = {"빨강": "red", "파랑": "blue", "회색": "gray", "기울임": "italic", "밑줄": "underline", "음영": "shade"}
 _ALIASES = {**{v: k for k, v in EN.items()}, "grey": "회색"}  # 영어 이름 → 안에서 쓰는 이름
 WS = " \t 　"
 ESCAPABLE = "\\*~{}<>^|#-+!"
@@ -45,6 +45,7 @@ _TAG_AT = re.compile(r"\{/?(?:" + _TAG_NAMES + r")\}")
 _BR_AT = re.compile(r"<br[ \t]*/?>", re.IGNORECASE)
 _RULE = re.compile(r"^([-*])(?:[ \t]*\1){2,}$")  # 가로줄(---)로 읽히는 문단
 _ITEM_RULE = re.compile(r"^-(?:[ \t]*-)+$")  # "- " 뒤에 붙으면 가로줄이 되는 항목
+_SPACES = re.compile(r"\s+")  # str.split() 과 같은 빈칸 문자(\x1c-\x1f 포함)
 _PARA_BLOCK = re.compile(r"^(?:#{1,6}(?:\s|$)|>|[-*+](?:\s|$)|\||!\[.*\]\(.*\)$)")
 
 
@@ -56,14 +57,15 @@ class Seg:
     underline: bool = False
     shade: bool = False
     color: str | None = None
+    italic: bool = False
 
-    def style(self) -> tuple[bool, bool, bool, bool, str | None]:
-        """바깥 → 안 순서(굵게 · 취소선 · 밑줄 · 음영 · 색)."""
-        return (self.bold, self.strike, self.underline, self.shade, self.color)
+    def style(self) -> tuple[bool, bool, bool, bool, bool, str | None]:
+        """바깥 → 안 순서(굵게 · 취소선 · 기울임 · 밑줄 · 음영 · 색)."""
+        return (self.bold, self.strike, self.italic, self.underline, self.shade, self.color)
 
     def to_json(self) -> dict:
         out: dict = {"text": self.text}
-        for k in ("bold", "strike", "underline", "shade"):
+        for k in ("bold", "strike", "italic", "underline", "shade"):
             if getattr(self, k):
                 out[k] = True
         if self.color:
@@ -139,7 +141,7 @@ def segments(s: str) -> list[Seg]:
     def emit(text: str) -> None:
         if not text:
             return
-        seg = Seg(text, bold, strike, depth["밑줄"] > 0, depth["음영"] > 0, colors[-1] if colors else None)
+        seg = Seg(text, bold, strike, depth["밑줄"] > 0, depth["음영"] > 0, colors[-1] if colors else None, depth["기울임"] > 0)
         if out and out[-1].style() == seg.style():
             out[-1] = replace(out[-1], text=out[-1].text + text)
         else:
@@ -256,13 +258,13 @@ def tag(name: str, dialect: str = "ko") -> str:
 def _open(level: int, value: object, dialect: str) -> str:
     if level < 2:
         return ("**", "~~")[level]
-    return "{" + tag(("밑줄", "음영", value)[level - 2], dialect) + "}"  # type: ignore[arg-type]
+    return "{" + tag(("기울임", "밑줄", "음영", value)[level - 2], dialect) + "}"  # type: ignore[arg-type]
 
 
 def _close(level: int, value: object, dialect: str) -> str:
     if level < 2:
         return ("**", "~~")[level]
-    return "{/" + tag(("밑줄", "음영", value)[level - 2], dialect) + "}"  # type: ignore[arg-type]
+    return "{/" + tag(("기울임", "밑줄", "음영", value)[level - 2], dialect) + "}"  # type: ignore[arg-type]
 
 
 def dialect_of(text: str) -> str | None:
@@ -285,15 +287,15 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
     dialect: 태그를 쓸 언어(``ko`` | ``en``).
     """
     pieces: list[tuple[bool, str]] = []  # (기호인지, 글자)
-    cur: tuple = (False, False, False, False, None)
-    off: tuple = (False, False, False, False, None)
+    cur: tuple = (False, False, False, False, False, None)
+    off: tuple = (False, False, False, False, False, None)
     for style, text in [*((s.style(), s.text) for s in segs), (off, "")]:
-        first = next((i for i in range(5) if cur[i] != style[i]), None)
+        first = next((i for i in range(6) if cur[i] != style[i]), None)
         if first is not None:
-            for j in range(4, first - 1, -1):
+            for j in range(5, first - 1, -1):
                 if cur[j]:
                     pieces.append((True, _close(j, cur[j], dialect)))
-            for j in range(first, 5):
+            for j in range(first, 6):
                 if style[j]:
                     pieces.append((True, _open(j, style[j], dialect)))
         if text:
@@ -363,6 +365,25 @@ def canon(s: str, ctx: str | None = None, dialect: str = "ko") -> str:
     return write(normalize(segments(s)), ctx, dialect)
 
 
+def _one_space(segs: Iterable[Seg]) -> list[Seg]:
+    """줄바꿈·빈칸 문자를 빈칸 하나로, 이어진 빈칸은 조각 경계를 넘어서도 하나로."""
+    out: list[Seg] = []
+    space = False  # 앞 조각이 빈칸으로 끝났는가
+    for seg in segs:
+        text = _SPACES.sub(" ", seg.text)
+        if space and text.startswith(" "):
+            text = text[1:]
+        if text:
+            out.append(replace(seg, text=text))
+            space = text.endswith(" ")
+    return out
+
+
+def title(s: str, dialect: str = "ko") -> str:
+    """제목(# ## ###)의 표준 꼴. 서식은 본문과 같고, 한 줄이므로 줄바꿈은 빈칸이며 이어진 빈칸은 하나다."""
+    return write(normalize(_one_space(segments(s))), None, dialect)
+
+
 def plain(s: str) -> str:
     """서식을 뗀 글자만(줄바꿈은 공백)."""
     return " ".join("".join(seg.text for seg in segments(s)).split())
@@ -405,6 +426,8 @@ def rl_markup(s: str, wrap: Callable[[str], str] | None = None) -> str:
             t = f'<font backColor="{SHADE}">{t}</font>'
         if seg.underline:
             t = f"<u>{t}</u>"
+        if seg.italic:
+            t = f"<i>{t}</i>"
         if seg.strike:
             t = f"<strike>{t}</strike>"
         if seg.bold:

@@ -1,6 +1,6 @@
 import { Extension, InputRule } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { t } from "../lib/i18n";
 import { addRowBelow, blockKind, mergeSafe, setBlockKind, setColumnAlign, toggleCellShade, type BlockKind, type CellAlign } from "../lib/rich/commands";
 import type { Dialect } from "../lib/inline";
@@ -80,16 +80,30 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
         kind: blockKind(e.state),
         bold: e.isActive("bold"),
         strike: e.isActive("strike"),
+        italic: e.isActive("italic"),
         underline: e.isActive("underline"),
         shade: e.isActive("mdShade"),
         color: e.isActive("mdColor") ? (color ?? null) : null,
         inTable: e.isActive("table"),
-        marks: !["docTitle", "sectionHead", "blockTitle"].includes(e.state.selection.$from.parent.type.name),
+        marks: e.state.selection.$from.parent.type.allowsMarkType(e.state.schema.marks.bold), // 제목에도 서식을 쓴다
         canUndo: e.can().undo(),
         canRedo: e.can().redo(),
       };
     },
   });
+
+  // 표 도구 막대가 나타나거나 사라지면 그 높이만큼 스크롤을 옮겨 문서가 제자리에 있게 한다.
+  // (표 밖에서 칸을 끌기 시작하면 막대가 끄는 도중에 나타나 칸이 밀리고, 엉뚱한 칸이 골라졌다)
+  const scroller = useRef<HTMLDivElement>(null);
+  const tableBar = useRef<HTMLDivElement>(null);
+  const barHeight = useRef(0);
+  const inTable = !!ui?.inTable;
+  useLayoutEffect(() => {
+    const h = tableBar.current?.offsetHeight ?? 0;
+    const delta = h - barHeight.current;
+    barHeight.current = h;
+    if (delta && scroller.current) scroller.current.scrollTop += delta;
+  }, [inTable]);
 
   if (!editor || !ui) return null;
 
@@ -123,6 +137,7 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
         </select>
         <span className="sep" />
         <button type="button" className="tool" aria-pressed={ui.bold} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleBold().run()} title={t("굵게 (Ctrl+B)")}><b className="ga">{ga}</b></button>
+        <button type="button" className="tool" aria-pressed={ui.italic} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleItalic().run()} title={t("기울임 (Ctrl+I)")}><i className="ga">{ga}</i></button>
         <button type="button" className="tool" aria-pressed={ui.strike} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleStrike().run()} title={t("취소선")}><s className="ga">{ga}</s></button>
         <button type="button" className="tool" aria-pressed={ui.underline} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleUnderline().run()} title={t("밑줄 (Ctrl+U)")}><u className="ga">{ga}</u></button>
         <button type="button" className="tool" aria-pressed={ui.shade} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleMark("mdShade").run()} title={t("음영")}><mark className="ga" style={{ background: "#d9d9d9", padding: "0 3px" }}>{ga}</mark></button>
@@ -137,7 +152,7 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
         <button type="button" className="tool word" disabled={!ui.canRedo} onClick={() => editor.chain().focus().redo().run()} title={t("다시 하기")}>{t("다시")}</button>
       </div>
       {ui.inTable ? (
-        <div className="tools table-tools" role="toolbar" aria-label={t("표")}>
+        <div className="tools table-tools" role="toolbar" aria-label={t("표")} ref={tableBar}>
           <span className="label">{t("표")}</span>
           <button type="button" className="tool word" onClick={pm(addRowBelow)}>{t("아래에 행")}</button>
           <button type="button" className="tool word" onClick={() => editor.chain().focus().addColumnAfter().run()}>{t("오른쪽에 열")}</button>
@@ -157,7 +172,7 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
       ) : (
         <span />
       )}
-      <div className="rich-scroll" onMouseDown={(e) => e.target === e.currentTarget && editor.commands.focus("end")}>
+      <div className="rich-scroll" ref={scroller} onMouseDown={(e) => e.target === e.currentTarget && editor.commands.focus("end")}>
         <EditorContent editor={editor} />
       </div>
     </div>

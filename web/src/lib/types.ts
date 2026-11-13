@@ -1,4 +1,5 @@
 // 서버(src/mditor/md.py)의 문서 모양과 같다.
+import type { FontKey } from "./fonts";
 
 export type Align = "left" | "center" | "right" | null;
 export type Item = { text: string; level: number };
@@ -43,6 +44,7 @@ export type Options = {
   font_size: number;
   section_break: boolean;
   page_numbers: boolean;
+  font: FontKey;
 };
 
 export const DEFAULT_OPTIONS: Options = {
@@ -52,4 +54,5 @@ export const DEFAULT_OPTIONS: Options = {
   font_size: 10.5,
   section_break: false,
   page_numbers: true,
+  font: "pretendard",
 };

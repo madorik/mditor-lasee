@@ -1,0 +1,18 @@
+MDitor Oblique — PDF 기울임용 글꼴
+
+이 폴더의 글꼴은 위 폴더의 글꼴을 오른쪽으로 약 14° 기울인 사본이다(scripts/make_oblique.py 로 만든다).
+원본 글꼴에는 기울임체가 없어, PDF 에서 기울임({기울임}…{/기울임})을 그릴 때 쓴다.
+
+  oblique-sans-*.ttf    ← Pretendard JP          (../OFL-Pretendard.txt)
+  oblique-serif-*.ttf   ← Nanum Myeongjo         (../OFL-NanumMyeongjo.txt)
+  oblique-gothic-*.ttf  ← Nanum Gothic           (../OFL-NanumGothic.txt)
+  oblique-pen-*.ttf     ← Nanum Pen Script       (../OFL-NanumPenScript.txt)
+
+원본은 SIL Open Font License 1.1 을 따르고, 이 사본도 같은 라이선스를 따른다.
+원본의 '예약된 글꼴 이름'(Pretendard, Nanum …)은 고친 글꼴에 쓸 수 없으므로 글꼴 안의 이름을
+'MDitor Oblique Sans/Serif/Gothic/Pen' 으로 바꿨다. 원본의 저작권 표시는 그대로 두었다.
+글꼴을 따로 팔지 않는다.
+
+These fonts are slanted copies of the fonts in the parent folder, made for MDitor's PDF output.
+They are licensed under the SIL Open Font License 1.1 like the originals, and renamed because
+the original licenses reserve their font names.

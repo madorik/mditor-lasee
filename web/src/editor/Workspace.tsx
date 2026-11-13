@@ -1,9 +1,10 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as api from "../lib/api";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
 import { imageName, readImage } from "../lib/images";
+import { FONT_CSS } from "../lib/fonts";
 import { dialectOf, type Dialect } from "../lib/inline";
 import { encodeLink } from "../lib/share";
 import { isPersistent, putDoc, withVersion, type StoredDoc } from "../lib/store";
@@ -373,7 +374,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
         )}
       </div>
 
-      <main className="work" data-side={side}>
+      <main className="work" data-side={side} data-font={stored.options.font} style={{ "--doc-font": FONT_CSS[stored.options.font] } as CSSProperties}>
         <section className="pane left" aria-label={t("편집")}>
           <div className="pane-head">
             <Tabs label={t("편집 방식")} value={leftTab} onChange={switchLeft} items={[["doc", t("문서")], ["md", "MD"]]} />

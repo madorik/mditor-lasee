@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fixture from "./rich/fixture.json";
-import { canon, cellShade, dialectOf, normalize, segments, write, type Ctx, type Seg } from "./inline";
+import { canon, cellShade, dialectOf, normalize, segments, title, write, type Ctx, type Seg } from "./inline";
 import { canonical, spans } from "./table";
 
 const CTX: Ctx[] = [null, "cell", "para", "item"];
@@ -27,6 +27,15 @@ describe("글 서식 — 서버와 같은 결과", () => {
         expect(en).toBe(c.mdEn[i]);
         expect(normalize(segments(en))).toEqual(c.norm);
       });
+    }
+  });
+});
+
+describe("제목의 표준 꼴 — 서버와 같은 결과", () => {
+  it("서식은 본문과 같고, 줄바꿈은 빈칸, 이어진 빈칸은 하나", () => {
+    for (const c of fixture.titles) {
+      expect(title(c.src), JSON.stringify(c.src)).toBe(c.ko);
+      expect(title(c.src, "en"), JSON.stringify(c.src)).toBe(c.en);
     }
   });
 });

@@ -4,7 +4,7 @@
 // 그 출력은 서버 doc_md 와 **바이트 단위로 같아야** 한다(convert.test.ts 가 공유 기준 파일로 확인한다).
 
 import type { JSONContent } from "@tiptap/core";
-import { cellShade, normalize, segments, SPACES, tag, write, type Ctx, type Dialect, type Seg } from "../inline";
+import { cellShade, normalize, oneSpace, segments, SPACES, tag, write, type Ctx, type Dialect, type Seg } from "../inline";
 import { spans } from "../table";
 import type { Align, Doc, TableBlock } from "../types";
 
@@ -16,6 +16,7 @@ function marksOf(s: Seg): JSONContent["marks"] {
   const marks: NonNullable<JSONContent["marks"]> = [];
   if (s.bold) marks.push({ type: "bold" });
   if (s.strike) marks.push({ type: "strike" });
+  if (s.italic) marks.push({ type: "italic" });
   if (s.underline) marks.push({ type: "underline" });
   if (s.shade) marks.push({ type: "mdShade" });
   if (s.color) marks.push({ type: "mdColor", attrs: { name: s.color } });
@@ -34,7 +35,6 @@ export function inlineToPM(s: string): JSONContent[] {
   return out;
 }
 
-const plainText = (s: string): JSONContent[] => (s ? [{ type: "text", text: s }] : []);
 
 function node(type: string, content: JSONContent[], attrs?: Record<string, unknown>): JSONContent {
   const out: JSONContent = { type };
@@ -69,12 +69,12 @@ function tableToPM(b: TableBlock): JSONContent {
 
 export function toPM(doc: Doc): JSONContent {
   const content: JSONContent[] = [];
-  if (doc.title) content.push(node("docTitle", plainText(doc.title)));
+  if (doc.title) content.push(node("docTitle", inlineToPM(doc.title)));
   const body = content.length;
   doc.sections.forEach((s, i) => {
-    if (s.title || i > 0) content.push(node("sectionHead", plainText(s.title)));
+    if (s.title || i > 0) content.push(node("sectionHead", inlineToPM(s.title)));
     for (const b of s.blocks) {
-      if (b.title) content.push(node("blockTitle", plainText(b.title)));
+      if (b.title) content.push(node("blockTitle", inlineToPM(b.title)));
       if (b.kind === "text") {
         if (b.text) content.push(node("paragraph", inlineToPM(b.text)));
       } else if (b.kind === "list") {
@@ -100,6 +100,7 @@ function segsOf(content: JSONContent[] | undefined): Seg[] {
     for (const m of n.marks ?? []) {
       if (m.type === "bold") s.bold = true;
       else if (m.type === "strike") s.strike = true;
+      else if (m.type === "italic") s.italic = true;
       else if (m.type === "underline") s.underline = true;
       else if (m.type === "mdShade") s.shade = true;
       else if (m.type === "mdColor") s.color = String(m.attrs?.name ?? "빨강");
@@ -113,12 +114,11 @@ export function inlineToMd(content: JSONContent[] | undefined, ctx: Ctx = null, 
   return write(normalize(segsOf(content)), ctx, dialect);
 }
 
-const oneLine = (content: JSONContent[] | undefined): string =>
-  (content ?? [])
-    .map((n) => n.text ?? " ")
-    .join("")
-    .replace(SPACES, " ")
-    .trim();
+/** 제목 노드 → 제목의 표준 꼴(서버 inline.title 과 같다). */
+export function titleToMd(content: JSONContent[] | undefined, dialect: Dialect = "ko"): string {
+  return write(normalize(oneSpace(segsOf(content))), null, dialect);
+}
+
 
 /** 표 노드 → MD 줄들. 합친 칸은 점유 격자를 만들고, 숨은 칸이 기준 칸과 같은 행이면 `<`, 아니면 `^`. */
 export function tableMd(t: JSONContent, dialect: Dialect = "ko"): string[] {
@@ -207,13 +207,13 @@ export function fromPM(doc: JSONContent, dialect: Dialect = "ko"): string {
 
   (doc.content ?? []).forEach((n, i) => {
     if (n.type === "docTitle") {
-      if (i === 0) title = oneLine(n.content);
+      if (i === 0) title = titleToMd(n.content, dialect);
     } else if (n.type === "sectionHead") {
       closeSection();
-      secTitle = oneLine(n.content);
+      secTitle = titleToMd(n.content, dialect);
     } else if (n.type === "blockTitle") {
       flush();
-      cur = { title: oneLine(n.content) || null, kind: null, lines: [], notes: [], levels: [] };
+      cur = { title: titleToMd(n.content, dialect) || null, kind: null, lines: [], notes: [], levels: [] };
     } else if (n.type === "paragraph") {
       const text = inlineToMd(n.content, "para", dialect);
       if (text) body("text").lines.push(text);

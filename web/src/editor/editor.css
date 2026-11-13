@@ -1,4 +1,10 @@
 @import "../styles/tokens.css";
+/* 문서 글꼴(쪽 설정) — 글자를 쓸 때 필요한 조각만 내려받는다 */
+@import "@fontsource/nanum-myeongjo/400.css";
+@import "@fontsource/nanum-myeongjo/700.css";
+@import "@fontsource/nanum-gothic/400.css";
+@import "@fontsource/nanum-gothic/700.css";
+@import "@fontsource/nanum-pen-script/400.css";
 
 html,
 body,
@@ -1022,6 +1028,11 @@ kbd {
   font-size: 17px;
   font-weight: 600;
   pointer-events: none;
+}
+
+/* 굵은 꼴이 없는 글꼴 — PDF 처럼 굵게를 흉내 내지 않는다(기울임은 흉내 낸다 — PDF 도 기울인 글꼴을 쓴다) */
+.work[data-font="nanum-pen"] .docstyle {
+  font-synthesis: style;
 }
 
 /* ───────── 좁은 화면 ───────── */

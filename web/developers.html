@@ -68,7 +68,7 @@
   -H "Content-Type: application/json" \
   -d '{"md": "# 보고서\n\n## 1. 요약\n\n- 첫 항목\n", "options": {"page": "A4"}}' \
   -o report.pdf</pre></div>
-        <p><code>options</code> 에는 <code>page</code>(A4·Letter), <code>landscape</code>, <code>margin_mm</code>(8~40), <code>font_size</code>(8~14), <code>section_break</code>, <code>page_numbers</code> 를 넣을 수 있습니다. 그림은 <code>images</code> 에 <code>{이름: data URI}</code> 로 보냅니다.</p>
+        <p><code>options</code> 에는 <code>page</code>(A4·Letter), <code>landscape</code>, <code>margin_mm</code>(8~40), <code>font_size</code>(8~14), <code>font</code>(<code>pretendard</code>·<code>nanum-myeongjo</code>·<code>nanum-gothic</code>·<code>nanum-pen</code>), <code>section_break</code>, <code>page_numbers</code> 를 넣을 수 있습니다. 그림은 <code>images</code> 에 <code>{이름: data URI}</code> 로 보냅니다.</p>
         <p>요청 머리글에 <code>Accept-Language: en</code> 또는 <code>ko</code>(기본)를 보내면 오류 메시지가 그 언어로 나옵니다. 태그가 아직 없는 문서에서 쓸 태그의 말(<code>{빨강}</code> 또는 <code>{red}</code>)도 이것으로 정해집니다.</p>
         <div class="note-box">공개 서비스라 요청 횟수와 문서 크기에 한도가 있습니다(문서 40만 자, 그림 합계 8MB). 한도를 넘으면 429 또는 413 으로 답합니다. 대량으로 쓰려면 직접 서버를 띄우세요.</div>
 

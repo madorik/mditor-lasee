@@ -228,7 +228,7 @@ def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Bloc
         m = _HEAD.match(text)
         if m:
             flush()
-            cur = {"title": _one_line(m.group(2)) or None}
+            cur = {"title": inline.title(m.group(2) or "", dialect) or None}
             continue
         if text.startswith("|"):
             rows = [(ln, split_cells(text))]
@@ -291,10 +291,10 @@ def parse(text: str, dialect: str | None = None) -> Doc:
         m = _HEAD.match(line.strip())
         level = len(m.group(1)) if m else 0
         if level == 1 and not seen:
-            title = _one_line(m.group(2))  # type: ignore[union-attr]
+            title = inline.title(m.group(2) or "", dialect)  # type: ignore[union-attr]
         elif level in (1, 2):
             close()
-            cur, cur_title = [], _one_line(m.group(2))  # type: ignore[union-attr]
+            cur, cur_title = [], inline.title(m.group(2) or "", dialect)  # type: ignore[union-attr]
         else:
             cur.append((n, line))
         if line.strip():
@@ -474,7 +474,7 @@ def apply_md(base: Any, text: str, dialect: str | None = None) -> Doc:
 
 
 def _label(b: Block) -> str:
-    text = b.get("title") or inline.plain(_content(b).strip().split("\n")[0])
+    text = inline.plain(b.get("title") or "") or inline.plain(_content(b).strip().split("\n")[0])
     return text if len(text) <= 40 else text[:39] + "…"
 
 

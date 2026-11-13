@@ -100,10 +100,12 @@ await sleep(800);
 const work = mkdtempSync(join(tmpdir(), "mditor-hero-"));
 const cdp = await page.createCDPSession();
 const frames = []; // [파일, 받은 때(초)]
+let latest = ""; // 마지막으로 받은 장면(휠이 먹었는지 볼 때 쓴다)
 cdp.on("Page.screencastFrame", (e) => {
   const file = join(work, `f${String(frames.length).padStart(5, "0")}.jpg`);
   writeFileSync(file, Buffer.from(e.data, "base64"));
   frames.push([file, e.metadata.timestamp]);
+  latest = e.data;
   cdp.send("Page.screencastFrameAck", { sessionId: e.sessionId }).catch(() => {});
 });
 await cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, maxWidth: W * SCALE, maxHeight: H * SCALE, everyNthFrame: 1 });
@@ -158,7 +160,8 @@ await click();
 await sleep(2000);
 await moveTo(frame.x + frame.w * 0.55, frame.y + frame.h * 0.62);
 // PDF 보기가 다시 그리는 중이면 휠을 놓친다 — 칸 모습이 바뀌었는지 보고, 그대로면 다시 굴린다
-const look = () => page.screenshot({ type: "jpeg", quality: 30, encoding: "base64", clip: { x: frame.x, y: frame.y + 40, width: frame.w, height: frame.h - 40 }, captureBeyondViewport: false });
+// 찍는 중에 page.screenshot 을 부르면 그 장면(잘라 찍은 것)이 녹화에도 섞인다 — 받고 있는 장면끼리 견준다
+const look = async () => latest;
 let scrolled = false;
 for (let attempt = 0; attempt < 5 && !scrolled; attempt++) {
   const was = await look();

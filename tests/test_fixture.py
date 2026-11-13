@@ -22,7 +22,7 @@ EXAMPLE_EN = Path(__file__).resolve().parents[1] / "src" / "mditor" / "data" / "
 
 def _to_en(text: str) -> str:
     """한국어 태그를 영어 태그로 바꾼 같은 문서."""
-    return re.sub(r"\{(/?)(빨강|파랑|회색|밑줄|음영)\}", lambda m: "{" + m.group(1) + inline.EN[m.group(2)] + "}", text)
+    return re.sub(r"\{(/?)(빨강|파랑|회색|기울임|밑줄|음영)\}", lambda m: "{" + m.group(1) + inline.EN[m.group(2)] + "}", text)
 
 
 
@@ -36,7 +36,7 @@ def build() -> dict:
     doc_en = md.apply_md(None, _to_en(MD))  # 영어 태그로 쓴 같은 문서
     example_en = md.apply_md(None, EXAMPLE_EN.read_text(encoding="utf-8"))
     rnd = random.Random(20261113)
-    alphabet = ["가", "나", " ", " ", "*", "~", "{", "}", "\\", "<", "br>", "{빨강}", "{/밑줄}", "\n", "a", "|", "^", "-", "#"]
+    alphabet = ["가", "나", " ", " ", "*", "~", "{", "}", "\\", "<", "br>", "{빨강}", "{/밑줄}", "{기울임}", "\n", "a", "|", "^", "-", "#"]
     rand = []
     for _ in range(400):
         raw = [
@@ -44,6 +44,7 @@ def build() -> dict:
                 "".join(rnd.choice(alphabet) for _ in range(rnd.randint(1, 5))),
                 rnd.random() < 0.4, rnd.random() < 0.4, rnd.random() < 0.3, rnd.random() < 0.3,
                 rnd.choice([None, None, "빨강", "파랑"]),
+                rnd.random() < 0.3,
             )
             for _ in range(rnd.randint(1, 5))
         ]
@@ -91,6 +92,11 @@ def build() -> dict:
             for s in INLINE
         ],
         "random": rand,
+        "titles": [
+            {"src": s, "ko": inline.title(s), "en": inline.title(s, "en")}
+            for s in ("  **굵게**   보통  ", "줄<br>바꿈", "a {빨강} b{/빨강}", "{기울임} 앞 공백{/기울임}끝", "1.31** 각주", "a\u3000\u00a0b\x1cc",
+                      "**a ** b", "{red}x{/red} {밑줄} {/밑줄}", "")
+        ],
         "tables": tables,
     }
 

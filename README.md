@@ -227,7 +227,7 @@ uvx --from git+https://github.com/madorik/mditor mditor-mcp
 ## 1. 섹션
 
 ### 블록 제목
-- 항목 **굵게** {빨강}빨강{/빨강} {밑줄}밑줄{/밑줄}   ← 영어 이름도 같다: {red} {underline}
+- 항목 **굵게** {기울임}기울임{/기울임} {빨강}빨강{/빨강} {밑줄}밑줄{/밑줄}   ← 영어 이름도 같다: {italic} {red} {underline}
   - 하위 항목<br>줄바꿈
 > 비고
 
@@ -242,4 +242,8 @@ uvx --from git+https://github.com/madorik/mditor mditor-mcp
 - 서버가 여러 프로세스면 요청 횟수 제한을 프로세스마다 따로 센다. 정확히 제한하려면 앞단(프록시·CDN)에서 한다.
 - 문서 편집기 안에는 쪽 경계를 그리지 않는다(오른쪽 미리보기에만 있다).
 - 번호 목록·코드 블록·링크 문법은 없다.
-- PDF 글꼴은 Pretendard JP(SIL OFL 1.1, `src/mditor/fonts/OFL.txt`) — 한글 11,172자와 한자 4,888자를 담고 있다. 이모지는 나오지 않는다.
+- 문서 글꼴은 쪽 설정에서 고른다: Pretendard JP(기본) · 나눔명조 · 나눔고딕 · 나눔손글씨 펜. 모두 SIL OFL 1.1 이다(`src/mditor/fonts/OFL-*.txt`).
+  화면은 같은 글꼴의 웹 글꼴(`@fontsource/*`), PDF 는 같은 글꼴 파일로 그린다. 고른 글꼴에 없는 글자(한자 · 기호)는 둘 다 Pretendard 로 채운다.
+  이모지는 나오지 않는다.
+- 원본 글꼴에는 기울임체가 없어, PDF 의 기울임은 글자를 기울인 사본(`src/mditor/fonts/oblique/`, `scripts/make_oblique.py`)으로 그린다.
+  OFL 의 예약된 글꼴 이름 때문에 사본의 이름은 'MDitor Oblique …' 이다. 화면은 브라우저가 기울임을 흉내 낸다(같은 각도).

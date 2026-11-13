@@ -30,11 +30,11 @@ def test_example_is_canonical():
 
 def test_structure():
     doc = read(MD)
-    assert doc["title"] == "합성 문서: 모서리 모음"
-    assert [s["title"] for s in doc["sections"]] == ["", "1. 글 서식", "2. 표", "3. 그림과 나머지", ""]
+    assert doc["title"] == "합성 문서: **모서리** 모음 {기울임}기울임{/기울임}"  # 제목에도 서식이 들어간다
+    assert [s["title"] for s in doc["sections"]] == ["", "1. 글 서식 {빨강}빨간 섹션 머리{/빨강}", "2. 표", "3. 그림과 나머지", ""]
     blocks = {b.get("title") or f"#{i}": b for s in doc["sections"] for i, b in enumerate(s["blocks"])}
-    lst = blocks["서식 겹침"]
-    assert [it["level"] for it in lst["items"]] == [0, 0, 0, 0, 1, 2, 3, 0, 0, 0]
+    lst = blocks["서식 겹침 **굵은** {밑줄}밑줄{/밑줄} 블록 제목"]
+    assert [it["level"] for it in lst["items"]] == [0, 0, 0, 0, 0, 1, 2, 3, 0, 0, 0]
     assert lst["notes"] == ["비고 첫 줄 — **굵게**도 된다", "비고 둘째 줄"]
     assert blocks["제목만 있는 블록"] == {
         "id": blocks["제목만 있는 블록"]["id"], "kind": "text", "title": "제목만 있는 블록", "text": "", "notes": [],

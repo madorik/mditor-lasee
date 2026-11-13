@@ -34,11 +34,22 @@ from reportlab.platypus.doctemplate import FrameBreak, LayoutError, NullActionFl
 from . import inline, table
 from .i18n import t
 
-FONT = "MDitor"
+FONT = "MDitor"  # 기본 글꼴(Pretendard JP) — 그림 자리 표시 등
 FONT_BOLD = "MDitor-Bold"
 _FONT_DIR = Path(__file__).parent / "fonts"
 _LOCK = threading.Lock()  # reportlab 의 문단 파서는 스레드 안전하지 않다
-_registered = False
+
+# 문서 글꼴(쪽 설정에서 문서마다 하나): 보통 · 굵게 · 기울임 · 굵은 기울임.
+# 기울임은 원본을 기울인 사본이다(scripts/make_oblique.py) — 원본 글꼴에 기울임체가 없다.
+# 굵은 꼴이 없는 글꼴은 굵게도 보통 꼴로 쓴다(화면도 굵게를 흉내 내지 않는다).
+FAMILIES: dict[str, tuple[str, str | None, str, str | None]] = {
+    "pretendard": ("PretendardJP-Regular.ttf", "PretendardJP-Bold.ttf", "oblique/oblique-sans-regular.ttf", "oblique/oblique-sans-bold.ttf"),
+    "nanum-myeongjo": ("NanumMyeongjo-Regular.ttf", "NanumMyeongjo-Bold.ttf", "oblique/oblique-serif-regular.ttf", "oblique/oblique-serif-bold.ttf"),
+    "nanum-gothic": ("NanumGothic-Regular.ttf", "NanumGothic-Bold.ttf", "oblique/oblique-gothic-regular.ttf", "oblique/oblique-gothic-bold.ttf"),
+    "nanum-pen": ("NanumPenScript-Regular.ttf", None, "oblique/oblique-pen-regular.ttf", None),
+}
+DEFAULT_FONT = "pretendard"
+_families: dict[str, tuple[str, str]] = {}
 
 INK = colors.HexColor("#1b2430")
 MUTED = colors.HexColor("#5b6672")
@@ -62,6 +73,7 @@ class Options:
     font_size: float = 10.5
     section_break: bool = False
     page_numbers: bool = True
+    font: str = DEFAULT_FONT  # FAMILIES 의 열쇠
 
     @classmethod
     def from_json(cls, data: Any) -> Options:
@@ -80,23 +92,68 @@ class Options:
             font_size=num("font_size", 10.5, 8.0, 14.0),
             section_break=bool(d.get("section_break", False)),
             page_numbers=bool(d.get("page_numbers", True)),
+            font=d["font"] if d.get("font") in FAMILIES else DEFAULT_FONT,
         )
 
     def to_json(self) -> dict[str, Any]:
         return asdict(self)
 
 
+def _family(key: str) -> tuple[str, str]:
+    """글꼴 가족을 (처음 쓸 때) 등록하고 (보통, 굵게) 글꼴 이름을 돌려준다.
+    문단 안의 <b> · <i> 는 addMapping 으로 굵게 · 기울임 · 굵은 기울임 꼴에 이어진다."""
+    key = key if key in FAMILIES else DEFAULT_FONT
+    if key in _families:
+        return _families[key]
+    regular, bold, italic, bold_italic = FAMILIES[key]
+    base = FONT if key == DEFAULT_FONT else f"MDitor-{key}"
+    files = {(0, 0): regular, (1, 0): bold, (0, 1): italic, (1, 1): bold_italic}
+    names = {(0, 0): base, (1, 0): f"{base}-Bold", (0, 1): f"{base}-Italic", (1, 1): f"{base}-BoldItalic"}
+    for (b, i), file in files.items():
+        if file is None:  # 굵은 꼴이 없다 — 같은 기울기의 보통 꼴로
+            addMapping(base, b, i, names[(0, i)])
+            continue
+        pdfmetrics.registerFont(TTFont(names[(b, i)], str(_FONT_DIR / file)))
+        addMapping(base, b, i, names[(b, i)])
+    _families[key] = (base, names[(1, 0)] if bold else base)
+    return _families[key]
+
+
 def _register() -> None:
-    global _registered
-    if _registered:
-        return
-    pdfmetrics.registerFont(TTFont(FONT, str(_FONT_DIR / "PretendardJP-Regular.ttf")))
-    pdfmetrics.registerFont(TTFont(FONT_BOLD, str(_FONT_DIR / "PretendardJP-Bold.ttf")))
-    addMapping(FONT, 0, 0, FONT)
-    addMapping(FONT, 1, 0, FONT_BOLD)
-    addMapping(FONT, 0, 1, FONT)
-    addMapping(FONT, 1, 1, FONT_BOLD)
-    _registered = True
+    """기본 글꼴을 등록한다."""
+    _family(DEFAULT_FONT)
+
+
+def _has(font: str, chars: str) -> bool:
+    cmap = pdfmetrics.getFont(font).face.charToGlyph
+    return all(ord(ch) in cmap for ch in chars)
+
+
+def _markup(font: str) -> Any:
+    """서식 문자열 → reportlab 마크업. 고른 글꼴에 없는 글자(한자 · 기호 등)는 기본 글꼴로 그린다
+    — 브라우저가 글꼴 목록의 다음 글꼴(Pretendard)로 채우는 것과 같다."""
+    if font == FONT:
+        return inline.rl_markup
+    cmap = pdfmetrics.getFont(font).face.charToGlyph
+
+    def wrap(line: str) -> str:
+        out: list[str] = []
+        run: list[str] = []
+        missing = False
+        for ch in line:
+            m = ord(ch) not in cmap and not ch.isspace()
+            if run and m != missing:
+                text = _esc("".join(run))
+                out.append(f'<font name="{FONT}">{text}</font>' if missing else text)
+                run = []
+            run.append(ch)
+            missing = m
+        if run:
+            text = _esc("".join(run))
+            out.append(f'<font name="{FONT}">{text}</font>' if missing else text)
+        return "".join(out)
+
+    return lambda s: inline.rl_markup(s, wrap)
 
 
 # ───────────────────────── flowable ─────────────────────────
@@ -282,33 +339,35 @@ def _esc(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _styles(size: float) -> dict[str, Any]:
+def _styles(size: float, font: str = FONT, bold: str = FONT_BOLD) -> dict[str, Any]:
     base = ParagraphStyle(
-        "body", fontName=FONT, fontSize=size, leading=size * 1.6, textColor=INK, splitLongWords=1, spaceAfter=0
+        "body", fontName=font, fontSize=size, leading=size * 1.6, textColor=INK, splitLongWords=1, spaceAfter=0
     )
     small = size * 0.9
 
-    def cell(name: str, align: int, bold: bool = False) -> ParagraphStyle:
+    bold_font = bold
+
+    def cell(name: str, align: int, strong: bool = False) -> ParagraphStyle:
         return ParagraphStyle(
-            name, parent=base, fontName=FONT_BOLD if bold else FONT, fontSize=small, leading=small * 1.45, alignment=align
+            name, parent=base, fontName=bold_font if strong else font, fontSize=small, leading=small * 1.45, alignment=align
         )
 
     return {
         "body": base,
         "title": ParagraphStyle(
-            "title", parent=base, fontName=FONT_BOLD, fontSize=size * 1.9, leading=size * 2.5, spaceAfter=size * 0.9
+            "title", parent=base, fontName=bold_font, fontSize=size * 1.9, leading=size * 2.5, spaceAfter=size * 0.9
         ),
         "h2": ParagraphStyle(
-            "h2", parent=base, fontName=FONT_BOLD, fontSize=size * 1.33, leading=size * 1.9,
+            "h2", parent=base, fontName=bold_font, fontSize=size * 1.33, leading=size * 1.9,
             spaceBefore=size * 1.5, spaceAfter=size * 0.8,
         ),
         "h3": ParagraphStyle(
-            "h3", parent=base, fontName=FONT_BOLD, fontSize=size * 1.1, leading=size * 1.7, spaceBefore=size, spaceAfter=size * 0.25
+            "h3", parent=base, fontName=bold_font, fontSize=size * 1.1, leading=size * 1.7, spaceBefore=size, spaceAfter=size * 0.25
         ),
         "items": [
             ParagraphStyle(
                 f"item{lv}", parent=base, leftIndent=size * (1.3 + 1.3 * lv), bulletIndent=size * (0.3 + 1.3 * lv),
-                bulletFontName=FONT, bulletFontSize=size, spaceAfter=size * 0.15,
+                bulletFontName=font if _has(font, "".join(BULLETS)) else FONT, bulletFontSize=size, spaceAfter=size * 0.15,
             )
             for lv in range(4)
         ],
@@ -329,16 +388,19 @@ def _styles(size: float) -> dict[str, Any]:
         },
         "gap": size * 0.75,
         "small": small,
+        "font": font,
+        "bold": bold_font,
+        "markup": _markup(font),
     }
 
 
-def _col_widths(b: dict[str, Any], avail: float, size: float) -> list[float]:
+def _col_widths(b: dict[str, Any], avail: float, size: float, font: str = FONT, bold: str = FONT_BOLD) -> list[float]:
     """칸 너비: 글자 폭에 비례. 좁으면 긴 칸부터 줄인다. 표는 언제나 본문 폭을 채운다."""
     ncol = len(b["head"][-1])
     pad = 10.0
     nat = [size * 2 + pad] * ncol
     low = [size * 2 + pad] * ncol
-    for rows, font in ((b["head"], FONT_BOLD), (b["rows"], FONT)):
+    for rows, face in ((b["head"], bold), (b["rows"], font)):
         sp, hidden = table.spans(rows)
         for r, row in enumerate(rows):
             for c, raw in enumerate(row):
@@ -346,8 +408,8 @@ def _col_widths(b: dict[str, Any], avail: float, size: float) -> list[float]:
                     continue
                 text = "".join(seg.text for seg in inline.segments(inline.cell_shade(raw)[1]))
                 for line in text.split("\n"):
-                    nat[c] = max(nat[c], pdfmetrics.stringWidth(line, font, size) + pad)
-                    word = max((pdfmetrics.stringWidth(w, font, size) for w in line.split()), default=0.0)
+                    nat[c] = max(nat[c], pdfmetrics.stringWidth(line, face, size) + pad)
+                    word = max((pdfmetrics.stringWidth(w, face, size) for w in line.split()), default=0.0)
                     low[c] = max(low[c], min(word, size * 5) + pad)
     total = sum(nat)
     if total <= avail:
@@ -385,13 +447,13 @@ def _table(b: dict[str, Any], st: dict[str, Any], avail: float) -> TagTable:
                 h, w = sp.get((r, c), (1, 1))
                 # 머리글은 가운데가 기본. 여러 열에 걸친 머리글은 열 정렬을 따르지 않는다
                 style = st["th"][None if w > 1 else align[c]] if is_head else st["cell"][align[c]]
-                line.append(Paragraph(inline.rl_markup(inner), style))
+                line.append(Paragraph(st["markup"](inner), style))
                 if (h, w) != (1, 1):
                     cmds.append(("SPAN", (c, offset + r), (c + w - 1, offset + r + h - 1)))
                 if shaded:
                     cmds.append(("BACKGROUND", (c, offset + r), (c + w - 1, offset + r + h - 1), SHADE_BG))
             data.append(line)
-    t = TagTable(data, colWidths=_col_widths(b, avail, st["small"]), repeatRows=len(head), splitByRow=1)
+    t = TagTable(data, colWidths=_col_widths(b, avail, st["small"], st["font"], st["bold"]), repeatRows=len(head), splitByRow=1)
     t.setStyle(TableStyle(cmds))
     t._bid = b["id"]
     return t
@@ -422,6 +484,7 @@ def _build(
     doc: dict[str, Any], opts: Options, images: dict[str, Any] | None, sizes: dict[str, Any] | None
 ) -> tuple[bytes, dict[str, Any]]:
     _register()
+    font, bold = _family(opts.font)
     page = LETTER if opts.page == "Letter" else A4
     if opts.landscape:
         page = landscape(page)
@@ -429,7 +492,7 @@ def _build(
     foot = 9 * mm if opts.page_numbers else 0
     frame_w, frame_h = page[0] - 2 * margin, page[1] - 2 * margin - foot
     max_h = frame_h - 0.5
-    st = _styles(opts.font_size)
+    st = _styles(opts.font_size, font, bold)
     images, sizes = images or {}, sizes or {}
 
     def whole(text: str, style: Any, **kw: Any) -> WholeParagraph:
@@ -439,28 +502,28 @@ def _build(
 
     story: list[Any] = []
     if doc.get("title"):
-        story.append(whole(_esc(doc["title"]), st["title"]))
+        story.append(whole(st["markup"](doc["title"]), st["title"]))
     for si, s in enumerate(doc.get("sections") or []):
         if opts.section_break and si > 0:
             story.append(PageBreak())
         head: Any = None
         if s.get("title"):
-            head = SectionHead(_esc(s["title"]), st["h2"])
+            head = SectionHead(st["markup"](s["title"]), st["h2"])
             head._max_h = max_h
             head.layout_tags = [("s", s["key"])]
         for b in s.get("blocks") or []:
             flow: list[Any] = []
             if b.get("title"):
-                flow.append(whole(_esc(b["title"]), st["h3"]))
+                flow.append(whole(st["markup"](b["title"]), st["h3"]))
             kind = b["kind"]
             body_at = len(flow)
             if kind == "text":
                 if b.get("text"):
-                    flow.append(whole(inline.rl_markup(b["text"]), st["body"]))
+                    flow.append(whole(st["markup"](b["text"]), st["body"]))
             elif kind == "list":
                 for idx, it in enumerate(b["items"]):
                     lv = min(int(it.get("level") or 0), 3)
-                    p = whole(inline.rl_markup(it["text"]), st["items"][lv], bulletText=BULLETS[lv])
+                    p = whole(st["markup"](it["text"]), st["items"][lv], bulletText=BULLETS[lv])
                     p.layout_tags = [("i", b["id"], idx)]
                     flow.append(p)
             elif kind == "table":
@@ -468,9 +531,9 @@ def _build(
             elif kind == "image":
                 flow.append(_figure(b, images, sizes, frame_w, max_h))
                 if b.get("caption"):
-                    flow.append(whole(_esc(b["caption"]), st["caption"]))
+                    flow.append(whole(st["markup"](inline.write([inline.Seg(b["caption"])])), st["caption"]))
             for n in b.get("notes") or []:
-                flow.append(whole(inline.rl_markup(n), st["note"]))
+                flow.append(whole(st["markup"](n), st["note"]))
             if not flow:
                 continue
             if body_at < len(flow):
@@ -492,7 +555,7 @@ def _build(
         if not opts.page_numbers:
             return
         canvas.saveState()
-        canvas.setFont(FONT, 9)
+        canvas.setFont(font, 9)
         canvas.setFillColor(MUTED)
         canvas.drawCentredString(page[0] / 2, margin * 0.55 + 2 * mm, str(d.page))
         canvas.restoreState()
@@ -500,7 +563,7 @@ def _build(
     buf = io.BytesIO()
     pdf = _Doc(
         buf, pagesize=page, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin + foot,
-        title=doc.get("title") or "문서", author="MDitor", creator="MDitor (mditor)",
+        title=inline.plain(doc.get("title") or "") or "문서", author="MDitor", creator="MDitor (mditor)",
     )
     frame = Frame(margin, margin + foot, frame_w, frame_h, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     pdf.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=on_page)])

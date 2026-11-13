@@ -6,13 +6,13 @@
 
 export const INLINE_COLORS: Record<string, string> = { 빨강: "#c00000", 파랑: "#1f4e9b", 회색: "#7f7f7f" };
 export const SHADE = "#d9d9d9";
-const FLAGS = ["밑줄", "음영"] as const;
+const FLAGS = ["기울임", "밑줄", "음영"] as const;
 export type Dialect = "ko" | "en";
-const EN: Record<string, string> = { 빨강: "red", 파랑: "blue", 회색: "gray", 밑줄: "underline", 음영: "shade" };
+const EN: Record<string, string> = { 빨강: "red", 파랑: "blue", 회색: "gray", 기울임: "italic", 밑줄: "underline", 음영: "shade" };
 const ALIASES: Record<string, string> = { ...Object.fromEntries(Object.entries(EN).map(([k, v]) => [v, k])), grey: "회색" };
 const WS = " \t\u00a0\u3000";
 const ESCAPABLE = "\\*~{}<>^|#-+!";
-const TAG_NAMES = ["빨강", "파랑", "회색", "밑줄", "음영", ...Object.keys(ALIASES)].join("|");
+const TAG_NAMES = ["빨강", "파랑", "회색", "기울임", "밑줄", "음영", ...Object.keys(ALIASES)].join("|");
 const TOKEN = () =>
   new RegExp(`\\\\([\\\\*~{}<>^|#\\-+!])|(\\*\\*)|(~~)|\\{(/?)(${TAG_NAMES})\\}|(<br[ \\t]*/?>)`, "gi");
 const TAG_AT = new RegExp(`\\{/?(?:${TAG_NAMES})\\}`, "y");
@@ -28,16 +28,17 @@ export type Seg = {
   text: string;
   bold?: boolean;
   strike?: boolean;
+  italic?: boolean;
   underline?: boolean;
   shade?: boolean;
   color?: string | null;
 };
 
-type Style = [boolean, boolean, boolean, boolean, string | null];
+type Style = [boolean, boolean, boolean, boolean, boolean, string | null];
 
-/** 바깥 → 안 순서(굵게 · 취소선 · 밑줄 · 음영 · 색). */
+/** 바깥 → 안 순서(굵게 · 취소선 · 기울임 · 밑줄 · 음영 · 색). */
 function style(s: Seg): Style {
-  return [!!s.bold, !!s.strike, !!s.underline, !!s.shade, s.color ?? null];
+  return [!!s.bold, !!s.strike, !!s.italic, !!s.underline, !!s.shade, s.color ?? null];
 }
 
 function sameStyle(a: Seg, b: Seg): boolean {
@@ -50,9 +51,10 @@ function seg(text: string, st: Style): Seg {
   const out: Seg = { text };
   if (st[0]) out.bold = true;
   if (st[1]) out.strike = true;
-  if (st[2]) out.underline = true;
-  if (st[3]) out.shade = true;
-  if (st[4]) out.color = st[4];
+  if (st[2]) out.italic = true;
+  if (st[3]) out.underline = true;
+  if (st[4]) out.shade = true;
+  if (st[5]) out.color = st[5];
   return out;
 }
 
@@ -119,12 +121,12 @@ export function segments(s: string): Seg[] {
   const out: Seg[] = [];
   let bold = false;
   let strike = false;
-  const depth: Record<string, number> = { 밑줄: 0, 음영: 0 };
+  const depth: Record<string, number> = { 기울임: 0, 밑줄: 0, 음영: 0 };
   const colors: string[] = [];
 
   const emit = (text: string) => {
     if (!text) return;
-    const next = seg(text, [bold, strike, depth["밑줄"] > 0, depth["음영"] > 0, colors.length ? colors[colors.length - 1] : null]);
+    const next = seg(text, [bold, strike, depth["기울임"] > 0, depth["밑줄"] > 0, depth["음영"] > 0, colors.length ? colors[colors.length - 1] : null]);
     const last = out[out.length - 1];
     if (last && sameStyle(last, next)) last.text += text;
     else out.push(next);
@@ -253,7 +255,7 @@ export function normalize(segs: Seg[]): Seg[] {
 
 /** 태그 이름을 문서의 태그 언어로(`tag("음영", "en") === "shade"`). */
 export const tag = (name: string, dialect: Dialect = "ko"): string => (dialect === "en" ? (EN[name] ?? name) : name);
-const tagOf = (level: number, value: unknown, dialect: Dialect) => tag(level === 2 ? "밑줄" : level === 3 ? "음영" : String(value), dialect);
+const tagOf = (level: number, value: unknown, dialect: Dialect) => tag(["기울임", "밑줄", "음영"][level - 2] ?? String(value), dialect);
 const openTag = (level: number, value: unknown, dialect: Dialect) => (level < 2 ? ["**", "~~"][level] : `{${tagOf(level, value, dialect)}}`);
 const closeTag = (level: number, value: unknown, dialect: Dialect) => (level < 2 ? ["**", "~~"][level] : `{/${tagOf(level, value, dialect)}}`);
 
@@ -278,13 +280,13 @@ export type Ctx = "cell" | "para" | "item" | null;
  */
 export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): string {
   const pieces: [boolean, string][] = []; // [기호인지, 글자]
-  let cur: Style = [false, false, false, false, null];
-  const off: Style = [false, false, false, false, null];
+  let cur: Style = [false, false, false, false, false, null];
+  const off: Style = [false, false, false, false, false, null];
   for (const [st, text] of [...segs.map((s) => [style(s), s.text] as [Style, string]), [off, ""] as [Style, string]]) {
-    const first = [0, 1, 2, 3, 4].find((i) => cur[i] !== st[i]);
+    const first = [0, 1, 2, 3, 4, 5].find((i) => cur[i] !== st[i]);
     if (first !== undefined) {
-      for (let j = 4; j >= first; j--) if (cur[j]) pieces.push([true, closeTag(j, cur[j], dialect)]);
-      for (let j = first; j < 5; j++) if (st[j]) pieces.push([true, openTag(j, st[j], dialect)]);
+      for (let j = 5; j >= first; j--) if (cur[j]) pieces.push([true, closeTag(j, cur[j], dialect)]);
+      for (let j = first; j < 6; j++) if (st[j]) pieces.push([true, openTag(j, st[j], dialect)]);
     }
     if (text) pieces.push([false, text]);
     cur = st;
@@ -358,6 +360,26 @@ export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): st
 /** 서식 문자열을 표준 꼴로. */
 export function canon(s: string, ctx: Ctx = null, dialect: Dialect = "ko"): string {
   return write(normalize(segments(s)), ctx, dialect);
+}
+
+/** 줄바꿈·빈칸 문자를 빈칸 하나로, 이어진 빈칸은 조각 경계를 넘어서도 하나로(서버 _one_space). */
+export function oneSpace(segs: Seg[]): Seg[] {
+  const out: Seg[] = [];
+  let space = false; // 앞 조각이 빈칸으로 끝났는가
+  for (const s of segs) {
+    let text = s.text.replace(SPACES, " ");
+    if (space && text.startsWith(" ")) text = text.slice(1);
+    if (text) {
+      out.push(seg(text, style(s)));
+      space = text.endsWith(" ");
+    }
+  }
+  return out;
+}
+
+/** 제목(# ## ###)의 표준 꼴(서버 inline.title). 서식은 본문과 같고, 한 줄이므로 줄바꿈은 빈칸이며 이어진 빈칸은 하나다. */
+export function title(s: string, dialect: Dialect = "ko"): string {
+  return write(normalize(oneSpace(segments(s))), null, dialect);
 }
 
 /** 서식을 뗀 글자만(줄바꿈은 공백). */

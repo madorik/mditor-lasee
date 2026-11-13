@@ -208,9 +208,20 @@ console.log("문서 편집기");
   await page.mouse.up();
   const picked = await page.$$eval(".ProseMirror .selectedCell", (els) => els.map((e) => e.textContent.trim()));
   ok(picked.length === 4, "마우스로 끌어 칸 넷을 고른다", JSON.stringify(picked));
+  // 끌기를 마친 바로 그 순간에 누르면 가끔 합쳐지지 않았다(사람 손으로는 나오지 않는 빠르기) — 상태를 읽는 틈을 두고, 실패하면 그 상태를 보여 준다
+  const dbg = () => page.evaluate(() => {
+    const ed = document.querySelector(".ProseMirror").editor;
+    const btn = [...document.querySelectorAll(".table-tools .tool")].find((el) => el.textContent.trim() === "칸 합치기");
+    const r = btn?.getBoundingClientRect();
+    const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
+    return `${ed.state.selection.toJSON().type} btn=${!!btn} disabled=${btn?.disabled} hit=${hit?.textContent?.trim().slice(0, 10)} y=${Math.round(r?.y ?? -1)}`;
+  });
+  const dbgBefore = await dbg();
   await clickText(page, ".table-tools .tool", "칸 합치기");
+  const dbgAfter = await dbg();
   await settle();
-  ok(state.md.includes("| 인문·사회 | 365<br>71<br>298<br>88 | < | 23.7% |\n| 경제·경영 | ^ | ^ | 21.0% |"), "칸 합치기 → MD 의 < 와 ^");
+  const mergedDom = await page.evaluate(() => [...document.querySelectorAll(".ProseMirror td[colspan], .ProseMirror td[rowspan]")].map((e) => e.textContent.trim()).join(","));
+  ok(state.md.includes("| 인문·사회 | 365<br>71<br>298<br>88 | < | 23.7% |\n| 경제·경영 | ^ | ^ | 21.0% |"), "칸 합치기 → MD 의 < 와 ^", state.md.split("\n").filter((l) => l.includes("인문") || l.includes("경제")).join(" / ") + " | DOM: " + mergedDom + " | picked " + JSON.stringify(picked) + " | before " + dbgBefore + " | after " + dbgAfter);
   ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
 
   // 머리글 칸과 본문 칸이 섞이면 합치지 않는다
@@ -251,7 +262,7 @@ console.log("문서 편집기");
     );
   });
   await settle();
-  ok(state.md.includes("{빨강}빨간{/빨강} **굵은** 기울임 초록"), "워드 붙여넣기 — 빨강·굵게만 남고 크기·글꼴·다른 색은 버린다", state.md.split("\n").find((l) => l.includes("빨간")));
+  ok(state.md.includes("{빨강}빨간{/빨강} **굵은** {기울임}기울임{/기울임} 초록"), "워드 붙여넣기 — 빨강·굵게·기울임만 남고 크기·글꼴·다른 색은 버린다", state.md.split("\n").find((l) => l.includes("빨간")));
   ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
   await caret(page, "일정은 10월 운영 회의에서 확정한다.");
   await page.evaluate(() => {
@@ -466,7 +477,81 @@ console.log("좁은 화면");
   await context.close();
 }
 
-// ───────────────────────── 5. 영어 화면 · 영어 태그 ─────────────────────────
+// ───────────────────────── 5. 제목 서식 · 기울임 · 문서 글꼴 ─────────────────────────
+console.log("제목 서식 · 기울임 · 문서 글꼴");
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  await settle();
+  // 제목 글자를 끌어 골라도 서식 단추가 켜지고, 제목에 서식이 들어간다
+  await caret(page, "개요", { select: true });
+  const enabled = await page.$$eval(".rich .tools .tool[aria-pressed]", (els) => els.filter((el) => !el.disabled).length);
+  ok(enabled >= 7, "제목을 골라도 서식 단추가 켜진다", `켜진 단추 ${enabled}개`);
+  await page.click('.rich .tools .tool[title="빨강"]');
+  await settle();
+  ok(state.md.includes("## 1. {빨강}개요{/빨강}"), "섹션 제목의 고른 부분에만 서식이 들어간다", JSON.stringify(state.md));
+  ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
+  ok((await page.$eval(".paper h2", (el) => el.innerHTML)).includes("color"), "미리보기 제목에도 서식이 보인다");
+
+  // 기울임: 단추 · Ctrl+I
+  await caret(page, "여기에 내용을", { select: true });
+  await page.click('.rich .tools .tool[title="기울임 (Ctrl+I)"]');
+  await settle();
+  ok(state.md.includes("{기울임}여기에 내용을{/기울임}"), "기울임 단추", JSON.stringify(state.md));
+  await caret(page, "적으세요", { select: true });
+  const mod = process.platform === "darwin" ? "Meta" : "Control"; // 편집기 단축키는 맥에서 ⌘
+  await page.keyboard.down(mod);
+  await page.keyboard.press("i");
+  await page.keyboard.up(mod);
+  await settle();
+  ok(state.md.includes("{기울임}적으세요{/기울임}") || state.md.includes("{기울임}여기에 내용을{/기울임} {기울임}적으세요"), "Ctrl+I 로 기울임", JSON.stringify(state.md));
+  ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
+  ok(await page.$eval(".paper em", (el) => getComputedStyle(el).fontStyle === "italic").catch(() => false), "미리보기에서 기울어 보인다");
+
+  // 문서 글꼴(쪽 설정) — 미리보기 · 편집기 글꼴이 바뀌고, PDF 요청에도 실린다
+  let pdfFont = null;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/md/preview-pages")) pdfFont = JSON.parse(r.postData()).options?.font ?? null;
+  });
+  await clickText(page, ".top .btn", "문서");
+  await clickPrefix(page, ".menu-item", "쪽 설정");
+  await page.waitForSelector(".modal select");
+  await page.select(".modal .field select", "nanum-myeongjo");
+  await clickText(page, ".modal footer .btn", "닫기");
+  await settle();
+  await sleep(1500);
+  const fonts = await page.evaluate(() => [getComputedStyle(document.querySelector(".paper")).fontFamily, getComputedStyle(document.querySelector(".ProseMirror")).fontFamily]);
+  ok(fonts.every((f) => f.startsWith('"Nanum Myeongjo"')), "미리보기와 편집기가 고른 글꼴로 보인다", JSON.stringify(fonts));
+  ok(pdfFont === "nanum-myeongjo", "쪽 배치(PDF) 요청에 글꼴이 실린다", String(pdfFont));
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForSelector(".paper");
+  ok((await page.$eval(".paper", (el) => getComputedStyle(el).fontFamily)).startsWith('"Nanum Myeongjo"'), "글꼴은 문서와 함께 보관된다");
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
+// 표 밖에서 칸을 끌기 시작해도(표 도구 막대가 끄는 도중에 나타나도) 고르려던 칸이 골라진다
+{
+  const { page, context } = await openPage();
+  const pos = (text) =>
+    page.evaluate((text) => {
+      const r = [...document.querySelectorAll(".ProseMirror td")].find((el) => el.textContent.trim() === text).getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }, text);
+  await page.evaluate(() => [...document.querySelectorAll(".ProseMirror td")].find((el) => el.textContent.trim() === "298").scrollIntoView({ block: "center" }));
+  ok(!(await page.$(".table-tools")), "  (끌기 전에는 표 도구가 없다)");
+  const a = await pos("365");
+  const b = await pos("88");
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 4 });
+  await page.mouse.move(b.x, b.y, { steps: 4 });
+  await page.mouse.up();
+  const picked = await page.$$eval(".ProseMirror .selectedCell", (els) => els.map((el) => el.textContent.trim()));
+  ok(JSON.stringify(picked) === JSON.stringify(["365", "71", "298", "88"]), "표 밖에서 끌기 시작해도 칸이 밀리지 않는다", JSON.stringify(picked));
+  await context.close();
+}
+
+// ───────────────────────── 6. 영어 화면 · 영어 태그 ─────────────────────────
 console.log("영어 화면 · 영어 태그");
 {
   const { page, state, context } = await openPage("/en/edit");

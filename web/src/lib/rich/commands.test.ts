@@ -99,9 +99,9 @@ describe("블록 종류", () => {
     expect(md(s)).toBe("- 가\n\n### 나\n- 다\n");
   });
 
-  it("제목으로 바꾸면 서식이 빠진다", () => {
-    const s = run(at(open(sec([text("**굵게** 글")])), "글"), setBlockKind("sectionHead"));
-    expect(md(s)).toBe("## 굵게 글\n");
+  it("제목으로 바꿔도 서식이 남는다(제목에도 서식을 쓴다)", () => {
+    const s = run(at(open(sec([text("**굵게** {기울임}글{/기울임}")])), "글"), setBlockKind("sectionHead"));
+    expect(md(s)).toBe("## **굵게** {기울임}글{/기울임}\n");
   });
 
   it("문서 제목은 맨 앞 블록만", () => {

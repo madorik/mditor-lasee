@@ -68,6 +68,9 @@ export function MdPane({ value, dialect, onChange, error, onPickImage, handle }:
     } else if (mod && e.key.toLowerCase() === "u") {
       e.preventDefault();
       wrapTag("밑줄")();
+    } else if (mod && e.key.toLowerCase() === "i") {
+      e.preventDefault();
+      wrapTag("기울임")();
     } else if (e.key === "Tab") {
       e.preventDefault();
       const el = e.currentTarget;
@@ -84,6 +87,7 @@ export function MdPane({ value, dialect, onChange, error, onPickImage, handle }:
         <button type="button" className="tool word" onClick={prefix("> ")} title={t("비고")}>{t("비고")}</button>
         <span className="sep" />
         <button type="button" className="tool" onClick={wrap("**", "**")} title={t("굵게 (Ctrl+B)")}><b className="ga">{ga}</b></button>
+        <button type="button" className="tool" onClick={wrapTag("기울임")} title={t("기울임 (Ctrl+I)")}><i className="ga">{ga}</i></button>
         <button type="button" className="tool" onClick={wrap("~~", "~~")} title={t("취소선")}><s className="ga">{ga}</s></button>
         <button type="button" className="tool" onClick={wrapTag("밑줄")} title={t("밑줄 (Ctrl+U)")}><u className="ga">{ga}</u></button>
         <button type="button" className="tool" onClick={wrapTag("음영")} title={t("음영")}><mark className="ga" style={{ background: "#d9d9d9", padding: "0 3px" }}>{ga}</mark></button>

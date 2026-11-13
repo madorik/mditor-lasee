@@ -69,7 +69,7 @@
   -H "Accept-Language: en" \
   -d '{"md": "# Report\n\n## 1. Summary\n\n- First item\n", "options": {"page": "A4"}}' \
   -o report.pdf</pre></div>
-        <p><code>options</code> accepts <code>page</code> (A4 or Letter), <code>landscape</code>, <code>margin_mm</code> (8–40), <code>font_size</code> (8–14), <code>section_break</code> and <code>page_numbers</code>. Send images in <code>images</code> as <code>{name: data URI}</code>.</p>
+        <p><code>options</code> accepts <code>page</code> (A4 or Letter), <code>landscape</code>, <code>margin_mm</code> (8–40), <code>font_size</code> (8–14), <code>font</code> (<code>pretendard</code>, <code>nanum-myeongjo</code>, <code>nanum-gothic</code> or <code>nanum-pen</code>), <code>section_break</code> and <code>page_numbers</code>. Send images in <code>images</code> as <code>{name: data URI}</code>.</p>
         <p>Send <code>Accept-Language: en</code> or <code>ko</code> (the default) to set the language of error messages. It also sets the tag language (<code>{red}</code> or <code>{빨강}</code>) used for a document that has no tags yet.</p>
         <div class="note-box">This is a public service, so request rates and document sizes are limited (400,000 characters per document, 8 MB of images in total). Requests over the limit get a 429 or 413 response. For heavy use, run your own server.</div>
 

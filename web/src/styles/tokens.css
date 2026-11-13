@@ -58,7 +58,7 @@ textarea {
 /* ───────── 문서 모양 — 미리보기 종이와 문서 편집기가 같이 쓴다(PDF 와 같은 비율) ───────── */
 
 .docstyle {
-  font-family: var(--font);
+  font-family: var(--doc-font, var(--font)); /* 문서 글꼴(쪽 설정) */
   font-size: var(--doc-size, 10.5pt);
   line-height: 1.6;
   color: var(--ink);
