@@ -40,6 +40,7 @@ PAGES = {"": "index.html", "edit": "edit.html", "syntax": "syntax.html", "develo
 # 한국어 쪽은 뿌리(/), 다른 언어는 /<언어>/ 아래에 같은 이름으로 있다(web/en/*.html).
 PAGE_LANGS = tuple(lang for lang in i18n.LANGS if lang != i18n.DEFAULT)
 _TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+UNLISTED = {"developers"}  # 주소로는 열리지만 sitemap 에 싣지 않는 쪽(당분간 숨김)
 _FETCH_LIMIT = 40_000_000  # PDF 한 번에 저장소에서 꺼내는 그림 합계
 # 올린 그림 — 며칠 뒤 지워지므로 오래 담아 두지 않는다(지운 뒤에도 CDN · 브라우저에 오래 남지 않게)
 _IMAGE_CACHE = "public, max-age=21600, s-maxage=21600"
@@ -431,7 +432,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             mod = ""
 
         urls = []
-        for key in PAGES:
+        for key in (k for k in PAGES if k not in UNLISTED):
             alts = "".join(f'<xhtml:link rel="alternate" hreflang="{lang}" href="{loc(lang, key)}"/>' for lang in i18n.LANGS)
             alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{loc(i18n.DEFAULT, key)}"/>'
             for lang in i18n.LANGS:

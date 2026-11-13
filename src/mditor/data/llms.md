@@ -14,7 +14,6 @@
 - [Editor](%PUBLIC_URL%/en/edit): the editor with an English interface ([Korean interface](%PUBLIC_URL%/edit))
 - [Home](%PUBLIC_URL%/en/): overview and FAQ ([Korean](%PUBLIC_URL%/))
 - [Syntax guide](%PUBLIC_URL%/en/syntax): the Markdown dialect — headings and blocks, inline tags such as `{red}…{/red}` or `{#1f8a5c}…{/#1f8a5c}`, merged table cells written with `<` and `^`, images, and page-break rules ([Korean](%PUBLIC_URL%/syntax))
-- [Developer guide](%PUBLIC_URL%/en/developers): the MCP server and HTTP API ([Korean](%PUBLIC_URL%/developers))
 
 ## Optional
 

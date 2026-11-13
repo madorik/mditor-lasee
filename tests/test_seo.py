@@ -51,8 +51,8 @@ def test_sitemap_has_language_alternates(client):
     assert 'xmlns:xhtml="http://www.w3.org/1999/xhtml"' in xml
     assert "<loc>https://lasee.test/en/syntax</loc>" in xml and "<loc>https://lasee.test/</loc>" in xml
     assert '<xhtml:link rel="alternate" hreflang="en" href="https://lasee.test/en/syntax"/>' in xml
-    assert xml.count("<lastmod>2026-11-13</lastmod>") == 12  # 빌드한 날(web/built.txt)
-    assert xml.count("<url>") == 12
+    assert xml.count("<lastmod>2026-11-13</lastmod>") == 10  # 빌드한 날(web/built.txt)
+    assert xml.count("<url>") == 10 and "/developers" not in xml  # 개발자 안내는 당분간 숨긴다
 
 
 def test_site_verification_tags(client):
@@ -96,3 +96,14 @@ def test_analytics_only_on_vercel(monkeypatch):
     assert Settings().analytics is False  # 로컬 · 도커 · e2e 에는 /_vercel/insights 가 없다
     monkeypatch.setenv("VERCEL", "1")
     assert Settings().analytics is True
+
+
+def test_developer_guide_is_hidden():
+    """개발자 안내 · 'AI 도 같은 글을 고칩니다' 는 당분간 숨긴다 — 링크는 주석 안에만, 쪽은 noindex."""
+    for path in FILES:
+        if path.name == "developers.html":
+            assert 'name="robots" content="noindex"' in path.read_text(encoding="utf-8")
+            continue
+        visible = re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.DOTALL)
+        assert 'href="/developers"' not in visible and 'href="/en/developers"' not in visible, path
+        assert "AI 도 같은 글을 고칩니다" not in visible and "AI edits the same text" not in visible, path
