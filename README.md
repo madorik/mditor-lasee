@@ -132,6 +132,7 @@ docker run -p 8000:8000 --env-file .env mditor
 | `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` `R2_BUCKET` | 넷이 모두 있으면 그림을 Cloudflare R2 에 올린다(아래 ‘그림 저장소’) |
 | `MDITOR_IMAGE_DIR` | R2 대신 그림을 둘 디스크 폴더(도커 볼륨 · 로컬 개발) |
 | `MDITOR_MAX_IMAGE_FILE_BYTES` `MDITOR_MAX_UPLOAD_BYTES` `MDITOR_UPLOAD_DAILY_LIMIT` | 원본 그림 파일 한도(10MB) · 줄여 올리는 한 장 한도(3MB) · IP 당 하루 올리기 수(100) |
+| `MDITOR_IMAGE_TTL_DAYS` | 올린 그림을 두는 날 수(3). R2 는 버킷 수명 규칙과 맞춘다 |
 | `MDITOR_RATE_PER_MINUTE` | IP 당 분당 요청 수(미리보기·PDF·MCP) |
 | `MDITOR_TRUST_PROXY` | 프록시 뒤면 `1`(기본). `X-Forwarded-For` 로 IP 를 센다 |
 | `WEB_CONCURRENCY` | 프로세스 수. 2 이상이면 횟수 제한을 프로세스마다 따로 센다 |
@@ -170,16 +171,29 @@ vercel deploy --prod
 
 광고 자리는 `?ads=demo` 를 붙이면 볼 수 있다(예: `/edit?ads=demo`).
 
+### 검색 · 답변 엔진(SEO · AEO · GEO)
+
+- 쪽마다 제목 · 설명 · canonical · hreflang(ko · en · x-default), og · 트위터 카드(`web/public/og-ko.png` · `og-en.png`, 1200×630)를 둔다.
+- 구조화 데이터(JSON-LD): 첫 화면은 `WebSite` · `WebApplication` · `FAQPage`(보이는 FAQ 와 같은 글 — `tests/test_seo.py` 가 본다),
+  문법 · 개발자 쪽은 `TechArticle` · `BreadcrumbList`, 개인정보 · 약관은 `BreadcrumbList`.
+- `/sitemap.xml` 은 쪽마다 언어별 대안 주소와 고친 날(빌드한 날)을 싣는다. `/robots.txt` 는 검색 · AI 크롤러(GPTBot · ClaudeBot ·
+  PerplexityBot · 네이버 Yeti 등)를 이름으로 허용한다. `/llms.txt` 는 AI 답변 엔진용 사이트 안내다(`src/mditor/data/llms.md`).
+- 소유 확인: `GOOGLE_SITE_VERIFICATION` · `NAVER_SITE_VERIFICATION` · `BING_SITE_VERIFICATION` 를 넣으면 모든 쪽 머리에 들어간다.
+- 공유 이미지는 첫 화면 영상의 포스터(`hero-*.webp`)로 만든다. 편집 화면이 바뀌면 영상 · 그림과 함께 다시 만든다.
+
 ### 그림 저장소
 
 편집기에서 넣은 그림은 화면이 긴 변 1600px 로 줄여 `POST /api/images` 로 올린다. 서버는 그림을 다시 그려(EXIF 등 메타데이터를 버린다)
 `<해시32자>-<가로>x<세로>.png|jpg` 이름으로 저장소에 두고, 문서에는 `![설명](https://<서비스 주소>/i/<이름>)` 이 들어간다.
 
 - 저장소: R2 설정 넷이 있으면 Cloudflare R2, 아니면 `MDITOR_IMAGE_DIR` 폴더, 둘 다 없으면 꺼진다(그림은 예전처럼 문서와 함께 브라우저에).
-- 버킷은 공개하지 않는다. 그림은 이 서버의 `/i/<이름>` 으로 내주고, 이름이 내용의 해시라 바뀌지 않으므로 오래 담아 두게 한다(`immutable`, 앞단 CDN 도).
+- 버킷은 공개하지 않는다. 그림은 이 서버의 `/i/<이름>` 으로 내준다.
 - 쪽 배치는 이름에 적힌 크기로 자리를 잡고(그림을 내려받지 않는다), PDF 는 이름으로 저장소에서 꺼낸다. 주소의 호스트는 보지 않으므로
   다른 곳에서 열린 MD 도 같은 그림이 들어가고, 바깥 주소로 요청을 보내지 않는다. 저장소의 그림이 아닌 주소는 그림 자리만 그린다.
 - 남용 막기: 줄인 그림 한 장 3MB, IP 당 하루 100장, 다른 사이트(Origin)에서 오는 올리기는 거절한다.
+- 보관: 올린 그림은 3일 뒤 지운다(`MDITOR_IMAGE_TTL_DAYS`). R2 는 버킷 수명 규칙이 지우므로 값을 바꾸면 규칙도 같이 바꾼다
+  (`npx wrangler r2 bucket lifecycle add <버킷> expire-uploads-3d i/ --expire-days 3`). 폴더 저장소는 올릴 때 지난 것을 지운다.
+  `/i/` 응답은 6시간만 담아 두게 해서 지운 그림이 CDN · 브라우저에 오래 남지 않는다.
 - R2 준비: Cloudflare 대시보드 → R2 → 버킷 만들기(공개 접근은 끈 채로) → ‘R2 API 토큰 관리’ 에서 그 버킷에 ‘객체 읽기 및 쓰기’ 토큰을 만들고,
   나오는 Access Key ID · Secret Access Key 와 계정 ID, 버킷 이름을 환경변수 넷에 넣는다.
 

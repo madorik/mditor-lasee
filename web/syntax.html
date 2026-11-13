@@ -3,14 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>문법 안내 — MDitor 라씨</title>
-    <meta name="description" content="MDitor 문서의 Markdown 문법: 제목과 블록, 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙." />
+    <title>마크다운 문법 안내 — MDitor 라씨</title>
+    <meta name="description" content="MDitor 라씨 문서의 마크다운(Markdown) 문법: 제목과 블록, 굵게 · 기울임 · 밑줄 · 글자 색 같은 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="%PUBLIC_URL%/syntax" />
     <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/syntax" />
     <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/syntax" />
     <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/syntax" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="MDitor 라씨" />
+    <meta property="og:title" content="마크다운 문법 안내 — MDitor 라씨" />
+    <meta property="og:description" content="MDitor 라씨 문서의 마크다운(Markdown) 문법: 제목과 블록, 굵게 · 기울임 · 밑줄 · 글자 색 같은 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙." />
+    <meta property="og:url" content="%PUBLIC_URL%/syntax" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-ko.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MDitor 라씨 편집 화면 — 왼쪽은 서식을 입혀 쓰는 문서, 오른쪽은 쪽 경계가 PDF 와 같은 미리보기" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"]},{"@type":"TechArticle","@id":"%PUBLIC_URL%/syntax#article","headline":"마크다운 문법 안내","description":"MDitor 라씨 문서의 마크다운(Markdown) 문법: 제목과 블록, 굵게 · 기울임 · 밑줄 · 글자 색 같은 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙.","url":"%PUBLIC_URL%/syntax","inLanguage":"ko-KR","isPartOf":{"@id":"%PUBLIC_URL%/#website"},"about":{"@id":"%PUBLIC_URL%/#app"},"image":"%PUBLIC_URL%/og-ko.png"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"첫 화면","item":"%PUBLIC_URL%/"},{"@type":"ListItem","position":2,"name":"마크다운 문법 안내","item":"%PUBLIC_URL%/syntax"}]}]}</script>
     <!--mditor:head-->
   </head>
   <body class="site">
@@ -71,6 +84,7 @@
             <tr><td><code>{밑줄}밑줄{/밑줄}</code></td><td><u>밑줄</u></td></tr>
             <tr><td><code>{음영}음영{/음영}</code></td><td><mark style="background:#d9d9d9">음영</mark></td></tr>
             <tr><td><code>{빨강}빨강{/빨강}</code> <code>{파랑}…</code> <code>{회색}…</code></td><td><span style="color:#c00000">빨강</span> <span style="color:#1f4e9b">파랑</span> <span style="color:#7f7f7f">회색</span></td></tr>
+            <tr><td><code>{#1f8a5c}초록{/#1f8a5c}</code> — 색 코드(# 뒤 16진 여섯 자리)로 아무 색이나</td><td><span style="color:#1f8a5c">초록</span> <span style="color:#e36c09">주황</span> <span style="color:#7030a0">보라</span></td></tr>
             <tr><td><code>첫 줄&lt;br&gt;둘째 줄</code></td><td>첫 줄<br />둘째 줄</td></tr>
           </tbody>
         </table>
@@ -114,6 +128,7 @@
         <h2>그림</h2>
         <p><code>![설명](그림 주소)</code> 를 한 줄에 혼자 씁니다. 편집기에서 ‘그림’ 을 눌러 넣으면 그림이 서비스의 그림 저장소에 올라가고 그 주소가 자동으로 들어갑니다. 그래서 MD 로 내려받거나 링크로 보내도 그림이 따라갑니다. 설명은 그림 아래에 나옵니다.</p>
         <p>그림 파일은 한 장에 10MB 까지 넣을 수 있고, 긴 변이 1600px 보다 크면 줄여서 올립니다. PNG · JPEG · GIF · WebP 를 쓸 수 있습니다.</p>
+        <p>올린 그림은 3일 뒤 자동으로 지워집니다. 그림까지 남겨 둘 문서는 PDF 로 내려받으세요. PDF 에는 그림이 들어 있습니다.</p>
 
         <h2>쪽</h2>
         <ul>

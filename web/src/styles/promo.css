@@ -1,0 +1,201 @@
+/* 맹고 소개 팝업(src/promo.ts). 정적 쪽과 편집기가 같이 쓴다. 색은 맹고 앱의 것(맹고색·남색). */
+
+.promo {
+  --mg: #ffc23d;
+  --mg-deep: #f5ae14;
+  --mg-ink: #1f2340;
+  width: min(400px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0; /* 바깥 누르기를 알아보려고 — 안쪽은 모두 .promo-body·.promo-foot 가 덮는다 */
+  overflow: auto;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--mg-ink);
+  font-family: var(--font, sans-serif);
+  font-size: 15px;
+  line-height: 1.55;
+  word-break: keep-all; /* 한글을 낱말 중간에서 자르지 않는다 */
+  overflow-wrap: anywhere;
+  box-shadow: 0 24px 60px rgba(20, 24, 40, 0.28);
+}
+
+.promo::backdrop {
+  background: rgba(20, 24, 40, 0.45);
+}
+
+.promo[open] {
+  animation: promo-in 0.22s ease-out;
+}
+
+@keyframes promo-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo[open] {
+    animation: none;
+  }
+}
+
+.promo-body {
+  padding: 22px 22px 18px;
+  background: linear-gradient(180deg, #fff8e6 0, #fff 120px);
+}
+
+.promo-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.promo-brand img {
+  flex: none;
+  border-radius: 10px;
+}
+
+.promo-brand span {
+  display: grid;
+  line-height: 1.3;
+}
+
+.promo-brand b {
+  font-size: 17px;
+}
+
+.promo-brand small {
+  color: #6a6f86;
+  font-size: 12.5px;
+}
+
+.promo h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.promo p {
+  margin: 0;
+  color: #3d4260;
+}
+
+.promo ul {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 18px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.promo li {
+  position: relative;
+  padding-left: 20px;
+}
+
+.promo li::before {
+  content: "";
+  position: absolute;
+  top: 0.5em;
+  left: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mg);
+}
+
+.promo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.promo-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--mg);
+  color: var(--mg-ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.promo-cta:hover {
+  background: var(--mg-deep);
+}
+
+.promo-more {
+  color: #3d4260;
+  font-size: 14px;
+  text-underline-offset: 3px;
+}
+
+.promo .promo-note {
+  margin-top: 10px;
+  color: #8a8fa3;
+  font-size: 12.5px;
+}
+
+.promo-foot {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #e4e6ee;
+}
+
+.promo-foot button {
+  flex: 1;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  background: #fff;
+  color: #5b6077;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.promo-foot button + button {
+  border-left: 1px solid #e4e6ee;
+  color: var(--mg-ink);
+  font-weight: 600;
+}
+
+.promo-foot button:hover {
+  background: #f6f7fa;
+}
+
+/* 초점 테두리를 안쪽에 — 바깥으로 그리면 팝업 모서리를 넘는다 */
+.promo-foot button:focus-visible {
+  outline-offset: -4px;
+}
+
+@media (max-width: 480px) {
+  .promo-body {
+    padding: 20px 18px 16px;
+  }
+
+  .promo h2 {
+    font-size: 18px;
+  }
+
+  .promo-actions {
+    justify-content: center;
+  }
+
+  .promo-cta {
+    flex: 1 1 100%;
+  }
+
+  .promo .promo-note {
+    text-align: center;
+  }
+}

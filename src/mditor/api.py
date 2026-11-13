@@ -33,7 +33,7 @@ from starlette.concurrency import run_in_threadpool
 from . import __version__, ai, core, i18n, images, mcp_server
 from .i18n import t
 from .render import RenderError
-from .settings import Settings
+from .settings import Settings, llms_txt
 
 PAGES = {"": "index.html", "edit": "edit.html", "syntax": "syntax.html", "developers": "developers.html",
          "privacy": "privacy.html", "terms": "terms.html"}
@@ -41,7 +41,14 @@ PAGES = {"": "index.html", "edit": "edit.html", "syntax": "syntax.html", "develo
 PAGE_LANGS = tuple(lang for lang in i18n.LANGS if lang != i18n.DEFAULT)
 _TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
 _FETCH_LIMIT = 40_000_000  # PDF 한 번에 저장소에서 꺼내는 그림 합계
-_IMMUTABLE = "public, max-age=31536000, s-maxage=31536000, immutable"
+# 올린 그림 — 며칠 뒤 지워지므로 오래 담아 두지 않는다(지운 뒤에도 CDN · 브라우저에 오래 남지 않게)
+_IMAGE_CACHE = "public, max-age=21600, s-maxage=21600"
+# 검색 · AI 답변 엔진 — 모두 같은 규칙으로 허용한다(robots.txt 에 이름을 적어 둔다)
+CRAWLERS = (
+    "Googlebot", "Bingbot", "Yeti", "Daumoa",  # 구글 · 빙 · 네이버 · 다음
+    "GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User",
+    "PerplexityBot", "Perplexity-User", "Google-Extended", "Applebot-Extended",
+)
 log = logging.getLogger("mditor")
 
 
@@ -139,7 +146,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             images.R2Store(settings.r2_account_id, settings.r2_access_key_id, settings.r2_secret_access_key, settings.r2_bucket)
         )
     elif store is None and settings.image_dir:
-        store = images.DirStore(Path(settings.image_dir))
+        store = images.DirStore(Path(settings.image_dir), settings.image_ttl_days)
     limiter = _Limiter()
     mcp = mcp_server.build(settings, remote=True)
     mcp_app = mcp.streamable_http_app(
@@ -204,6 +211,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             "images": store is not None,  # 그림을 저장소에 올린다(아니면 문서와 함께 브라우저에 둔다)
             "maxImageFileBytes": settings.max_image_file_bytes,
             "maxUploadBytes": settings.max_upload_bytes,
+            "imageTtlDays": settings.image_ttl_days,  # 올린 그림을 두는 날 수(0 이면 지우지 않는다)
             "publicUrl": settings.public_url,
             "contact": settings.contact_email,
             "ads": {
@@ -316,7 +324,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
 
     @app.get("/i/{name}", include_in_schema=False)
     def image(name: str) -> Response:
-        """올린 그림. 이름이 내용의 해시라 바뀌지 않는다 — 브라우저와 앞단 CDN 이 오래 담아 둔다."""
+        """올린 그림. 며칠 뒤 저장소에서 지워지면 404 가 된다."""
         if store is None or not images.valid_name(name):
             raise HTTPException(404, t("찾을 수 없습니다."))
         try:
@@ -329,7 +337,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
         return Response(
             data,
             media_type=images.MEDIA[name.rsplit(".", 1)[1]],
-            headers={"Cache-Control": _IMMUTABLE, "Content-Security-Policy": "default-src 'none'; sandbox"},
+            headers={"Cache-Control": _IMAGE_CACHE, "Content-Security-Policy": "default-src 'none'; sandbox"},
         )
 
     @app.get("/d/{token}/{name}", include_in_schema=False)
@@ -354,6 +362,10 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             head = [f"<script>window.__MDITOR__={config_json}</script>"]
             if settings.site_verification:
                 head.append(f'<meta name="google-site-verification" content="{settings.site_verification}">')
+            if settings.naver_site_verification:
+                head.append(f'<meta name="naver-site-verification" content="{settings.naver_site_verification}">')
+            if settings.bing_site_verification:
+                head.append(f'<meta name="msvalidate.01" content="{settings.bing_site_verification}">')
             if settings.adsense_client:
                 head.append(
                     '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='
@@ -379,10 +391,16 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
 
     @app.get("/robots.txt", include_in_schema=False)
     def robots() -> Response:
-        lines = ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /d/", "Disallow: /i/", "Disallow: /mcp"]
+        rules = ["Allow: /", "Disallow: /api/", "Disallow: /d/", "Disallow: /i/", "Disallow: /mcp"]
+        lines = ["User-agent: *", *rules, "", "# 검색 · AI 답변 엔진", *(f"User-agent: {c}" for c in CRAWLERS), *rules]
         if settings.public_url:
-            lines.append(f"Sitemap: {settings.public_url}/sitemap.xml")
+            lines += ["", f"Sitemap: {settings.public_url}/sitemap.xml"]
         return PlainTextResponse("\n".join(lines) + "\n")
+
+    @app.get("/llms.txt", include_in_schema=False)
+    def llms() -> Response:
+        """AI 검색 · 답변 엔진이 읽는 사이트 안내(llmstxt.org)."""
+        return PlainTextResponse(llms_txt(settings.public_url), headers={"Cache-Control": "public, max-age=3600"})
 
     def page_file(key: str) -> str | None:
         """주소(앞뒤 / 없이) → web 안의 HTML 파일. 쪽이 아니면 None."""
@@ -398,10 +416,29 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
 
     @app.get("/sitemap.xml", include_in_schema=False)
     def sitemap() -> Response:
-        paths = [*PAGES, *(f"{lang}/{p}" if p else f"{lang}/" for lang in PAGE_LANGS for p in PAGES)]
-        urls = "".join(f"<url><loc>{settings.public_url}/{p}</loc></url>" for p in paths)
+        """쪽마다 언어별 대안 주소(hreflang)와 고친 날(빌드한 날)을 함께 싣는다."""
+        base = settings.public_url
+
+        def loc(lang: str, key: str) -> str:
+            pre = "" if lang == i18n.DEFAULT else f"{lang}/"
+            return f"{base}/{pre}{key}" if key else f"{base}/{pre}"
+
+        # 고친 날 = 화면을 빌드한 날(web/built.txt). 배포 환경은 파일 시각을 고정값으로 바꾸므로 파일 시각은 쓰지 않는다
+        built = web / "built.txt"
+        mod = built.read_text(encoding="utf-8").strip() if built.is_file() else ""
+        if not re.fullmatch(r"\d{4}-\d\d-\d\d", mod):
+            mod = ""
+
+        urls = []
+        for key in PAGES:
+            alts = "".join(f'<xhtml:link rel="alternate" hreflang="{lang}" href="{loc(lang, key)}"/>' for lang in i18n.LANGS)
+            alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{loc(i18n.DEFAULT, key)}"/>'
+            for lang in i18n.LANGS:
+                urls.append(f"<url><loc>{loc(lang, key)}</loc>{f'<lastmod>{mod}</lastmod>' if mod else ''}{alts}</url>")
         return Response(
-            f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>',
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+            + "".join(urls) + "</urlset>",
             media_type="application/xml",
         )
 

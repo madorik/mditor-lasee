@@ -4,18 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MDitor LaSee — A Markdown editor whose page breaks match the PDF</title>
-    <meta name="description" content="Edit reports as they look and keep the source in Markdown. The page breaks in the preview come from actually rendering the PDF, so they match it exactly. Free, no sign-up." />
-    <meta property="og:title" content="MDitor LaSee — A Markdown editor whose page breaks match the PDF" />
-    <meta property="og:description" content="Edit what you see, keep the source in Markdown. The preview's page breaks match the PDF." />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="MDitor LaSee" />
-    <meta property="og:url" content="%PUBLIC_URL%/en/" />
+    <meta name="description" content="A Markdown document editor for reports, plans and meeting minutes. Format text like a word processor, keep the source in Markdown, and download a PDF whose page breaks match the preview exactly." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="%PUBLIC_URL%/en/" />
     <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/" />
     <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/" />
     <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MDitor LaSee" />
+    <meta property="og:title" content="MDitor LaSee — A Markdown editor whose page breaks match the PDF" />
+    <meta property="og:description" content="A Markdown document editor for reports, plans and meeting minutes. Format text like a word processor, keep the source in Markdown, and download a PDF whose page breaks match the preview exactly." />
+    <meta property="og:url" content="%PUBLIC_URL%/en/" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ko_KR" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-en.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The MDitor LaSee editor — a formatted document on the left, and on the right a preview whose page breaks match the PDF" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"]},{"@type":"WebApplication","@id":"%PUBLIC_URL%/#app","name":"MDitor LaSee","alternateName":"MDitor 라씨","url":"%PUBLIC_URL%/en/edit","description":"A Markdown document editor for reports, plans and meeting minutes. Format text like a word processor, keep the source in Markdown, and download a PDF whose page breaks match the preview exactly.","applicationCategory":"BusinessApplication","applicationSubCategory":"Markdown document editor","operatingSystem":"Web browser","browserRequirements":"A modern browser with JavaScript enabled","inLanguage":["ko-KR","en-US"],"featureList":["A Document tab for word-processor-style editing and an MD tab for editing the Markdown source","A preview that draws page breaks where the rendered PDF actually breaks","PDF and MD downloads","Merged, aligned and shaded table cells","Bold, italic, underline, strikethrough, text color and shading","Document fonts (Pretendard, Nanum Myeongjo, Nanum Gothic, Nanum Pen Script) and font size","Pasting from Word and Excel","Images","A version on every save, and autosaved drafts"],"screenshot":"%PUBLIC_URL%/og-en.png","isPartOf":{"@id":"%PUBLIC_URL%/#website"}},{"@type":"FAQPage","@id":"%PUBLIC_URL%/en/#faq","inLanguage":"en-US","mainEntity":[{"@type":"Question","name":"What is MDitor LaSee?","acceptedAnswer":{"@type":"Answer","text":"A Markdown document editor for structured documents such as reports, plans and meeting minutes, built from repeating headings, items and tables. You can format text like a word processor or edit the Markdown source directly, and the page breaks in the preview match the PDF you download."}},{"@type":"Question","name":"How do I convert Markdown to PDF?","acceptedAnswer":{"@type":"Answer","text":"In the editor, open an MD file with ‘File → Open file’ or drop it onto the window, then choose ‘Export → Download PDF’. The PDF breaks pages exactly where the preview shows."}},{"@type":"Question","name":"Can I add images?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use the ‘Image’ button in the toolbar to add PNG, JPEG, GIF or WebP files of up to 10 MB each. Uploaded images are deleted automatically after 3 days, so download documents you want to keep as PDF — the PDF contains the images."}},{"@type":"Question","name":"Where are my documents stored?","acceptedAnswer":{"@type":"Answer","text":"Only in the browser you’re using. The server receives the text briefly to build the preview and the PDF, and doesn’t keep it. Only images you add are uploaded to image storage, where they are kept for 3 days. To move a document to another device, download it as an MD file."}},{"@type":"Question","name":"What kinds of documents is it for?","acceptedAnswer":{"@type":"Answer","text":"Structured documents built from repeating headings, items and tables: work reports, plans, meeting minutes, project reports and the like. It isn’t a fit for documents that need a free-form page layout."}},{"@type":"Question","name":"What happens when a table is longer than a page?","acceptedAnswer":{"@type":"Answer","text":"It splits between rows, and the header rows repeat on the next page. The preview shows which row it breaks at."}},{"@type":"Question","name":"Which characters show up in the PDF?","acceptedAnswer":{"@type":"Answer","text":"English letters, digits and punctuation, all 11,172 Hangul syllables, 4,888 Hanja (Chinese characters), and the symbols common in reports (※ ① → ■ and so on). Pick the typeface in Page setup: Pretendard, Nanum Myeongjo, Nanum Gothic or Nanum Pen Script (all free fonts). Hanja and symbols the chosen font lacks are filled in from Pretendard."}},{"@type":"Question","name":"What if I close the window without saving?","acceptedAnswer":{"@type":"Answer","text":"Your draft stays in the browser, so you can pick up where you left off when you come back. Every save also keeps a version, so you can go back to earlier content."}}]}]}</script>
     <!--mditor:head-->
   </head>
   <body class="site">
@@ -32,14 +40,13 @@
         <div class="hero-text">
           <h1>Where the preview turns the page, so does the PDF</h1>
           <p class="lede">
-            MDitor LaSee is a document editor for reports. You edit the document as it looks, and the source stays plain Markdown.
+            MDitor LaSee is a document editor for reports. The source stays plain Markdown.
             The page breaks in the preview aren’t estimates: they’re where the PDF actually breaks, because LaSee renders the PDF to find them.
           </p>
           <div class="actions">
             <a class="button" href="/en/edit">Open editor</a>
             <a class="button ghost" href="/en/syntax">See the syntax</a>
           </div>
-          <p class="fine">Free. No sign-up, and your documents stay in your browser.</p>
         </div>
 
         <figure class="hero-video">
@@ -64,7 +71,7 @@
               <figure class="view">
                 <img src="/src/assets/landing/en/edit-doc.webp" width="600" height="520" loading="lazy" decoding="async"
                   alt="Document tab: a sales table with merged header cells and the start of section 3, laid out like a word processor, with bold, underline, color and table buttons above" />
-                <figcaption><b>Document</b> Edit the document as it looks, like in a word processor.</figcaption>
+                <figcaption><b>Document</b> Edit it like in a word processor.</figcaption>
               </figure>
               <figure class="view">
                 <img src="/src/assets/landing/en/edit-md.webp" width="600" height="520" loading="lazy" decoding="async"
@@ -89,7 +96,7 @@
           <ul class="rows3">
             <li>
               <div>
-                <h3>Edit it as it looks</h3>
+                <h3>Formatting, tables and pasting</h3>
                 <p>
                   In the Document tab you write as you would in a word processor: add bold, underline and text color, drag across table cells to merge them, and align columns.
                   When you paste from Word or Excel, only the formatting this document supports is kept.
@@ -180,12 +187,20 @@
           <h2>Frequently asked questions</h2>
           <dl class="qa" style="margin-top:28px">
             <div>
-              <dt>Where are my documents stored?</dt>
-              <dd>Only in the browser you’re using. The server receives the text briefly to build the preview and the PDF, and doesn’t keep it. To move a document to another device, download it as an MD file.</dd>
+              <dt>What is MDitor LaSee?</dt>
+              <dd>A Markdown document editor for structured documents such as reports, plans and meeting minutes, built from repeating headings, items and tables. You can format text like a word processor or edit the Markdown source directly, and the page breaks in the preview match the PDF you download.</dd>
             </div>
             <div>
-              <dt>Is it really free?</dt>
-              <dd>Yes. It’s supported by ads. There’s no sign-up and no payment.</dd>
+              <dt>How do I convert Markdown to PDF?</dt>
+              <dd>In the editor, open an MD file with ‘File → Open file’ or drop it onto the window, then choose ‘Export → Download PDF’. The PDF breaks pages exactly where the preview shows.</dd>
+            </div>
+            <div>
+              <dt>Can I add images?</dt>
+              <dd>Yes. Use the ‘Image’ button in the toolbar to add PNG, JPEG, GIF or WebP files of up to 10 MB each. Uploaded images are deleted automatically after 3 days, so download documents you want to keep as PDF — the PDF contains the images.</dd>
+            </div>
+            <div>
+              <dt>Where are my documents stored?</dt>
+              <dd>Only in the browser you’re using. The server receives the text briefly to build the preview and the PDF, and doesn’t keep it. Only images you add are uploaded to image storage, where they are kept for 3 days. To move a document to another device, download it as an MD file.</dd>
             </div>
             <div>
               <dt>What kinds of documents is it for?</dt>

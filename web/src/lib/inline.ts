@@ -3,6 +3,7 @@
 //
 // 태그는 한국어 이름({빨강})과 영어 이름({red})이 같은 태그다. 안에서는 한국어 이름으로 다루고,
 // 쓸 때만 문서의 태그 언어(dialect)로 쓴다. 문서의 태그 언어는 처음 나오는 짝 맞은 태그가 정한다(dialectOf).
+// 색 코드 태그({#1f8a5c}…{/#1f8a5c})는 아무 글자 색이나 쓴다. 언어가 없고, 소문자로 쓴다.
 
 export const INLINE_COLORS: Record<string, string> = { 빨강: "#c00000", 파랑: "#1f4e9b", 회색: "#7f7f7f" };
 export const SHADE = "#d9d9d9";
@@ -12,7 +13,13 @@ const EN: Record<string, string> = { 빨강: "red", 파랑: "blue", 회색: "gra
 const ALIASES: Record<string, string> = { ...Object.fromEntries(Object.entries(EN).map(([k, v]) => [v, k])), grey: "회색" };
 const WS = " \t\u00a0\u3000";
 const ESCAPABLE = "\\*~{}<>^|#-+!";
-const TAG_NAMES = ["빨강", "파랑", "회색", "기울임", "밑줄", "음영", ...Object.keys(ALIASES)].join("|");
+const TAG_NAMES = ["빨강", "파랑", "회색", "기울임", "밑줄", "음영", ...Object.keys(ALIASES), "#[0-9a-fA-F]{6}"].join("|");
+const HEX = /^#[0-9a-f]{6}$/;
+
+/** 글자 색 태그인가 — 이름 붙은 색(빨강 · 파랑 · 회색) 또는 색 코드(#rrggbb). */
+export const isColor = (name: string): boolean => name in INLINE_COLORS || HEX.test(name);
+/** 글자 색 태그 → 색 코드. */
+export const colorCss = (name: string): string => INLINE_COLORS[name] ?? name;
 const TOKEN = () =>
   new RegExp(`\\\\([\\\\*~{}<>^|#\\-+!])|(\\*\\*)|(~~)|\\{(/?)(${TAG_NAMES})\\}|(<br[ \\t]*/?>)`, "gi");
 const TAG_AT = new RegExp(`\\{/?(?:${TAG_NAMES})\\}`, "y");
@@ -77,7 +84,7 @@ function scan(s: string): Tok[] {
     if (m[1] !== undefined) toks.push({ ...base, kind: "esc", value: m[1], paired: true });
     else if (m[2]) toks.push({ ...base, kind: "bold" });
     else if (m[3]) toks.push({ ...base, kind: "strike" });
-    else if (m[5]) toks.push({ ...base, kind: m[4] ? "close" : "open", value: ALIASES[m[5].toLowerCase()] ?? m[5], raw: m[5] });
+    else if (m[5]) toks.push({ ...base, kind: m[4] ? "close" : "open", value: m[5].startsWith("#") ? m[5].toLowerCase() : (ALIASES[m[5].toLowerCase()] ?? m[5]), raw: m[5] });
     else toks.push({ ...base, kind: "br", paired: true });
   }
 
@@ -141,7 +148,7 @@ export function segments(s: string): Seg[] {
     else if (t.kind === "br") emit("\n");
     else if (t.kind === "bold") bold = t.opens;
     else if (t.kind === "strike") strike = t.opens;
-    else if (t.value in INLINE_COLORS) {
+    else if (isColor(t.value)) {
       if (t.kind === "open") colors.push(t.value);
       else {
         const k = colors.lastIndexOf(t.value); // 가장 안쪽의 같은 색을 닫는다
@@ -264,7 +271,7 @@ export function dialectOf(text: string): Dialect | null {
   for (const line of text.split("\n")) {
     if (!line.includes("{")) continue;
     for (const t of scan(line)) {
-      if (t.kind === "open" && t.paired) return t.raw.toLowerCase() in ALIASES ? "en" : "ko";
+      if (t.kind === "open" && t.paired && !t.raw.startsWith("#")) return t.raw.toLowerCase() in ALIASES ? "en" : "ko"; // 색 코드는 언어가 없다
     }
   }
   return null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fixture from "./rich/fixture.json";
-import { canon, cellShade, dialectOf, normalize, segments, title, write, type Ctx, type Seg } from "./inline";
+import { canon, cellShade, colorCss, dialectOf, isColor, normalize, segments, title, write, type Ctx, type Seg } from "./inline";
 import { canonical, spans } from "./table";
 
 const CTX: Ctx[] = [null, "cell", "para", "item"];
@@ -62,5 +62,18 @@ describe("표 칸 합치기 — 서버와 같은 결과", () => {
       expect(hidden).toEqual(t.hidden);
       expect(canonical(t.rows)).toEqual(t.canonical);
     }
+  });
+});
+
+describe("색 코드 태그", () => {
+  it("{#rrggbb} 는 아무 글자 색이고, 언어가 없고, 소문자로 쓴다", () => {
+    const segs = segments("앞 {#1F8A5C}초록{/#1f8a5c} {red}빨{/red}");
+    expect(segs.map((s) => s.color ?? null)).toEqual([null, "#1f8a5c", null, "빨강"]);
+    expect(canon("{#1F8A5C}초록{/#1F8A5C}")).toBe("{#1f8a5c}초록{/#1f8a5c}");
+    expect(dialectOf("{#123456}a{/#123456} {red}b{/red}")).toBe("en");
+    expect(dialectOf("{#123456}a{/#123456}")).toBeNull();
+    expect(segments("{#12345}x{/#12345}")[0].color ?? null).toBeNull();
+    expect(isColor("#1f8a5c") && isColor("빨강") && !isColor("밑줄")).toBe(true);
+    expect(colorCss("빨강")).toBe("#c00000");
   });
 });

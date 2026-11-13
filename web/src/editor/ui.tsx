@@ -16,7 +16,7 @@ export function Tabs<T extends string>({ value, onChange, items, label }: { valu
   );
 }
 
-export function Menu({ label, children, align = "right", className = "btn" }: { label: ReactNode; children: (close: () => void) => ReactNode; align?: "left" | "right"; className?: string }) {
+export function Menu({ label, children, align = "right", className = "btn", title }: { label: ReactNode; children: (close: () => void) => ReactNode; align?: "left" | "right"; className?: string; title?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -36,7 +36,7 @@ export function Menu({ label, children, align = "right", className = "btn" }: { 
   }, [open]);
   return (
     <div className="menu" ref={ref}>
-      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className={className} title={title} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         {label}
       </button>
       {open && (

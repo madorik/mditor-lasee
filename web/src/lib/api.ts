@@ -14,6 +14,8 @@ export type Config = {
   images?: boolean;
   maxImageFileBytes?: number;
   maxUploadBytes?: number;
+  /** 올린 그림을 두는 날 수(0 이면 지우지 않는다) */
+  imageTtlDays?: number;
   publicUrl: string;
   contact: string;
   ads: { client: string; content: string; editor: string };

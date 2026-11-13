@@ -280,6 +280,8 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
         setUploading(true);
         const { url } = await api.uploadImage(img.blob);
         put(url);
+        const days = config.imageTtlDays ?? 0;
+        if (days > 0) say(t("이미지를 올렸습니다. 올린 이미지는 {n}일 뒤 자동으로 지워지니, 남겨 둘 문서는 PDF 로 내려받으세요.", { n: days }));
         return;
       }
       const img = await readImage(file, maxFile);
@@ -418,7 +420,6 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
         <section className="pane left" aria-label={t("편집")}>
           <div className="pane-head">
             <Tabs label={t("편집 방식")} value={leftTab} onChange={switchLeft} items={[["doc", t("문서")], ["md", "MD"]]} />
-            <span className="pane-info">{leftTab === "doc" ? t("보이는 모양 그대로 고칩니다") : t("Markdown 원본을 고칩니다")}</span>
           </div>
           <div className="pane-body">
             {leftTab === "md" ? (

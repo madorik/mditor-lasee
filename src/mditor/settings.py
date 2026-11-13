@@ -70,12 +70,16 @@ class Settings:
     max_image_file_bytes: int = field(default_factory=lambda: _int("MDITOR_MAX_IMAGE_FILE_BYTES", 10_000_000))
     max_upload_bytes: int = field(default_factory=lambda: _int("MDITOR_MAX_UPLOAD_BYTES", 3_000_000))
     upload_daily_limit: int = field(default_factory=lambda: _int("MDITOR_UPLOAD_DAILY_LIMIT", 100))
+    # 올린 그림을 두는 날 수. R2 는 버킷의 수명 규칙(lifecycle)이 지운다 — 이 값과 맞춰 둔다. 폴더 저장소는 올릴 때 지난 것을 지운다.
+    image_ttl_days: int = field(default_factory=lambda: _int("MDITOR_IMAGE_TTL_DAYS", 3))
 
     # 광고(Google AdSense). client 가 비면 광고 코드를 넣지 않는다.
     adsense_client: str = field(default_factory=lambda: os.environ.get("ADSENSE_CLIENT", "").strip())
     adsense_slot_content: str = field(default_factory=lambda: os.environ.get("ADSENSE_SLOT_CONTENT", "").strip())
     adsense_slot_editor: str = field(default_factory=lambda: os.environ.get("ADSENSE_SLOT_EDITOR", "").strip())
     site_verification: str = field(default_factory=lambda: os.environ.get("GOOGLE_SITE_VERIFICATION", "").strip())
+    naver_site_verification: str = field(default_factory=lambda: os.environ.get("NAVER_SITE_VERIFICATION", "").strip())
+    bing_site_verification: str = field(default_factory=lambda: os.environ.get("BING_SITE_VERIFICATION", "").strip())
     contact_email: str = field(default_factory=lambda: os.environ.get("MDITOR_CONTACT_EMAIL", "").strip())
 
     @property
@@ -85,6 +89,11 @@ class Settings:
 
 def syntax_guide() -> str:
     return (_DATA / "syntax.md").read_text(encoding="utf-8")
+
+
+def llms_txt(public_url: str) -> str:
+    """AI 검색 · 답변 엔진이 읽는 사이트 안내(/llms.txt)."""
+    return (_DATA / "llms.md").read_text(encoding="utf-8").replace("%PUBLIC_URL%", public_url)
 
 
 def example_md() -> str:

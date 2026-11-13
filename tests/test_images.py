@@ -51,6 +51,7 @@ def upload(client, data, origin="https://lasee.test", **headers):
 def test_config_says_whether_images_go_to_the_store(tmp_path, client):
     cfg = client.get("/api/config").json()
     assert cfg["images"] is True and cfg["maxUploadBytes"] == 3_000_000 and cfg["maxImageFileBytes"] == 10_000_000
+    assert cfg["imageTtlDays"] == 3
     with make(tmp_path) as off:  # R2 설정이 없으면 꺼진다
         assert off.get("/api/config").json()["images"] is False
         assert upload(off, png()).status_code == 404
@@ -65,7 +66,7 @@ def test_upload_and_serve(client, store):
     assert body["name"] in store.items
     got = client.get(f"/i/{body['name']}")
     assert got.status_code == 200 and got.headers["content-type"] == "image/png"
-    assert "immutable" in got.headers["cache-control"] and "s-maxage" in got.headers["cache-control"]
+    assert got.headers["cache-control"] == "public, max-age=21600, s-maxage=21600"  # 며칠 뒤 지워지므로 짧게
     assert Image.open(io.BytesIO(got.content)).size == (40, 20)
     # 같은 그림은 같은 이름이다(한 번만 쌓인다)
     assert upload(client, png(40, 20)).json()["name"] == body["name"] and len(store.items) == 1
@@ -142,3 +143,16 @@ def test_dir_store(tmp_path):
         s.put("../x.png", b"1", "image/png")
     assert s.get("../web") is None
 
+
+
+def test_dir_store_forgets_old_pictures(tmp_path):
+    import os
+    import time
+
+    s = images.DirStore(tmp_path / "pics", ttl_days=3)
+    s.put("a" * 32 + "-1x1.png", b"old", "image/png")
+    old = tmp_path / "pics" / ("a" * 32 + "-1x1.png")
+    four_days_ago = time.time() - 4 * 86_400
+    os.utime(old, (four_days_ago, four_days_ago))
+    s.put("b" * 32 + "-1x1.png", b"new", "image/png")  # 올릴 때 지난 것을 지운다
+    assert not old.exists() and s.get("b" * 32 + "-1x1.png") == b"new"

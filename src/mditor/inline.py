@@ -11,6 +11,8 @@ canon(s) = write(normalize(segments(s)))  — 저장하는 문자열은 언제�
   짝 없는 기호는 글자 그대로 둔다(각주 ``1.31**``).
 - ``{빨강}…{/빨강}`` ``{파랑}`` ``{회색}`` ``{기울임}`` ``{밑줄}`` ``{음영}`` : 종류별로 여닫는 짝을 센다. 짝 없는 태그는 글자.
   영어 이름 ``{red}`` ``{blue}`` ``{gray}`` ``{italic}`` ``{underline}`` ``{shade}`` 도 같은 태그다(대소문자 무시, ``{grey}`` 도 회색).
+- ``{#1f8a5c}…{/#1f8a5c}`` : 색 코드(16진 여섯 자리)로 아무 글자 색이나 쓴다. 언어가 없는 태그라 태그 언어를 정하지 않고,
+  쓸 때는 소문자로 쓴다.
   안에서는 한국어 이름으로 다루고, 쓸 때만 문서의 태그 언어(dialect, ``ko`` | ``en``)로 쓴다.
   문서의 태그 언어는 처음 나오는 짝 맞은 태그가 정한다(``dialect_of``). 태그가 없으면 부르는 쪽이 정한다.
 - ``<br>`` : 줄바꿈.
@@ -32,7 +34,8 @@ _ALIASES = {**{v: k for k, v in EN.items()}, "grey": "회색"}  # 영어 이름 
 WS = " \t 　"
 ESCAPABLE = "\\*~{}<>^|#-+!"
 
-_TAG_NAMES = "|".join([*COLORS, *FLAGS, *_ALIASES])
+HEX = r"#[0-9a-fA-F]{6}"  # 색 코드 태그
+_TAG_NAMES = "|".join([*COLORS, *FLAGS, *_ALIASES, HEX])
 _TOKEN = re.compile(
     r"\\([\\*~{}<>^|#\-+!])"  # 1: 이스케이프
     r"|(\*\*)"  # 2
@@ -96,7 +99,7 @@ def _scan(s: str) -> list[_Tok]:
             toks.append(_Tok(m.start(), m.end(), "strike"))
         elif m.group(5):
             raw = m.group(5)
-            name = _ALIASES.get(raw.lower(), raw)
+            name = raw.lower() if raw.startswith("#") else _ALIASES.get(raw.lower(), raw)
             toks.append(_Tok(m.start(), m.end(), "close" if m.group(4) else "open", name, raw=raw))
         else:
             toks.append(_Tok(m.start(), m.end(), "br", "", True))
@@ -161,7 +164,7 @@ def segments(s: str) -> list[Seg]:
             bold = t.opens
         elif t.kind == "strike":
             strike = t.opens
-        elif t.value in COLORS:
+        elif is_color(t.value):
             if t.kind == "open":
                 colors.append(t.value)
             else:  # 가장 안쪽의 같은 색을 닫는다
@@ -250,9 +253,19 @@ def normalize(segs: Iterable[Seg]) -> list[Seg]:
     return cur
 
 
+def is_color(name: str) -> bool:
+    """글자 색 태그인가 — 이름 붙은 색(빨강 · 파랑 · 회색) 또는 색 코드(#rrggbb)."""
+    return name in COLORS or name.startswith("#")
+
+
+def color_css(name: str) -> str:
+    """글자 색 태그 → 색 코드."""
+    return COLORS.get(name, name)
+
+
 def tag(name: str, dialect: str = "ko") -> str:
-    """태그 이름을 문서의 태그 언어로(``tag("음영", "en") == "shade"``)."""
-    return EN[name] if dialect == "en" else name
+    """태그 이름을 문서의 태그 언어로(``tag("음영", "en") == "shade"``). 색 코드는 그대로."""
+    return EN.get(name, name) if dialect == "en" else name
 
 
 def _open(level: int, value: object, dialect: str) -> str:
@@ -273,7 +286,7 @@ def dialect_of(text: str) -> str | None:
         if "{" not in line:
             continue
         for t in _scan(line):
-            if t.kind == "open" and t.paired:
+            if t.kind == "open" and t.paired and not t.raw.startswith("#"):  # 색 코드는 언어가 없다
                 return "en" if t.raw.lower() in _ALIASES else "ko"
     return None
 
@@ -421,7 +434,7 @@ def rl_markup(s: str, wrap: Callable[[str], str] | None = None) -> str:
             parts.append(wrap(line) if wrap else _xml(line))
         t = "".join(parts)
         if seg.color:
-            t = f'<font color="{COLORS[seg.color]}">{t}</font>'
+            t = f'<font color="{color_css(seg.color)}">{t}</font>'
         if seg.shade:
             t = f'<font backColor="{SHADE}">{t}</font>'
         if seg.underline:

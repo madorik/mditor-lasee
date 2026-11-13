@@ -15,7 +15,7 @@
 import { Mark, Node, mergeAttributes, type AnyExtension } from "@tiptap/core";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
-import { INLINE_COLORS, SHADE } from "../inline";
+import { colorCss, isColor, SHADE } from "../inline";
 import { backspaceItem, shiftItem, splitItem } from "./commands";
 
 // 문단을 맨 앞에 둔다 — Enter 로 새로 생기는 블록의 기본이 문단이 되도록.
@@ -251,7 +251,7 @@ const MdColor = Mark.create({
   parseHTML() {
     const named = (el: HTMLElement) => {
       const own = el.getAttribute("data-color");
-      const name = own && own in INLINE_COLORS ? own : colorName(el.style.color || el.getAttribute("color"));
+      const name = own && isColor(own) ? own : colorName(el.style.color || el.getAttribute("color")); // 바깥에서 붙인 색은 세 색으로 줄인다
       return name ? { name } : false;
     };
     return [
@@ -261,7 +261,7 @@ const MdColor = Mark.create({
     ];
   },
   renderHTML({ mark }) {
-    return ["span", { "data-color": mark.attrs.name, style: `color:${INLINE_COLORS[mark.attrs.name] ?? "inherit"}` }, 0];
+    return ["span", { "data-color": mark.attrs.name, style: isColor(mark.attrs.name) ? `color:${colorCss(mark.attrs.name)}` : "" }, 0];
   },
 });
 

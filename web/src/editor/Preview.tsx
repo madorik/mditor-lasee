@@ -1,7 +1,7 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { t } from "../lib/i18n";
-import { imageSrc } from "../lib/images";
-import { cellShade, INLINE_COLORS, segments, SHADE } from "../lib/inline";
+import { hostedName, imageSrc } from "../lib/images";
+import { cellShade, colorCss, segments, SHADE } from "../lib/inline";
 import { pageBreaks, type BlockPages } from "../lib/pages";
 import type { StoredImage } from "../lib/store";
 import { spans } from "../lib/table";
@@ -25,7 +25,7 @@ export function Inline({ s }: { s: string }) {
             {line}
           </Fragment>
         ));
-        if (seg.color) node = <span style={{ color: INLINE_COLORS[seg.color] }}>{node}</span>;
+        if (seg.color) node = <span style={{ color: colorCss(seg.color) }}>{node}</span>;
         if (seg.shade) node = <mark className="md-shade">{node}</mark>;
         if (seg.underline) node = <u>{node}</u>;
         if (seg.italic) node = <em>{node}</em>;
@@ -91,7 +91,11 @@ function FigureView({ src, caption, images }: { src: string; caption: string; im
   const [broken, setBroken] = useState<string | null>(null);
   return (
     <figure className="md-image">
-      {url && broken !== url ? <img src={url} alt={caption} onError={() => setBroken(url)} /> : <div className="image-missing">{t("그림 ‘{src}’ 이 이 문서에 없습니다", { src })}</div>}
+      {url && broken !== url ? (
+        <img src={url} alt={caption} onError={() => setBroken(url)} />
+      ) : (
+        <div className="image-missing">{hostedName(src) ? t("이미지를 불러오지 못했습니다. 올린 지 며칠이 지나 지워졌을 수 있습니다.") : t("그림 ‘{src}’ 이 이 문서에 없습니다", { src })}</div>
+      )}
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   );

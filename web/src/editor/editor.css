@@ -365,6 +365,154 @@ body {
   font-size: 13.5px;
 }
 
+/* 굵게 · 기울임 · 밑줄 · 취소선 — 글자마다 모양이 다르게 보이도록 라틴 글자로 */
+.tool .mark-glyph {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* 색 메뉴 — 글자 아래 막대가 지금 글자 색 */
+.color-tool .color-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.color-glyph {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1px 3px 0;
+  border-radius: 3px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.color-glyph i {
+  display: block;
+  width: 15px;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 1px;
+}
+
+.color-tool .caret {
+  color: var(--graphite);
+  font-size: 9px;
+}
+
+.tools .menu-pop {
+  min-width: 150px;
+}
+
+/* 색 팔레트 */
+.color-panel {
+  width: 222px;
+}
+
+.palette {
+  display: grid;
+  grid-template-columns: repeat(7, 24px);
+  gap: 6px;
+  padding: 4px 4px 8px;
+}
+
+.swatch-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(27, 36, 48, 0.14);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.swatch-btn.light,
+.swatch-btn.none {
+  border-color: var(--line);
+}
+
+.swatch-btn.none {
+  background: #fff linear-gradient(to top right, transparent calc(50% - 1px), #c00000 calc(50% - 1px), #c00000 calc(50% + 1px), transparent calc(50% + 1px));
+}
+
+.swatch-btn[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink);
+}
+
+.swatch-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.hex-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 4px;
+}
+
+.hex-row input[type="color"] {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.hex-row input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.hex-row input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.hex-row input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.hex-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.btn.hex-apply {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.swatch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.swatch.square {
+  border-radius: 3px;
+}
+
+.tool.image-tool {
+  gap: 5px;
+}
+
 /* 글꼴 칸은 가장 긴 이름(옵션)만큼 넓어지므로 고정한다 — 그래야 넓은 화면에서 도구 막대가 한 줄에 든다 */
 .tools select.font-pick {
   width: 92px;

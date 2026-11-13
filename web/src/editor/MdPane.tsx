@@ -4,6 +4,7 @@ import { tag, type Dialect } from "../lib/inline";
 import { insertBreak, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
 import type { MdError, Options } from "../lib/types";
 import { FontPicker } from "./Dialogs";
+import { ColorMenu, ImageButton } from "./Tools";
 
 export type MdPaneHandle = { insert: (text: string) => void };
 
@@ -46,7 +47,6 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
   /** 서식 태그로 감싼다 — 문서의 태그 언어로({밑줄} · {underline}) */
   const wrapTag = (name: string) => wrap(`{${tag(name, dialect)}}`, `{/${tag(name, dialect)}}`);
   const prefix = (p: string) => () => apply(prefixLines(...sel(), p));
-  const ga = t("가"); // 서식 단추의 보기 글자
 
   const jump = () => {
     const el = ta.current;
@@ -89,18 +89,15 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
         <button type="button" className="tool word" onClick={prefix("- ")} title={t("목록")}>{t("목록")}</button>
         <button type="button" className="tool word" onClick={prefix("> ")} title={t("비고")}>{t("비고")}</button>
         <span className="sep" />
-        <button type="button" className="tool" onClick={wrap("**", "**")} title={t("굵게 (Ctrl+B)")}><b className="ga">{ga}</b></button>
-        <button type="button" className="tool" onClick={wrapTag("기울임")} title={t("기울임 (Ctrl+I)")}><i className="ga">{ga}</i></button>
-        <button type="button" className="tool" onClick={wrap("~~", "~~")} title={t("취소선")}><s className="ga">{ga}</s></button>
-        <button type="button" className="tool" onClick={wrapTag("밑줄")} title={t("밑줄 (Ctrl+U)")}><u className="ga">{ga}</u></button>
-        <button type="button" className="tool" onClick={wrapTag("음영")} title={t("음영")}><mark className="ga" style={{ background: "#d9d9d9", padding: "0 3px" }}>{ga}</mark></button>
-        <button type="button" className="tool" onClick={wrapTag("빨강")} title={t("빨강")}><span className="ga" style={{ color: "#c00000" }}>{ga}</span></button>
-        <button type="button" className="tool" onClick={wrapTag("파랑")} title={t("파랑")}><span className="ga" style={{ color: "#1f4e9b" }}>{ga}</span></button>
-        <button type="button" className="tool" onClick={wrapTag("회색")} title={t("회색")}><span className="ga" style={{ color: "#7f7f7f" }}>{ga}</span></button>
+        <button type="button" className="tool" onClick={wrap("**", "**")} title={t("굵게 (Ctrl+B)")}><b className="mark-glyph">B</b></button>
+        <button type="button" className="tool" onClick={wrapTag("기울임")} title={t("기울임 (Ctrl+I)")}><i className="mark-glyph">I</i></button>
+        <button type="button" className="tool" onClick={wrapTag("밑줄")} title={t("밑줄 (Ctrl+U)")}><u className="mark-glyph">U</u></button>
+        <button type="button" className="tool" onClick={wrap("~~", "~~")} title={t("취소선")}><s className="mark-glyph">S</s></button>
+        <ColorMenu color={null} shade={false} canClear={false} onColor={(name) => name && wrapTag(name)()} onShade={wrapTag("음영")} />
         <span className="sep" />
         <button type="button" className="tool word" onClick={() => apply(insertBreak(sel()[1], sel()[2]))} title={t("줄바꿈 <br>")}>{t("줄바꿈")}</button>
         <button type="button" className="tool word" onClick={() => apply(insertTable(sel()[0], sel()[2]))} title={t("표 넣기")}>{t("표")}</button>
-        <button type="button" className="tool word" onClick={onPickImage} title={t("그림 넣기")}>{t("그림")}</button>
+        <ImageButton onClick={onPickImage} />
       </div>
       {error ? (
         <button type="button" className="mderror" onClick={jump} title={t("오류가 난 줄로 가기")}>

@@ -1,5 +1,6 @@
-// 정적 쪽의 작은 스크립트 — 주소 채우기, 첫 화면 영상, 광고 자리.
+// 정적 쪽의 작은 스크립트 — 주소 채우기, 첫 화면 영상, 광고 자리, 맹고 소개 팝업.
 import "./styles/site.css";
+import "./promo";
 
 type Cfg = { publicUrl?: string; contact?: string; ads?: { client?: string; content?: string } };
 const cfg: Cfg = (window as unknown as { __MDITOR__?: Cfg }).__MDITOR__ ?? {};

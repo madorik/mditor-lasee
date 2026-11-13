@@ -2,6 +2,7 @@
 
 - 받은 그림은 다시 그려 깨끗한 PNG · JPEG 로 바꾼다. 그림이 아닌 파일은 받지 않고, 사진의 위치(EXIF) 같은 메타데이터는 남기지 않는다.
 - 이름은 내용의 해시 + 크기다(``<해시32자>-<가로>x<세로>.png``). 같은 그림은 한 번만 올라가고, 한 번 올린 것은 바뀌지 않는다.
+- 올린 그림은 며칠(``MDITOR_IMAGE_TTL_DAYS``, 기본 3일) 뒤 지워진다. R2 는 버킷 수명 규칙이, 폴더 저장소는 이 코드가 지운다.
   크기가 이름에 있으므로 쪽 배치는 그림을 내려받지 않고 자리를 잡는다.
 - 문서에는 ``![설명](https://<서비스 주소>/i/<이름>)`` 으로 들어간다. 주소의 앞부분(호스트)은 보지 않고 이름만 보고
   이 저장소에서 꺼낸다 — 바깥 주소로 요청을 보내지 않는다.
@@ -9,10 +10,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import re
 import threading
+import time
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Protocol
@@ -128,13 +131,19 @@ class R2Store:
 class DirStore:
     """디스크 폴더(도커 볼륨 · 로컬 개발). 이름이 검사된 해시라 폴더 밖으로 나가지 않는다."""
 
-    def __init__(self, root: Path) -> None:
-        self.root = root
+    def __init__(self, root: Path, ttl_days: int = 0) -> None:
+        self.root, self.ttl_days = root, ttl_days
 
     def put(self, name: str, data: bytes, media_type: str) -> None:
         if not valid_name(name):
             raise ValueError(name)
         self.root.mkdir(parents=True, exist_ok=True)
+        if self.ttl_days > 0:  # 오래된 그림은 이때 지운다(R2 의 수명 규칙과 같은 일)
+            old = time.time() - self.ttl_days * 86_400
+            for path in self.root.iterdir():
+                with contextlib.suppress(OSError):
+                    if path.is_file() and path.stat().st_mtime < old:
+                        path.unlink()
         tmp = self.root / f".{name}.tmp"
         tmp.write_bytes(data)
         tmp.replace(self.root / name)

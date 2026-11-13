@@ -4,13 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Syntax guide — MDitor LaSee</title>
-    <meta name="description" content="Markdown syntax for MDitor documents: headings and blocks, text formatting, merged and shaded table cells, images, and how pages break." />
+    <meta name="description" content="Markdown syntax for MDitor LaSee documents: headings and blocks, text formatting such as bold, italic, underline and text color, merged and shaded table cells, images, and how pages break." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="%PUBLIC_URL%/en/syntax" />
     <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/syntax" />
     <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/syntax" />
     <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/syntax" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="MDitor LaSee" />
+    <meta property="og:title" content="Syntax guide — MDitor LaSee" />
+    <meta property="og:description" content="Markdown syntax for MDitor LaSee documents: headings and blocks, text formatting such as bold, italic, underline and text color, merged and shaded table cells, images, and how pages break." />
+    <meta property="og:url" content="%PUBLIC_URL%/en/syntax" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ko_KR" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-en.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The MDitor LaSee editor — a formatted document on the left, and on the right a preview whose page breaks match the PDF" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"]},{"@type":"TechArticle","@id":"%PUBLIC_URL%/en/syntax#article","headline":"Syntax guide","description":"Markdown syntax for MDitor LaSee documents: headings and blocks, text formatting such as bold, italic, underline and text color, merged and shaded table cells, images, and how pages break.","url":"%PUBLIC_URL%/en/syntax","inLanguage":"en-US","isPartOf":{"@id":"%PUBLIC_URL%/#website"},"about":{"@id":"%PUBLIC_URL%/#app"},"image":"%PUBLIC_URL%/og-en.png"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"%PUBLIC_URL%/en/"},{"@type":"ListItem","position":2,"name":"Syntax guide","item":"%PUBLIC_URL%/en/syntax"}]}]}</script>
     <!--mditor:head-->
   </head>
   <body class="site">
@@ -71,6 +84,7 @@ A body paragraph of the report.</pre></div></figure>
             <tr><td><code>{underline}underline{/underline}</code></td><td><u>underline</u></td></tr>
             <tr><td><code>{shade}shade{/shade}</code></td><td><mark style="background:#d9d9d9">shade</mark></td></tr>
             <tr><td><code>{red}red{/red}</code> <code>{blue}…</code> <code>{gray}…</code></td><td><span style="color:#c00000">red</span> <span style="color:#1f4e9b">blue</span> <span style="color:#7f7f7f">gray</span></td></tr>
+            <tr><td><code>{#1f8a5c}green{/#1f8a5c}</code> — any color, as a color code (# and six hex digits)</td><td><span style="color:#1f8a5c">green</span> <span style="color:#e36c09">orange</span> <span style="color:#7030a0">purple</span></td></tr>
             <tr><td><code>first line&lt;br&gt;second line</code></td><td>first line<br />second line</td></tr>
           </tbody>
         </table>
@@ -114,6 +128,7 @@ A body paragraph of the report.</pre></div></figure>
         <h2>Images</h2>
         <p>Write <code>![caption](image address)</code> on a line of its own. When you add an image with the editor’s Image button, it is uploaded to the service’s image storage and its address is filled in for you, so the image comes along when you download the MD file or send a link. The caption appears below the image.</p>
         <p>Each image file can be up to 10 MB, and images whose longer side is over 1600px are scaled down before upload. PNG, JPEG, GIF and WebP are supported.</p>
+        <p>Uploaded images are deleted automatically after 3 days. To keep a document with its images, download it as a PDF, which contains the images.</p>
 
         <h2>Pages</h2>
         <ul>

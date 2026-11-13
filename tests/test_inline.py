@@ -61,6 +61,18 @@ def test_cell_shade():
     assert inline.cell_shade("보통") == (False, "보통")
 
 
+def test_hex_colors():
+    segs = inline.segments("앞 {#1F8A5C}초록{/#1f8a5c} {red}빨{/red}")
+    assert [s.color for s in segs] == [None, "#1f8a5c", None, "빨강"]
+    assert inline.canon("{#1F8A5C}초록{/#1F8A5C}") == "{#1f8a5c}초록{/#1f8a5c}"  # 소문자로 쓴다
+    assert inline.write(inline.normalize(segs), dialect="en") == "앞 {#1f8a5c}초록{/#1f8a5c} {red}빨{/red}"  # 언어가 없다
+    assert inline.dialect_of("{#123456}a{/#123456} {red}b{/red}") == "en"  # 색 코드는 태그 언어를 정하지 않는다
+    assert inline.dialect_of("{#123456}a{/#123456}") is None
+    assert inline.segments("{#12345}x{/#12345}")[0].color is None  # 여섯 자리만
+    assert inline.canon(r"\{#abcdef} 글자") == r"\{#abcdef} 글자"
+    assert '<font color="#1f8a5c">' in inline.rl_markup("{#1f8a5c}초록{/#1f8a5c}")
+
+
 @pytest.mark.parametrize("s", INLINE)
 def test_canon_is_stable(s):
     for ctx in (None, "cell", "para", "item"):

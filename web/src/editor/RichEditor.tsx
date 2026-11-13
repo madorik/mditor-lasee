@@ -10,6 +10,7 @@ import { richExtensions } from "../lib/rich/schema";
 import type { StoredImage } from "../lib/store";
 import type { Doc, Options } from "../lib/types";
 import { FontPicker } from "./Dialogs";
+import { ColorMenu, ImageButton } from "./Tools";
 import type { Command } from "@tiptap/pm/state";
 
 /** 문단 맨 앞에서 MD 기호를 치면 그 블록으로 바꾼다(- 목록, ## 큰 제목, ### 작은 제목, > 비고). */
@@ -113,9 +114,7 @@ export default function RichEditor({ doc, dialect, images, options, onOptions, o
     cmd(editor.state, editor.view.dispatch);
     editor.view.focus();
   };
-  const color = (name: string) => () => (ui.color === name ? editor.chain().focus().unsetMark("mdColor").run() : editor.chain().focus().setMark("mdColor", { name }).run());
   const align = (a: CellAlign) => pm(setColumnAlign(a));
-  const ga = t("가"); // 서식 단추의 보기 글자
   // 단추를 눌러도 초점이 편집기에 남게 한다 — 초점이 단추로 옮겨 가는 틈에 고른 칸(칸 선택)이 글자 선택으로 바뀌어
   // 칸 합치기가 듣지 않는 일이 있었다. 고르는 칸(select)은 눌러야 열리므로 막지 않는다.
   const keepFocus = (e: ReactMouseEvent) => {
@@ -144,17 +143,21 @@ export default function RichEditor({ doc, dialect, images, options, onOptions, o
         </select>
         <FontPicker options={options} onChange={onOptions} />
         <span className="sep" />
-        <button type="button" className="tool" aria-pressed={ui.bold} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleBold().run()} title={t("굵게 (Ctrl+B)")}><b className="ga">{ga}</b></button>
-        <button type="button" className="tool" aria-pressed={ui.italic} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleItalic().run()} title={t("기울임 (Ctrl+I)")}><i className="ga">{ga}</i></button>
-        <button type="button" className="tool" aria-pressed={ui.strike} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleStrike().run()} title={t("취소선")}><s className="ga">{ga}</s></button>
-        <button type="button" className="tool" aria-pressed={ui.underline} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleUnderline().run()} title={t("밑줄 (Ctrl+U)")}><u className="ga">{ga}</u></button>
-        <button type="button" className="tool" aria-pressed={ui.shade} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleMark("mdShade").run()} title={t("음영")}><mark className="ga" style={{ background: "#d9d9d9", padding: "0 3px" }}>{ga}</mark></button>
-        <button type="button" className="tool" aria-pressed={ui.color === "빨강"} disabled={!ui.marks} onClick={color("빨강")} title={t("빨강")}><span className="ga" style={{ color: "#c00000" }}>{ga}</span></button>
-        <button type="button" className="tool" aria-pressed={ui.color === "파랑"} disabled={!ui.marks} onClick={color("파랑")} title={t("파랑")}><span className="ga" style={{ color: "#1f4e9b" }}>{ga}</span></button>
-        <button type="button" className="tool" aria-pressed={ui.color === "회색"} disabled={!ui.marks} onClick={color("회색")} title={t("회색")}><span className="ga" style={{ color: "#7f7f7f" }}>{ga}</span></button>
+        <button type="button" className="tool" aria-pressed={ui.bold} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleBold().run()} title={t("굵게 (Ctrl+B)")}><b className="mark-glyph">B</b></button>
+        <button type="button" className="tool" aria-pressed={ui.italic} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleItalic().run()} title={t("기울임 (Ctrl+I)")}><i className="mark-glyph">I</i></button>
+        <button type="button" className="tool" aria-pressed={ui.underline} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleUnderline().run()} title={t("밑줄 (Ctrl+U)")}><u className="mark-glyph">U</u></button>
+        <button type="button" className="tool" aria-pressed={ui.strike} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleStrike().run()} title={t("취소선")}><s className="mark-glyph">S</s></button>
+        <ColorMenu
+          color={ui.color}
+          shade={ui.shade}
+          disabled={!ui.marks}
+          canClear
+          onColor={(name) => (name ? editor.chain().focus().setMark("mdColor", { name }).run() : editor.chain().focus().unsetMark("mdColor").run())}
+          onShade={() => editor.chain().focus().toggleMark("mdShade").run()}
+        />
         <span className="sep" />
         <button type="button" className="tool word" disabled={ui.inTable} onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title={t("표 넣기")}>{t("표")}</button>
-        <button type="button" className="tool word" disabled={ui.inTable} onClick={onPickImage} title={t("그림 넣기")}>{t("그림")}</button>
+        <ImageButton disabled={ui.inTable} onClick={onPickImage} />
         <span className="sep" />
         <button type="button" className="tool word" disabled={!ui.canUndo} onClick={() => editor.chain().focus().undo().run()} title={t("되돌리기 (Ctrl+Z)")}>{t("되돌리기")}</button>
         <button type="button" className="tool word" disabled={!ui.canRedo} onClick={() => editor.chain().focus().redo().run()} title={t("다시 하기")}>{t("다시")}</button>

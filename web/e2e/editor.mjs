@@ -527,12 +527,13 @@ if (!(await (await fetch(`${base}/api/config`)).json()).images) {
 
   // 문서 탭: 그림 단추 → 파일 고르기 → 저장소에 올리고 주소가 문서에 들어간다
   await page.click(".ProseMirror li");
-  const [chooser] = await Promise.all([page.waitForFileChooser(), clickText(page, ".rich .tools .tool", "그림")]);
+  const [chooser] = await Promise.all([page.waitForFileChooser(), clickText(page, ".rich .tools .tool", "이미지")]);
   await chooser.accept([pic]);
   await page.waitForFunction(() => document.querySelector(".ProseMirror figure img")?.naturalWidth > 0, { timeout: 15000 });
   await settle();
   const m = state.md.match(HOSTED);
   ok(!!m, "그림을 올리면 문서에 저장소 주소가 들어간다(긴 변 1600 으로 줄여서)", JSON.stringify(state.md));
+  ok(((await page.$eval(".toast", (el) => el.textContent).catch(() => "")) || "").includes("3일 뒤 자동으로 지워"), "올리면 3일 뒤 지워진다고 알린다");
   await page.waitForFunction(() => document.querySelector(".paper figure img")?.naturalWidth === 1600, { timeout: 10000 });
   ok(true, "편집기와 미리보기에 올린 그림이 보인다");
 
@@ -543,7 +544,7 @@ if (!(await (await fetch(`${base}/api/config`)).json()).images) {
   // MD 탭에서도 같은 주소로 들어간다(같은 그림은 같은 이름)
   await clickText(page, ".pane.left .tab", "MD");
   await page.waitForSelector(".mdpane textarea");
-  const [chooser2] = await Promise.all([page.waitForFileChooser(), clickText(page, ".mdpane .tools .tool", "그림")]);
+  const [chooser2] = await Promise.all([page.waitForFileChooser(), clickText(page, ".mdpane .tools .tool", "이미지")]);
   await chooser2.accept([pic]);
   await page.waitForFunction((src) => document.querySelector(".mdpane textarea").value.split(src).length === 3, { timeout: 15000 }, m?.[1] ?? "");
   ok(true, "MD 탭에서 넣은 같은 그림은 같은 주소다");
@@ -551,7 +552,7 @@ if (!(await (await fetch(`${base}/api/config`)).json()).images) {
   // 너무 큰 원본 파일은 읽기 전에 막는다
   const huge = join(dir, "큰 그림.png");
   writeFileSync(huge, Buffer.concat([makePng(4, 4), Buffer.alloc(10_500_000)]));
-  const [chooser3] = await Promise.all([page.waitForFileChooser(), clickText(page, ".mdpane .tools .tool", "그림")]);
+  const [chooser3] = await Promise.all([page.waitForFileChooser(), clickText(page, ".mdpane .tools .tool", "이미지")]);
   await chooser3.accept([huge]);
   await page.waitForSelector(".toast.bad");
   ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("10MB"), "10MB 가 넘는 그림 파일은 넣지 않고 알린다", await page.$eval(".toast.bad", (el) => el.textContent));
@@ -584,13 +585,43 @@ console.log("제목 서식 · 기울임 · 문서 글꼴");
   await settle();
   // 제목 글자를 끌어 골라도 서식 단추가 켜지고, 제목에 서식이 들어간다
   await caret(page, "개요", { select: true });
-  const enabled = await page.$$eval(".rich .tools .tool[aria-pressed]", (els) => els.filter((el) => !el.disabled).length);
-  ok(enabled >= 7, "제목을 골라도 서식 단추가 켜진다", `켜진 단추 ${enabled}개`);
-  await page.click('.rich .tools .tool[title="빨강"]');
+  const enabled = await page.$$eval(".rich .tools .tool[aria-pressed], .rich .tools .color-tool", (els) => els.filter((el) => !el.disabled).length);
+  ok(enabled === 5, "제목을 골라도 서식 단추(B · I · U · S · 색)가 켜진다", `켜진 단추 ${enabled}개`);
+  // 글자 색은 색 메뉴 하나에서 고른다
+  await page.click(".rich .tools .color-tool");
+  await page.waitForSelector('.rich .tools .swatch-btn[data-color="#c00000"]');
+  ok((await page.$$eval(".rich .tools .swatch-btn", (els) => els.length)) === 35 && !!(await page.$('.rich .tools .menu-item[data-color="음영"]')), "색 메뉴에 팔레트 35칸과 음영이 있다");
+  await page.click('.rich .tools .swatch-btn[data-color="#c00000"]'); // 이름 붙은 색과 같은 칸은 {빨강} 으로 쓴다
   await settle();
   ok(state.md.includes("## 1. {빨강}개요{/빨강}"), "섹션 제목의 고른 부분에만 서식이 들어간다", JSON.stringify(state.md));
   ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
   ok((await page.$eval(".paper h2", (el) => el.innerHTML)).includes("color"), "미리보기 제목에도 서식이 보인다");
+  // 같은 메뉴의 ‘기본 색’ 으로 색을 지운다 → 다시 빨강
+  await caret(page, "개요", { select: true });
+  await page.click(".rich .tools .color-tool");
+  await page.waitForSelector('.rich .tools .swatch-btn[data-color=""]');
+  await page.click('.rich .tools .swatch-btn[data-color=""]');
+  await settle();
+  // (글이 처음과 같아져 미리보기 요청이 캐시에서 나오므로 state.md 대신 편집기를 본다)
+  const cleared = await page.$eval(".ProseMirror h2", (el) => el.innerHTML);
+  ok(!cleared.includes("data-color"), "색 메뉴의 ‘기본 색’ 으로 글자 색을 지운다", cleared);
+  await caret(page, "개요", { select: true });
+  await page.click(".rich .tools .color-tool");
+  await page.waitForSelector('.rich .tools .swatch-btn[data-color="#c00000"]');
+  await page.click('.rich .tools .swatch-btn[data-color="#c00000"]');
+  await settle();
+
+  // 색 코드를 직접 넣는다 → {#rrggbb} 태그(소문자)
+  await caret(page, "제목 없는", { select: true });
+  await page.click(".rich .tools .color-tool");
+  await page.waitForSelector(".rich .tools .hex-input");
+  await page.click(".rich .tools .hex-input"); // 누르면 코드 전체가 골라진다
+  await page.keyboard.type("#1F8A5C");
+  await page.click(".rich .tools .hex-apply");
+  await settle();
+  ok(state.md.startsWith("# {#1f8a5c}제목 없는{/#1f8a5c} 문서\n"), "색 코드를 넣어 아무 글자 색이나 쓴다", JSON.stringify(state.md.slice(0, 60)));
+  ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
+  ok((await page.$eval(".paper h1 span[style]", (el) => getComputedStyle(el).color).catch(() => "")) === "rgb(31, 138, 92)", "미리보기에도 그 색으로 보인다");
 
   // 기울임: 단추 · Ctrl+I
   await caret(page, "여기에 내용을", { select: true });
