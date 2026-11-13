@@ -460,9 +460,9 @@ console.log("새 문서 · 파일 열기");
   await dropFile(page, "놓은 파일.md", "# 끌어다 놓은 문서\n\n## 1. 내용\n\n- 놓았다\n", "text/markdown");
   await docName(page, "놓은 파일");
   ok(true, "MD 파일을 끌어다 놓으면 새 문서로 열린다");
-  await dropFile(page, "그림.png", "png", "image/png");
+  await dropFile(page, "표.xlsx", "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   await page.waitForSelector(".toast.bad");
-  ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("MD 파일(.md)만"), "MD 가 아닌 파일은 열지 않고 알린다");
+  ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("MD 파일(.md)이나 이미지만"), "MD 파일도 이미지도 아닌 파일은 열지 않고 알린다");
   ok((await page.$eval(".docname", (el) => el.value)) === "놓은 파일", "그때 열린 문서는 그대로다");
 
   // 내 문서: 예시는 들지 않는다. 모두 지우면 새 문서가 열린다
@@ -525,17 +525,56 @@ if (!(await (await fetch(`${base}/api/config`)).json()).images) {
   writeFileSync(pic, makePng(2400, 1200)); // 긴 변 1600 으로 줄여 올린다
   const HOSTED = /!\[\]\((\/i\/[0-9a-f]{32}-1600x800\.png)\)/;
 
-  // 문서 탭: 그림 단추 → 파일 고르기 → 저장소에 올리고 주소가 문서에 들어간다
+  /** state.md(미리보기 요청)가 조건을 채울 때까지 기다린다 */
+  const mdUntil = async (test, ms = 15000) => {
+    for (const end = Date.now() + ms; Date.now() < end; await sleep(150)) if (test(state.md)) return true;
+    return false;
+  };
+
+  // 올리기를 일부러 늦춘다 — 그동안에도 그림이 바로 보여야 한다
+  await page.setRequestInterception(true);
+  let slow = true;
+  const hold = (r) => {
+    if (slow && r.method() === "POST" && r.url().endsWith("/api/images")) setTimeout(() => r.continue(), 2500);
+    else r.continue();
+  };
+  page.on("request", hold);
+
+  // 문서 탭: 그림 단추 → 파일 고르기 → 바로 보이고, 다 올리면 저장소 주소로 바뀐다
   await page.click(".ProseMirror li");
   const [chooser] = await Promise.all([page.waitForFileChooser(), clickText(page, ".rich .tools .tool", "이미지")]);
+  const picked = Date.now();
   await chooser.accept([pic]);
   await page.waitForFunction(() => document.querySelector(".ProseMirror figure img")?.naturalWidth > 0, { timeout: 15000 });
-  await settle();
+  const early = await page.$eval(".ProseMirror figure img", (el) => el.getAttribute("src"));
+  ok(early.startsWith("blob:") && Date.now() - picked < 2400, "올리기를 기다리지 않고 그림이 바로 보인다", `${early.slice(0, 20)} ${Date.now() - picked}ms`);
+  await page.waitForFunction(() => document.querySelector(".paper figure img")?.naturalWidth === 1600, { timeout: 10000 });
+  ok(true, "  └ 미리보기에도 바로 보인다");
+  await mdUntil((md) => HOSTED.test(md));
+  slow = false;
   const m = state.md.match(HOSTED);
   ok(!!m, "그림을 올리면 문서에 저장소 주소가 들어간다(긴 변 1600 으로 줄여서)", JSON.stringify(state.md));
+  ok(!state.md.includes("blob:") && (await page.$eval(".ProseMirror figure img", (el) => el.getAttribute("src"))).startsWith("/i/"), "  └ 다 올리면 저장소 주소로 바뀐다");
   ok(((await page.$eval(".toast", (el) => el.textContent).catch(() => "")) || "").includes("3일 뒤 자동으로 지워"), "올리면 3일 뒤 지워진다고 알린다");
   await page.waitForFunction(() => document.querySelector(".paper figure img")?.naturalWidth === 1600, { timeout: 10000 });
   ok(true, "편집기와 미리보기에 올린 그림이 보인다");
+
+  // 붙여넣기(화면 갈무리) · 끌어다 놓기도 이미지 단추와 같다
+  const b64 = (w, h) => makePng(w, h).toString("base64");
+  const fileIn = (b64s, name) => `(() => { const bin = atob("${b64s}"); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); const dt = new DataTransfer(); dt.items.add(new File([u8], "${name}", { type: "image/png" })); return dt; })()`;
+  await page.click(".ProseMirror li");
+  await page.evaluate((code) => {
+    const dt = eval(code);
+    document.querySelector(".ProseMirror").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, fileIn(b64(300, 200), "갈무리.png"));
+  ok(await mdUntil((md) => /!\[\]\(\/i\/[0-9a-f]{32}-300x200\.png\)/.test(md)), "그림을 붙여 넣으면 올려서 넣는다", JSON.stringify(state.md.slice(-120)));
+  await page.evaluate((code) => {
+    window.dispatchEvent(new DragEvent("drop", { dataTransfer: eval(code), bubbles: true, cancelable: true }));
+  }, fileIn(b64(320, 180), "놓은 그림.png"));
+  ok(await mdUntil((md) => /!\[\]\(\/i\/[0-9a-f]{32}-320x180\.png\)/.test(md)), "그림을 끌어다 놓으면 올려서 넣는다", JSON.stringify(state.md.slice(-120)));
+  ok(!(await page.$(".toast.bad")), "  └ MD 파일이 아니라고 막지 않는다");
+  page.off("request", hold);
+  await page.setRequestInterception(false);
 
   // PDF 에도 그림이 들어간다(서버가 저장소에서 꺼낸다)
   const pdf = Buffer.from(await (await fetch(`${base}/api/md/pdf`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ md: state.md }) })).arrayBuffer());

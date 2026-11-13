@@ -151,7 +151,7 @@ export function App() {
       e.preventDefault();
       const file = [...e.dataTransfer!.files].find(isMdFile);
       if (file) void openFile(file);
-      else say(t("MD 파일(.md)만 끌어다 놓아 열 수 있습니다. 그림은 편집기의 그림 단추로 넣으세요."));
+      else say(t("MD 파일(.md)이나 이미지만 끌어다 놓을 수 있습니다."));
     };
     window.addEventListener("keydown", key);
     window.addEventListener("dragenter", enter);
@@ -221,7 +221,7 @@ export function App() {
       <input ref={mdInput} type="file" accept={MD_ACCEPT} hidden onChange={(e) => (e.target.files?.[0] && void openFile(e.target.files[0]), (e.target.value = ""))} />
       {dragging && (
         <div className="dropzone" aria-hidden="true">
-          <span>{t("놓으면 이 MD 파일을 새 문서로 엽니다")}</span>
+          <span>{t("놓으면 MD 파일은 새 문서로 열고, 이미지는 문서에 넣습니다")}</span>
         </div>
       )}
       {toast && (

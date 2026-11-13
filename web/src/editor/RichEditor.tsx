@@ -2,7 +2,7 @@ import { Extension, InputRule } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { t } from "../lib/i18n";
-import { imageSrc } from "../lib/images";
+import { droppedImages, imageSrc } from "../lib/images";
 import { addRowBelow, blockKind, mergeSafe, setBlockKind, setColumnAlign, toggleCellShade, type BlockKind, type CellAlign } from "../lib/rich/commands";
 import type { Dialect } from "../lib/inline";
 import { fromPM, toPM } from "../lib/rich/convert";
@@ -46,10 +46,15 @@ const KINDS: [BlockKind, string][] = [
  * 문서 탭 — 보이는 모양 그대로 고친다.
  * 서버가 되읽은 문서(doc)로 열고, 고칠 때마다 MD 로 직렬화해 올린다. 밖에서 MD 가 바뀌면 부모가 key 를 올려 새로 연다.
  */
-export default function RichEditor({ doc, dialect, images, options, onOptions, onChange, onPickImage, register }: { doc: Doc; dialect: Dialect; images: Record<string, StoredImage>; options: Options; onOptions: (o: Options) => void; onChange: (md: string) => void; onPickImage: () => void; register: (insertImage: ((name: string) => void) | null) => void }) {
+/** 바깥(Workspace)에서 그림을 다루는 손잡이 — 넣기, 주소 바꾸기(올리기가 끝나면 blob: → 저장소 주소, null 이면 뺀다). */
+export type ImageApi = { insert: (src: string) => void; replace: (from: string, to: string | null) => void };
+
+export default function RichEditor({ doc, dialect, images, options, onOptions, onChange, onPickImage, onImageFile, register }: { doc: Doc; dialect: Dialect; images: Record<string, StoredImage>; options: Options; onOptions: (o: Options) => void; onChange: (md: string) => void; onPickImage: () => void; onImageFile: (file: File) => void; register: (api: ImageApi | null) => void }) {
   const imagesRef = useRef(images);
   imagesRef.current = images;
   const onChangeRef = useRef(onChange);
+  const onImageFileRef = useRef(onImageFile);
+  onImageFileRef.current = onImageFile;
   onChangeRef.current = onChange;
   const dialectRef = useRef(dialect); // 태그를 쓸 언어 — 서버가 되읽을 때와 같아야 한다
   dialectRef.current = dialect;
@@ -59,13 +64,37 @@ export default function RichEditor({ doc, dialect, images, options, onOptions, o
   const editor = useEditor({
     extensions,
     content,
-    editorProps: { attributes: { class: "docstyle", "aria-label": t("문서 편집"), spellcheck: "false" } },
+    editorProps: {
+      attributes: { class: "docstyle", "aria-label": t("문서 편집"), spellcheck: "false" },
+      // 그림을 붙여 넣으면(화면 갈무리 · '이미지 복사') 이미지 단추와 똑같이 넣는다
+      handlePaste: (_view, event) => {
+        const files = droppedImages(event.clipboardData);
+        if (!files.length) return false;
+        for (const f of files) onImageFileRef.current(f);
+        return true;
+      },
+    },
     onUpdate: ({ editor: e }) => onChangeRef.current(fromPM(e.getJSON(), dialectRef.current)),
   });
 
   useEffect(() => {
     if (!editor) return;
-    register((name) => editor.chain().focus().insertContent({ type: "mdImage", attrs: { src: name, caption: "" } }).run());
+    register({
+      insert: (src) => editor.chain().focus().insertContent({ type: "mdImage", attrs: { src, caption: "" } }).run(),
+      replace: (from, to) => {
+        const found: { pos: number; size: number; attrs: Record<string, unknown> }[] = [];
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === "mdImage" && node.attrs.src === from) found.push({ pos, size: node.nodeSize, attrs: node.attrs });
+        });
+        if (!found.length) return;
+        const tr = editor.state.tr;
+        for (const f of found.reverse()) {
+          if (to) tr.setNodeMarkup(f.pos, undefined, { ...f.attrs, src: to });
+          else tr.delete(f.pos, f.pos + f.size);
+        }
+        editor.view.dispatch(tr.setMeta("addToHistory", false)); // 되돌리기로 blob: 주소가 돌아오지 않게
+      },
+    });
     return () => register(null);
   }, [editor, register]);
 

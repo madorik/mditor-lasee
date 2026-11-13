@@ -3,7 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import * as api from "../lib/api";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
-import { DEFAULT_MAX_FILE_BYTES, imageName, prepareImage, readImage } from "../lib/images";
+import { DEFAULT_MAX_FILE_BYTES, droppedImages, imageName, imageSrc, preload, prepareImage, readImage } from "../lib/images";
 import { FONT_CSS } from "../lib/fonts";
 import { dialectOf, type Dialect } from "../lib/inline";
 import { encodeLink } from "../lib/share";
@@ -14,6 +14,7 @@ import { AiDialog, SettingsDialog, VersionsDialog } from "./Dialogs";
 import { MdPane, type MdPaneHandle } from "./MdPane";
 import { PdfPreview } from "./PdfPreview";
 import { Preview } from "./Preview";
+import type { ImageApi } from "./RichEditor";
 import { Menu, MOD, Tabs, useDebounced, when } from "./ui";
 
 // 편집기 코드는 늦게 불러온다(TipTap 묶음이 크다)
@@ -68,8 +69,11 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const lastDoc = useRef<Doc | null>(stored.base); // 직전에 되읽은 문서 — id 를 잇는 기준
   const docFor = useRef(new Map<string, Doc>()); // MD → 되읽은 문서(쪽 배치·PDF 요청이 같은 id 를 쓰도록)
   const shown = useRef<Doc>(stored.base ?? EMPTY); // 마지막으로 제대로 읽힌 문서(오류 중에도 미리보기를 유지)
-  const insertImage = useRef<((name: string) => void) | null>(null);
+  const richImages = useRef<ImageApi | null>(null); // 문서 탭 편집기의 그림 손잡이
   const mdPane = useRef<MdPaneHandle>(null);
+  const tabRef = useRef<"doc" | "md">("doc"); // 올리기가 끝났을 때의 탭(올리는 동안 탭을 바꿀 수 있다)
+  // 올리는 중인 그림(blob: 주소 → 크기) — 쪽 배치가 그 자리를 바로 잡게
+  const [pending, setPending] = useState<Record<string, [number, number]>>({});
   const fileInput = useRef<HTMLInputElement>(null);
 
   const say = useCallback((message: string, bad = false) => {
@@ -108,7 +112,10 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
 
   // ── 쪽 배치(1.2s): PDF 를 실제로 그려 본 결과
   const pDoc = docFor.current.get(pText) ?? null;
-  const sizes = useMemo(() => Object.fromEntries(Object.entries(stored.images).map(([k, v]) => [k, [v.w, v.h] as [number, number]])), [stored.images]);
+  const sizes = useMemo(
+    () => ({ ...Object.fromEntries(Object.entries(stored.images).map(([k, v]) => [k, [v.w, v.h] as [number, number]])), ...pending }),
+    [stored.images, pending],
+  );
   const pagesQ = useQuery({
     queryKey: ["pages", stored.id, pText, stored.options, sizes],
     queryFn: ({ signal }) => api.pages({ md: pText, base: pDoc, options: stored.options, image_sizes: sizes }, signal),
@@ -160,6 +167,10 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     if (tab === "doc") setRich(null);
     setLeftTab(tab);
   };
+
+  const registerImages = useCallback((api: ImageApi | null) => {
+    richImages.current = api;
+  }, []);
 
   const onRichChange = useCallback((md: string) => {
     sent.current = md;
@@ -268,18 +279,38 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   }, [save]);
 
   // ── 그림
-  const [uploading, setUploading] = useState(false);
+  tabRef.current = leftTab;
+  const [uploading, setUploading] = useState(0); // 올리는 중인 그림 수
+  const putSrc = (src: string) => (tabRef.current === "doc" ? richImages.current?.insert(src) : mdPane.current?.insert(`![](${src})`));
+  /** 문서 안의 그림 주소를 바꾼다(null 이면 뺀다) — 지금 열린 탭에서. 편집기가 없으면 글에서 직접 */
+  const swapSrc = (from: string, to: string | null) => {
+    if (tabRef.current === "doc" && richImages.current) return richImages.current.replace(from, to);
+    if (tabRef.current === "md" && mdPane.current) return mdPane.current.replace(from, to);
+    setText((md) => (to ? md.split(from).join(to) : md.split("\n").filter((line) => !line.includes(`](${from})`)).join("\n")));
+  };
   const addImage = async (file: File | undefined) => {
     if (!file) return;
-    const put = (src: string) => (leftTab === "doc" ? insertImage.current?.(src) : mdPane.current?.insert(`![](${src})`));
     const maxFile = config.maxImageFileBytes ?? DEFAULT_MAX_FILE_BYTES;
     try {
       if (config.images) {
-        // 저장소에 올리고 문서에는 주소를 쓴다 — MD 로 내려받거나 링크로 보내도 그림이 따라간다
+        // 저장소에 올리고 문서에는 주소를 쓴다 — MD 로 내려받거나 링크로 보내도 그림이 따라간다.
+        // 올리기를 기다리지 않고 내 컴퓨터의 그림(blob:)으로 바로 넣고, 다 올리면 저장소 주소로 바꾼다.
         const img = await prepareImage(file, maxFile, config.maxUploadBytes ?? 3_000_000);
-        setUploading(true);
-        const { url } = await api.uploadImage(img.blob);
-        put(url);
+        const temp = URL.createObjectURL(img.blob);
+        setPending((p) => ({ ...p, [temp]: [img.w, img.h] }));
+        putSrc(temp);
+        setUploading((n) => n + 1);
+        try {
+          const { url } = await api.uploadImage(img.blob);
+          await preload(imageSrc(url, {}) ?? url); // 받아 둔 뒤 바꿔야 깜빡이지 않는다
+          swapSrc(temp, url);
+        } catch (e) {
+          swapSrc(temp, null); // 못 올렸으면 넣었던 그림을 뺀다
+          throw e;
+        } finally {
+          setUploading((n) => n - 1);
+          setPending(({ [temp]: _, ...rest }) => rest);
+        }
         const days = config.imageTtlDays ?? 0;
         if (days > 0) say(t("이미지를 올렸습니다. 올린 이미지는 {n}일 뒤 자동으로 지워지니, 남겨 둘 문서는 PDF 로 내려받으세요.", { n: days }));
         return;
@@ -289,13 +320,26 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
       if (total > config.maxImageBytes) throw new Error(t("그림은 문서마다 합쳐서 {mb}MB 까지 붙일 수 있습니다.", { mb: Math.round(config.maxImageBytes / 1_000_000) }));
       const id = imageName(file, stored.images);
       await persist({ ...stored, images: { ...stored.images, [id]: img } });
-      put(id);
+      putSrc(id);
     } catch (e) {
       say(e instanceof Error ? e.message : t("그림을 붙이지 못했습니다."), true);
-    } finally {
-      setUploading(false);
     }
   };
+  // 그림 파일을 창 어디에 끌어다 놓아도 이미지 단추와 똑같이 넣는다(MD 파일 열기보다 먼저 받는다)
+  const addImageRef = useRef(addImage);
+  addImageRef.current = addImage;
+  useEffect(() => {
+    const drop = (e: DragEvent) => {
+      const files = droppedImages(e.dataTransfer);
+      if (!files.length) return;
+      e.preventDefault();
+      void (async () => {
+        for (const f of files) await addImageRef.current(f);
+      })();
+    };
+    window.addEventListener("drop", drop, true);
+    return () => window.removeEventListener("drop", drop, true);
+  }, []);
 
   // ── 내보내기
   const exportPdf = async () => {
@@ -423,10 +467,10 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           </div>
           <div className="pane-body">
             {leftTab === "md" ? (
-              <MdPane value={text} dialect={dialect} onChange={setText} error={error} options={stored.options} onOptions={setOptions} onPickImage={() => fileInput.current?.click()} handle={mdPane} />
+              <MdPane value={text} dialect={dialect} onChange={setText} error={error} options={stored.options} onOptions={setOptions} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} handle={mdPane} />
             ) : rich ? (
               <Suspense fallback={<div className="hint">{t("편집기를 불러오는 중입니다")}</div>}>
-                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} register={(fn) => (insertImage.current = fn)} />
+                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} register={registerImages} />
               </Suspense>
             ) : error ? (
               <div className="hint">
@@ -496,7 +540,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           {toast.text}
         </div>
       ) : (
-        uploading && (
+        uploading > 0 && (
           <div className="toast" role="status">
             {t("그림을 올리는 중입니다")}
           </div>

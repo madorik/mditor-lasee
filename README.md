@@ -179,6 +179,8 @@ vercel deploy --prod
 - `/sitemap.xml` 은 쪽마다 언어별 대안 주소와 고친 날(빌드한 날)을 싣는다. `/robots.txt` 는 검색 · AI 크롤러(GPTBot · ClaudeBot ·
   PerplexityBot · 네이버 Yeti 등)를 이름으로 허용한다. `/llms.txt` 는 AI 답변 엔진용 사이트 안내다(`src/mditor/data/llms.md`).
 - 소유 확인: `GOOGLE_SITE_VERIFICATION` · `NAVER_SITE_VERIFICATION` · `BING_SITE_VERIFICATION` 를 넣으면 모든 쪽 머리에 들어간다.
+- 방문 통계: Vercel Web Analytics(`@vercel/analytics`, `web/src/analytics.ts`). 모든 쪽이 불러오고, Vercel 에 배포한 곳(`VERCEL=1`, 또는
+  `MDITOR_ANALYTICS=1`)에서만 켠다. 주소의 `#` 뒤(문서가 든 링크의 문서 내용)는 보내지 않는다. Vercel 프로젝트의 Analytics 를 켜 두어야 모인다.
 - 공유 이미지는 첫 화면 영상의 포스터(`hero-*.webp`)로 만든다. 편집 화면이 바뀌면 영상 · 그림과 함께 다시 만든다.
 
 ### 그림 저장소

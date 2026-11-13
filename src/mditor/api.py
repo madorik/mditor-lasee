@@ -214,6 +214,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             "imageTtlDays": settings.image_ttl_days,  # 올린 그림을 두는 날 수(0 이면 지우지 않는다)
             "publicUrl": settings.public_url,
             "contact": settings.contact_email,
+            "analytics": settings.analytics,  # 방문 통계(Vercel Web Analytics)를 넣는다
             "ads": {
                 "client": settings.adsense_client,
                 "content": settings.adsense_slot_content,

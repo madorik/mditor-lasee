@@ -85,8 +85,8 @@ export const en: Record<string, string> = {
   "저장하지 않은 글은 임시저장되어 다음에 이어서 열 수 있습니다. 페이지가 이동됩니다. 그래도 이동하시겠습니까?": "Unsaved changes are kept as a draft you can pick up next time. You’re about to leave this page. Leave anyway?",
   "저장하지 않은 글은 남지 않습니다. 페이지가 이동됩니다. 그래도 이동하시겠습니까?": "Unsaved changes will be lost. You’re about to leave this page. Leave anyway?",
   "파일을 열지 못했습니다.": "Couldn’t open the file.",
-  "MD 파일(.md)만 끌어다 놓아 열 수 있습니다. 그림은 편집기의 그림 단추로 넣으세요.": "Only MD files (.md) can be opened by dropping them here. To add an image, use the Image button in the editor.",
-  "놓으면 이 MD 파일을 새 문서로 엽니다": "Drop to open this MD file as a new document",
+  "MD 파일(.md)이나 이미지만 끌어다 놓을 수 있습니다.": "You can drop only MD files (.md) or images here.",
+  "놓으면 MD 파일은 새 문서로 열고, 이미지는 문서에 넣습니다": "Drop an MD file to open it as a new document, or an image to add it to the document",
 
   // ── 대화 상자: 쪽 설정
   "바꾸면 미리보기의 쪽 경계와 PDF 에 바로 반영됩니다.": "Changes apply right away to the page breaks in the preview and to the PDF.",

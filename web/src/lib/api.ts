@@ -18,6 +18,7 @@ export type Config = {
   imageTtlDays?: number;
   publicUrl: string;
   contact: string;
+  analytics?: boolean;
   ads: { client: string; content: string; editor: string };
 };
 

@@ -81,6 +81,8 @@ class Settings:
     naver_site_verification: str = field(default_factory=lambda: os.environ.get("NAVER_SITE_VERIFICATION", "").strip())
     bing_site_verification: str = field(default_factory=lambda: os.environ.get("BING_SITE_VERIFICATION", "").strip())
     contact_email: str = field(default_factory=lambda: os.environ.get("MDITOR_CONTACT_EMAIL", "").strip())
+    # 방문 통계(Vercel Web Analytics). Vercel 에 배포하면 켜진다(VERCEL=1) — 다른 곳에는 /_vercel/insights 가 없다.
+    analytics: bool = field(default_factory=lambda: _flag("MDITOR_ANALYTICS", bool(os.environ.get("VERCEL"))))
 
     @property
     def r2_enabled(self) -> bool:

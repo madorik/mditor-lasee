@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
 import { t } from "../lib/i18n";
+import { droppedImages } from "../lib/images";
 import { tag, type Dialect } from "../lib/inline";
 import { insertBreak, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
 import type { MdError, Options } from "../lib/types";
 import { FontPicker } from "./Dialogs";
 import { ColorMenu, ImageButton } from "./Tools";
 
-export type MdPaneHandle = { insert: (text: string) => void };
+/** insert: 지금 줄 아래에 넣는다. replace: 그림 주소를 바꾼다(null 이면 그 그림 줄을 뺀다). */
+export type MdPaneHandle = { insert: (text: string) => void; replace: (from: string, to: string | null) => void };
 
 /** MD 탭 — 글 그대로 고친다. 오류가 있으면 줄 번호와 함께 알려 준다. */
-export function MdPane({ value, dialect, onChange, error, options, onOptions, onPickImage, handle }: { value: string; dialect: Dialect; onChange: (v: string) => void; error: MdError | null; options: Options; onOptions: (o: Options) => void; onPickImage: () => void; handle?: Ref<MdPaneHandle> }) {
+export function MdPane({ value, dialect, onChange, error, options, onOptions, onPickImage, onImageFile, handle }: { value: string; dialect: Dialect; onChange: (v: string) => void; error: MdError | null; options: Options; onOptions: (o: Options) => void; onPickImage: () => void; onImageFile: (file: File) => void; handle?: Ref<MdPaneHandle> }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => value.split("\n").length, [value]);
@@ -36,6 +38,17 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
       const stop = el.value.indexOf("\n", el.selectionEnd);
       const at = stop < 0 ? el.value.length : stop;
       apply({ start: at, end: at, text: `\n\n${text}\n`, selStart: at + 2, selEnd: at + 2 + text.length });
+    },
+    replace(from: string, to: string | null) {
+      const el = ta.current;
+      if (!el || !el.value.includes(from)) return;
+      const [start, end] = [el.selectionStart, el.selectionEnd];
+      const next = to
+        ? el.value.split(from).join(to)
+        : el.value.split("\n").filter((line) => !line.includes(`](${from})`)).join("\n").replace(/\n{3,}/g, "\n\n");
+      onChange(next);
+      const shift = to ? to.length - from.length : 0; // 커서가 바뀐 주소 뒤에 있었으면 그만큼 민다(대개 바로 그 줄이다)
+      requestAnimationFrame(() => el.setSelectionRange(Math.max(0, start + shift), Math.max(0, end + shift)));
     },
   }));
 
@@ -123,6 +136,12 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
           aria-label={t("Markdown 원본")}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={(e) => {
+            const files = droppedImages(e.clipboardData);
+            if (!files.length) return;
+            e.preventDefault(); // 그림을 붙여 넣으면 이미지 단추와 똑같이 넣는다
+            for (const f of files) onImageFile(f);
+          }}
           onScroll={(e) => {
             if (gutter.current) gutter.current.scrollTop = e.currentTarget.scrollTop;
           }}

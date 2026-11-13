@@ -88,3 +88,11 @@ def test_faq_structured_data_matches_the_page(path):
 def test_titles_are_unique():
     titles = [re.search(r"<title>(.*?)</title>", p.read_text(encoding="utf-8")).group(1) for p in FILES]
     assert len(set(titles)) == len(titles)
+
+
+def test_analytics_only_on_vercel(monkeypatch):
+    monkeypatch.delenv("VERCEL", raising=False)
+    monkeypatch.delenv("MDITOR_ANALYTICS", raising=False)
+    assert Settings().analytics is False  # 로컬 · 도커 · e2e 에는 /_vercel/insights 가 없다
+    monkeypatch.setenv("VERCEL", "1")
+    assert Settings().analytics is True

@@ -21,7 +21,7 @@ export function hostedName(src: string): string | null {
  * 바깥으로 요청하지 않고, PDF(서버가 이름으로 꺼낸다)와 같은 그림이 보인다.
  */
 export function imageSrc(src: string, images: Record<string, StoredImage>): string | undefined {
-  if (src.startsWith("data:")) return src;
+  if (src.startsWith("data:") || src.startsWith("blob:")) return src; // blob: 은 올리는 동안 먼저 보여 주는 내 컴퓨터의 그림
   const name = hostedName(src);
   if (name) return `/i/${name}`;
   return images[src]?.data;
@@ -96,4 +96,25 @@ export function imageName(file: File, taken: Record<string, unknown>): string {
   let name = `${stem}.${ext}`;
   for (let n = 2; name in taken; n++) name = `${stem}-${n}.${ext}`;
   return name;
+}
+
+/**
+ * 붙여넣기 · 끌어다 놓기에서 넣을 그림 파일. 글이 함께 실려 오면(워드 · 엑셀은 글과 함께 그림도 싣는다) 글로 붙인다 —
+ * 그림만 있거나, 웹 페이지에서 '이미지 복사' 처럼 <img> 하나뿐일 때만 그림으로 넣는다.
+ */
+export function droppedImages(dt: DataTransfer | null): File[] {
+  if (!dt) return [];
+  const files = [...dt.files].filter((f) => f.type.startsWith("image/"));
+  if (!files.length) return [];
+  const text = dt.getData("text/plain").trim();
+  const html = dt.getData("text/html");
+  if (text || (html && !/^[^<]*(?:<(?:meta|html|body|!--)[^>]*>\s*)*<img\b/i.test(html.trim()))) return [];
+  return files;
+}
+
+/** 그림을 미리 받아 둔다 — 주소를 바꿀 때 깜빡이지 않게. 못 받아도 그냥 넘어간다. */
+export async function preload(url: string): Promise<void> {
+  const img = new Image();
+  img.src = url;
+  await img.decode().catch(() => undefined);
 }
