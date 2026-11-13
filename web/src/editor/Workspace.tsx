@@ -3,7 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import * as api from "../lib/api";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
-import { imageName, readImage } from "../lib/images";
+import { DEFAULT_MAX_FILE_BYTES, imageName, prepareImage, readImage } from "../lib/images";
 import { FONT_CSS } from "../lib/fonts";
 import { dialectOf, type Dialect } from "../lib/inline";
 import { encodeLink } from "../lib/share";
@@ -218,6 +218,9 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     [onStored],
   );
 
+  /** 쪽 설정 · 글꼴 · 글자 크기 — 판본을 만들지 않고 바로 보관한다. */
+  const setOptions = (options: StoredDoc["options"]) => void persist({ ...stored, options });
+
   /** 저장 = 새 판본. 서버가 되읽은 문서(표준 꼴 MD)를 저장한다. */
   const saveText = useCallback(
     async (md: string): Promise<boolean> => {
@@ -265,18 +268,30 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   }, [save]);
 
   // ── 그림
+  const [uploading, setUploading] = useState(false);
   const addImage = async (file: File | undefined) => {
     if (!file) return;
+    const put = (src: string) => (leftTab === "doc" ? insertImage.current?.(src) : mdPane.current?.insert(`![](${src})`));
+    const maxFile = config.maxImageFileBytes ?? DEFAULT_MAX_FILE_BYTES;
     try {
-      const img = await readImage(file);
+      if (config.images) {
+        // 저장소에 올리고 문서에는 주소를 쓴다 — MD 로 내려받거나 링크로 보내도 그림이 따라간다
+        const img = await prepareImage(file, maxFile, config.maxUploadBytes ?? 3_000_000);
+        setUploading(true);
+        const { url } = await api.uploadImage(img.blob);
+        put(url);
+        return;
+      }
+      const img = await readImage(file, maxFile);
       const total = Object.values(stored.images).reduce((n, v) => n + v.data.length * 0.75, 0) + img.data.length * 0.75;
       if (total > config.maxImageBytes) throw new Error(t("그림은 문서마다 합쳐서 {mb}MB 까지 붙일 수 있습니다.", { mb: Math.round(config.maxImageBytes / 1_000_000) }));
       const id = imageName(file, stored.images);
       await persist({ ...stored, images: { ...stored.images, [id]: img } });
-      if (leftTab === "doc") insertImage.current?.(id);
-      else mdPane.current?.insert(`![](${id})`);
+      put(id);
     } catch (e) {
       say(e instanceof Error ? e.message : t("그림을 붙이지 못했습니다."), true);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -299,7 +314,8 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(await encodeLink(location.origin, text));
-      say(t("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다(그림은 빠집니다)."));
+      // 브라우저에만 둔 그림(이름으로 넣은 것)은 링크에 실리지 않는다. 저장소에 올린 그림은 주소로 따라간다
+      say(Object.keys(stored.images).length ? t("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다(그림은 빠집니다).") : t("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다."));
     } catch {
       say(t("링크를 복사하지 못했습니다."), true);
     }
@@ -406,10 +422,10 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           </div>
           <div className="pane-body">
             {leftTab === "md" ? (
-              <MdPane value={text} dialect={dialect} onChange={setText} error={error} onPickImage={() => fileInput.current?.click()} handle={mdPane} />
+              <MdPane value={text} dialect={dialect} onChange={setText} error={error} options={stored.options} onOptions={setOptions} onPickImage={() => fileInput.current?.click()} handle={mdPane} />
             ) : rich ? (
               <Suspense fallback={<div className="hint">{t("편집기를 불러오는 중입니다")}</div>}>
-                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} images={stored.images} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} register={(fn) => (insertImage.current = fn)} />
+                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} register={(fn) => (insertImage.current = fn)} />
               </Suspense>
             ) : error ? (
               <div className="hint">
@@ -450,7 +466,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
       <AdSlot config={config} slot="editor" />
 
       <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => (void addImage(e.target.files?.[0]), (e.target.value = ""))} />
-      {dialog === "settings" && <SettingsDialog options={stored.options} onChange={(options) => void persist({ ...stored, options })} onClose={() => setDialog(null)} />}
+      {dialog === "settings" && <SettingsDialog options={stored.options} onChange={setOptions} onClose={() => setDialog(null)} />}
       {dialog === "versions" && (
         <VersionsDialog
           stored={stored}
@@ -474,10 +490,16 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           }}
         />
       )}
-      {toast && (
+      {toast ? (
         <div className={`toast ${toast.bad ? "bad" : ""}`} role="status">
           {toast.text}
         </div>
+      ) : (
+        uploading && (
+          <div className="toast" role="status">
+            {t("그림을 올리는 중입니다")}
+          </div>
+        )
       )}
     </div>
   );

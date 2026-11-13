@@ -59,12 +59,28 @@ class Settings:
     ai_daily_limit: int = field(default_factory=lambda: _int("MDITOR_AI_DAILY_LIMIT", 10))
     ai_max_md_chars: int = field(default_factory=lambda: _int("MDITOR_AI_MAX_MD_CHARS", 60_000))
 
+    # 그림 저장소(Cloudflare R2). 넷이 모두 있어야 켜진다 — 없으면 그림은 예전처럼 문서와 함께 브라우저에만 둔다.
+    r2_account_id: str = field(default_factory=lambda: os.environ.get("R2_ACCOUNT_ID", "").strip())
+    r2_access_key_id: str = field(default_factory=lambda: os.environ.get("R2_ACCESS_KEY_ID", "").strip())
+    r2_secret_access_key: str = field(default_factory=lambda: os.environ.get("R2_SECRET_ACCESS_KEY", "").strip())
+    r2_bucket: str = field(default_factory=lambda: os.environ.get("R2_BUCKET", "").strip())
+    # R2 대신 디스크 폴더에 둔다(도커 볼륨 · 로컬 개발). R2 설정이 있으면 R2 가 먼저다.
+    image_dir: str = field(default_factory=lambda: os.environ.get("MDITOR_IMAGE_DIR", "").strip())
+    # 원본 파일 한도(화면이 줄이기 전에 본다)와, 화면이 줄여서 보낸 그림 한 장의 한도(서버가 본다)
+    max_image_file_bytes: int = field(default_factory=lambda: _int("MDITOR_MAX_IMAGE_FILE_BYTES", 10_000_000))
+    max_upload_bytes: int = field(default_factory=lambda: _int("MDITOR_MAX_UPLOAD_BYTES", 3_000_000))
+    upload_daily_limit: int = field(default_factory=lambda: _int("MDITOR_UPLOAD_DAILY_LIMIT", 100))
+
     # 광고(Google AdSense). client 가 비면 광고 코드를 넣지 않는다.
     adsense_client: str = field(default_factory=lambda: os.environ.get("ADSENSE_CLIENT", "").strip())
     adsense_slot_content: str = field(default_factory=lambda: os.environ.get("ADSENSE_SLOT_CONTENT", "").strip())
     adsense_slot_editor: str = field(default_factory=lambda: os.environ.get("ADSENSE_SLOT_EDITOR", "").strip())
     site_verification: str = field(default_factory=lambda: os.environ.get("GOOGLE_SITE_VERIFICATION", "").strip())
     contact_email: str = field(default_factory=lambda: os.environ.get("MDITOR_CONTACT_EMAIL", "").strip())
+
+    @property
+    def r2_enabled(self) -> bool:
+        return all((self.r2_account_id, self.r2_access_key_id, self.r2_secret_access_key, self.r2_bucket))
 
 
 def syntax_guide() -> str:

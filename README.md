@@ -80,7 +80,7 @@ node web/e2e/editor.mjs       # 헤드리스 크롬으로 편집 화면 조작(�
   실제 OS 입력기(Windows/Edge, macOS/Safari)는 사람이 확인해야 한다.
 
   ```bash
-  PORT=8011 MDITOR_RATE_PER_MINUTE=100000 uv run mditor-server &
+  PORT=8011 MDITOR_RATE_PER_MINUTE=100000 MDITOR_IMAGE_DIR=/tmp/mditor-e2e-images uv run mditor-server &
   node web/e2e/editor.mjs http://127.0.0.1:8011
   ```
 
@@ -129,6 +129,9 @@ docker run -p 8000:8000 --env-file .env mditor
 | `MDITOR_CONTACT_EMAIL` | 개인정보처리방침·약관에 보일 문의 주소 |
 | `ANTHROPIC_API_KEY` | 있으면 ‘AI 로 고치기’ 가 켜진다 |
 | `MDITOR_AI_MODEL` `MDITOR_AI_EFFORT` `MDITOR_AI_DAILY_LIMIT` `MDITOR_AI_MAX_MD_CHARS` | AI 수정의 모델·노력 수준·IP 당 하루 횟수·문서 길이 한도 |
+| `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` `R2_BUCKET` | 넷이 모두 있으면 그림을 Cloudflare R2 에 올린다(아래 ‘그림 저장소’) |
+| `MDITOR_IMAGE_DIR` | R2 대신 그림을 둘 디스크 폴더(도커 볼륨 · 로컬 개발) |
+| `MDITOR_MAX_IMAGE_FILE_BYTES` `MDITOR_MAX_UPLOAD_BYTES` `MDITOR_UPLOAD_DAILY_LIMIT` | 원본 그림 파일 한도(10MB) · 줄여 올리는 한 장 한도(3MB) · IP 당 하루 올리기 수(100) |
 | `MDITOR_RATE_PER_MINUTE` | IP 당 분당 요청 수(미리보기·PDF·MCP) |
 | `MDITOR_TRUST_PROXY` | 프록시 뒤면 `1`(기본). `X-Forwarded-For` 로 IP 를 센다 |
 | `WEB_CONCURRENCY` | 프로세스 수. 2 이상이면 횟수 제한을 프로세스마다 따로 센다 |
@@ -153,7 +156,7 @@ vercel deploy --prod
 | `.vercelignore` | 올리지 않을 파일(`.venv`, `node_modules`, `web/dist` 등) |
 
 - Vercel 은 `uv sync --no-dev` 로 설치하고 엑스트라는 깔지 않는다. 그래서 서버 의존성을 `[server]` 엑스트라와 같은 기본 그룹 `server` 로도 둔다(둘이 같은지 `tests/test_packaging.py` 가 본다).
-- 환경변수는 Vercel 프로젝트에 둔다(`vercel env add 이름 production`). 지금은 `MDITOR_PUBLIC_URL` 하나다.
+- 환경변수는 Vercel 프로젝트에 둔다(`vercel env add 이름 production`). `MDITOR_PUBLIC_URL` 과 그림 저장소(R2) 넷이다.
 - 함수가 여러 개 뜰 수 있다. 횟수 제한은 함수마다 따로 세고, MCP 가 만든 PDF 링크는 만든 함수가 아닌 곳으로 가면 만료로 나올 수 있다.
 
 ### 광고
@@ -166,6 +169,19 @@ vercel deploy --prod
 4. `/privacy` 와 `/terms` 의 운영자 정보를 실제에 맞게 고친다(`web/privacy.html`, `web/terms.html`).
 
 광고 자리는 `?ads=demo` 를 붙이면 볼 수 있다(예: `/edit?ads=demo`).
+
+### 그림 저장소
+
+편집기에서 넣은 그림은 화면이 긴 변 1600px 로 줄여 `POST /api/images` 로 올린다. 서버는 그림을 다시 그려(EXIF 등 메타데이터를 버린다)
+`<해시32자>-<가로>x<세로>.png|jpg` 이름으로 저장소에 두고, 문서에는 `![설명](https://<서비스 주소>/i/<이름>)` 이 들어간다.
+
+- 저장소: R2 설정 넷이 있으면 Cloudflare R2, 아니면 `MDITOR_IMAGE_DIR` 폴더, 둘 다 없으면 꺼진다(그림은 예전처럼 문서와 함께 브라우저에).
+- 버킷은 공개하지 않는다. 그림은 이 서버의 `/i/<이름>` 으로 내주고, 이름이 내용의 해시라 바뀌지 않으므로 오래 담아 두게 한다(`immutable`, 앞단 CDN 도).
+- 쪽 배치는 이름에 적힌 크기로 자리를 잡고(그림을 내려받지 않는다), PDF 는 이름으로 저장소에서 꺼낸다. 주소의 호스트는 보지 않으므로
+  다른 곳에서 열린 MD 도 같은 그림이 들어가고, 바깥 주소로 요청을 보내지 않는다. 저장소의 그림이 아닌 주소는 그림 자리만 그린다.
+- 남용 막기: 줄인 그림 한 장 3MB, IP 당 하루 100장, 다른 사이트(Origin)에서 오는 올리기는 거절한다.
+- R2 준비: Cloudflare 대시보드 → R2 → 버킷 만들기(공개 접근은 끈 채로) → ‘R2 API 토큰 관리’ 에서 그 버킷에 ‘객체 읽기 및 쓰기’ 토큰을 만들고,
+  나오는 Access Key ID · Secret Access Key 와 계정 ID, 버킷 이름을 환경변수 넷에 넣는다.
 
 ### AI 로 고치기
 

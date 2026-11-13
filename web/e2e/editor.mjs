@@ -5,7 +5,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { deflateRawSync } from "node:zlib";
+import { crc32, deflateRawSync, deflateSync } from "node:zlib";
 import puppeteer from "puppeteer-core";
 
 const base = process.argv[2] ?? "http://127.0.0.1:8011";
@@ -24,6 +24,27 @@ const ok = (cond, label, detail = "") => {
   }
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** w×h 짜리 PNG(무늬가 있는 RGB) */
+function makePng(w, h) {
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; // 8비트
+  ihdr[9] = 2; // RGB
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) raw.set([(x * 7) % 256, (y * 5) % 256, 120], y * (w * 3 + 1) + 1 + x * 3);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
 
 /** start: 처음 열린 새 문서 다음에 할 것 — "example" 이면 파일 메뉴로 예시를 연다, "new" 면 새 문서 그대로, null 이면 아무것도 기다리지 않는다. */
 async function openPage(path = "/edit", viewport = { width: 1440, height: 900 }, { start = "example" } = {}) {
@@ -219,7 +240,10 @@ console.log("문서 편집기");
     const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
     return `${ed.state.selection.toJSON().type} btn=${!!btn} disabled=${btn?.disabled} hit=${hit?.textContent?.trim().slice(0, 10)} y=${Math.round(r?.y ?? -1)}`;
   });
+  // 사람 손이 단추까지 가는 시간만큼 기다린다. 그 사이 고른 칸이 풀리면(진짜 문제) 여기서 드러난다
+  await sleep(200);
   const dbgBefore = await dbg();
+  ok(dbgBefore.startsWith("cell "), "끌어 고른 칸이 그대로 남아 있다", dbgBefore);
   await clickText(page, ".table-tools .tool", "칸 합치기");
   const dbgAfter = await dbg();
   await settle();
@@ -490,6 +514,53 @@ console.log("상표 링크");
   await context.close();
 }
 
+// ───────────────────────── 3-2. 그림 올리기(그림 저장소) ─────────────────────────
+console.log("그림 올리기");
+if (!(await (await fetch(`${base}/api/config`)).json()).images) {
+  console.log("  (그림 저장소가 꺼져 있어 건너뜀 — MDITOR_IMAGE_DIR 를 주고 서버를 띄우면 본다)");
+} else {
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  const dir = mkdtempSync(join(tmpdir(), "mditor-img-"));
+  const pic = join(dir, "가로 그림.png");
+  writeFileSync(pic, makePng(2400, 1200)); // 긴 변 1600 으로 줄여 올린다
+  const HOSTED = /!\[\]\((\/i\/[0-9a-f]{32}-1600x800\.png)\)/;
+
+  // 문서 탭: 그림 단추 → 파일 고르기 → 저장소에 올리고 주소가 문서에 들어간다
+  await page.click(".ProseMirror li");
+  const [chooser] = await Promise.all([page.waitForFileChooser(), clickText(page, ".rich .tools .tool", "그림")]);
+  await chooser.accept([pic]);
+  await page.waitForFunction(() => document.querySelector(".ProseMirror figure img")?.naturalWidth > 0, { timeout: 15000 });
+  await settle();
+  const m = state.md.match(HOSTED);
+  ok(!!m, "그림을 올리면 문서에 저장소 주소가 들어간다(긴 변 1600 으로 줄여서)", JSON.stringify(state.md));
+  await page.waitForFunction(() => document.querySelector(".paper figure img")?.naturalWidth === 1600, { timeout: 10000 });
+  ok(true, "편집기와 미리보기에 올린 그림이 보인다");
+
+  // PDF 에도 그림이 들어간다(서버가 저장소에서 꺼낸다)
+  const pdf = Buffer.from(await (await fetch(`${base}/api/md/pdf`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ md: state.md }) })).arrayBuffer());
+  ok(pdf.includes("/Subtype /Image"), "PDF 에 올린 그림이 들어간다");
+
+  // MD 탭에서도 같은 주소로 들어간다(같은 그림은 같은 이름)
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdpane textarea");
+  const [chooser2] = await Promise.all([page.waitForFileChooser(), clickText(page, ".mdpane .tools .tool", "그림")]);
+  await chooser2.accept([pic]);
+  await page.waitForFunction((src) => document.querySelector(".mdpane textarea").value.split(src).length === 3, { timeout: 15000 }, m?.[1] ?? "");
+  ok(true, "MD 탭에서 넣은 같은 그림은 같은 주소다");
+
+  // 너무 큰 원본 파일은 읽기 전에 막는다
+  const huge = join(dir, "큰 그림.png");
+  writeFileSync(huge, Buffer.concat([makePng(4, 4), Buffer.alloc(10_500_000)]));
+  const [chooser3] = await Promise.all([page.waitForFileChooser(), clickText(page, ".mdpane .tools .tool", "그림")]);
+  await chooser3.accept([huge]);
+  await page.waitForSelector(".toast.bad");
+  ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("10MB"), "10MB 가 넘는 그림 파일은 넣지 않고 알린다", await page.$eval(".toast.bad", (el) => el.textContent));
+
+  rmSync(dir, { recursive: true, force: true });
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
 // ───────────────────────── 4. 좁은 화면 ─────────────────────────
 console.log("좁은 화면");
 {
@@ -554,6 +625,28 @@ console.log("제목 서식 · 기울임 · 문서 글꼴");
   await page.reload({ waitUntil: "networkidle0" });
   await page.waitForSelector(".paper");
   ok((await page.$eval(".paper", (el) => getComputedStyle(el).fontFamily)).startsWith('"Nanum Myeongjo"'), "글꼴은 문서와 함께 보관된다");
+
+  // 도구 막대의 글꼴 · 글자 크기 — 쪽 설정과 같은 값이다
+  await page.waitForSelector(".rich .tools .font-pick");
+  ok((await page.$eval(".rich .tools .font-pick", (el) => el.value)) === "nanum-myeongjo", "도구 막대 글꼴 칸이 쪽 설정에서 고른 글꼴을 보인다");
+  let pdfSize = null;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/md/preview-pages")) pdfSize = JSON.parse(r.postData()).options?.font_size ?? null;
+  });
+  await page.select(".rich .tools .font-pick", "nanum-gothic");
+  await page.select(".rich .tools .size-pick", "12");
+  await settle();
+  await sleep(1500);
+  const after = await page.evaluate(() => [getComputedStyle(document.querySelector(".paper")).fontFamily, getComputedStyle(document.querySelector(".ProseMirror")).fontFamily]);
+  ok(after.every((f) => f.startsWith('"Nanum Gothic"')) && pdfFont === "nanum-gothic" && pdfSize === 12, "도구 막대에서 글꼴 · 글자 크기를 바꾸면 미리보기와 쪽 배치에 반영된다", JSON.stringify([after, pdfFont, pdfSize]));
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdpane .tools .size-pick");
+  ok((await page.$eval(".mdpane .tools .font-pick", (el) => el.value)) === "nanum-gothic" && (await page.$eval(".mdpane .tools .size-pick", (el) => el.value)) === "12", "MD 탭 도구 막대에도 같은 글꼴 · 글자 크기가 보인다");
+  await clickText(page, ".top .btn", "문서");
+  await clickPrefix(page, ".menu-item", "쪽 설정");
+  await page.waitForSelector(".modal select");
+  ok((await page.$eval(".modal input[type=number][step='0.5']", (el) => el.value)) === "12", "쪽 설정에도 같은 글자 크기가 보인다");
+  await clickText(page, ".modal footer .btn", "닫기");
   ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
   await context.close();
 }

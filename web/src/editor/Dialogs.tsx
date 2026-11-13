@@ -10,6 +10,48 @@ import { Modal, when } from "./ui";
 const fontLabel = (f: FontKey): string =>
   ({ pretendard: t("Pretendard (고딕, 기본)"), "nanum-myeongjo": t("나눔명조 (명조)"), "nanum-gothic": t("나눔고딕 (고딕)"), "nanum-pen": t("나눔손글씨 펜 (손글씨)") })[f];
 
+/** 도구 막대에 보일 짧은 글꼴 이름 */
+const fontShort = (f: FontKey): string =>
+  ({ pretendard: "Pretendard", "nanum-myeongjo": t("나눔명조"), "nanum-gothic": t("나눔고딕"), "nanum-pen": t("나눔손글씨 펜") })[f];
+
+const SIZES = Array.from({ length: 13 }, (_, i) => 8 + i * 0.5); // 8 ~ 14pt — 쪽 설정과 같은 범위
+
+/** 도구 막대의 글꼴 · 글자 크기. 고른 글자가 아니라 문서 전체에 적용된다(쪽 설정과 같은 값). */
+export function FontPicker({ options, onChange }: { options: Options; onChange: (o: Options) => void }) {
+  const sizes = SIZES.includes(options.font_size) ? SIZES : [...SIZES, options.font_size].sort((a, b) => a - b);
+  return (
+    <>
+      <select
+        className="font-pick"
+        aria-label={t("글꼴")}
+        title={t("문서 전체 글꼴")}
+        value={options.font}
+        onChange={(e) => onChange({ ...options, font: e.target.value as FontKey })}
+        style={{ fontFamily: FONT_CSS[options.font] }}
+      >
+        {FONTS.map((f) => (
+          <option key={f} value={f} style={{ fontFamily: FONT_CSS[f] }}>
+            {fontShort(f)}
+          </option>
+        ))}
+      </select>
+      <select
+        className="size-pick"
+        aria-label={t("글자 크기")}
+        title={t("문서 전체 글자 크기")}
+        value={String(options.font_size)}
+        onChange={(e) => onChange({ ...options, font_size: Number(e.target.value) })}
+      >
+        {sizes.map((s) => (
+          <option key={s} value={String(s)}>
+            {s}pt
+          </option>
+        ))}
+      </select>
+    </>
+  );
+}
+
 export function SettingsDialog({ options, onChange, onClose }: { options: Options; onChange: (o: Options) => void; onClose: () => void }) {
   const set = <K extends keyof Options>(key: K, value: Options[K]) => onChange({ ...options, [key]: value });
   return (

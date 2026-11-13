@@ -5,6 +5,8 @@ POST /api/md/preview-pages  MD → PDF 를 실제로 그려 본 쪽 배치      
 POST /api/md/preview-pdf    MD → PDF (iframe 미리보기)
 POST /api/md/pdf            MD → PDF (내려받기)
 POST /api/md/revise         MD + 지시 → AI 가 고친 MD
+POST /api/images            그림 한 장 → 그림 저장소(R2)에 올리고 주소를 준다   (R2 설정이 있을 때만)
+GET  /i/<이름>              올린 그림
      /mcp                   MCP(Streamable HTTP) — mcp_server.py
 그 밖의 경로는 web/dist 의 정적 사이트.
 """
@@ -13,10 +15,12 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import re
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -24,8 +28,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
-from . import __version__, ai, core, i18n, mcp_server
+from . import __version__, ai, core, i18n, images, mcp_server
 from .i18n import t
 from .render import RenderError
 from .settings import Settings
@@ -35,6 +40,9 @@ PAGES = {"": "index.html", "edit": "edit.html", "syntax": "syntax.html", "develo
 # 한국어 쪽은 뿌리(/), 다른 언어는 /<언어>/ 아래에 같은 이름으로 있다(web/en/*.html).
 PAGE_LANGS = tuple(lang for lang in i18n.LANGS if lang != i18n.DEFAULT)
 _TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+_FETCH_LIMIT = 40_000_000  # PDF 한 번에 저장소에서 꺼내는 그림 합계
+_IMMUTABLE = "public, max-age=31536000, s-maxage=31536000, immutable"
+log = logging.getLogger("mditor")
 
 
 class PreviewIn(BaseModel):
@@ -119,8 +127,19 @@ def _safe_name(name: str | None, fallback: str) -> str:
     return stem or fallback
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def _mb(n: int) -> str:
+    return f"{n / 1_000_000:g}"
+
+
+def create_app(settings: Settings | None = None, store: images.Store | None = None) -> FastAPI:
+    """store: 그림 저장소. 주지 않으면 R2 설정이 있을 때 R2 를 쓰고, 없으면 그림 올리기를 끈다."""
     settings = settings or Settings()
+    if store is None and settings.r2_enabled:
+        store = images.Cached(
+            images.R2Store(settings.r2_account_id, settings.r2_access_key_id, settings.r2_secret_access_key, settings.r2_bucket)
+        )
+    elif store is None and settings.image_dir:
+        store = images.DirStore(Path(settings.image_dir))
     limiter = _Limiter()
     mcp = mcp_server.build(settings, remote=True)
     mcp_app = mcp.streamable_http_app(
@@ -182,6 +201,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "aiMaxChars": settings.ai_max_md_chars,
             "maxChars": settings.max_md_chars,
             "maxImageBytes": settings.max_image_bytes,
+            "images": store is not None,  # 그림을 저장소에 올린다(아니면 문서와 함께 브라우저에 둔다)
+            "maxImageFileBytes": settings.max_image_file_bytes,
+            "maxUploadBytes": settings.max_upload_bytes,
             "publicUrl": settings.public_url,
             "contact": settings.contact_email,
             "ads": {
@@ -218,8 +240,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         doc, result = _doc(body)
         if doc is None:
             return {"ok": False, "error": result["error"]}
-        images = core.decode_images(body.images, settings.max_image_bytes)
-        return {"ok": True, "layout": core.layout(doc, body.options, images, body.image_sizes)}
+        pics = core.decode_images(body.images, settings.max_image_bytes)
+        sizes = {**(body.image_sizes or {}), **images.sizes(doc)}  # 올린 그림은 이름에 크기가 있다
+        return {"ok": True, "layout": core.layout(doc, body.options, pics, sizes)}
 
     def _pdf(body: RenderIn, request: Request, disposition: str) -> Response:
         guard(request)
@@ -227,8 +250,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if doc is None:
             err = result["error"]
             raise HTTPException(422, t("{line}번째 줄: {message}", line=err["line"], message=err["message"]))
-        images = core.decode_images(body.images, settings.max_image_bytes)
-        data, lay = core.pdf(doc, body.options, images, body.image_sizes)
+        pics = core.decode_images(body.images, settings.max_image_bytes)
+        try:
+            pics.update(images.fetch(doc, store, _FETCH_LIMIT))
+        except Exception:
+            log.exception("그림 저장소에서 그림을 꺼내지 못했습니다")
+        sizes = {**(body.image_sizes or {}), **images.sizes(doc)}
+        data, lay = core.pdf(doc, body.options, pics, sizes)
         name = _safe_name(body.filename or doc.get("title"), "문서") + ".pdf"
         return Response(
             data,
@@ -257,6 +285,52 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not limiter.check("ai", client_ip(request), settings.ai_daily_limit, 86_400):
             raise HTTPException(429, t("AI 수정은 하루 {n}번까지 쓸 수 있습니다.", n=settings.ai_daily_limit))
         return ai.revise(settings, core.clean(body.md, settings.max_md_chars), body.instruction, body.base)
+
+    @app.post("/api/images")
+    async def upload_image(request: Request) -> dict[str, Any]:
+        """그림 한 장(본문 = 그림 파일 바이트)을 저장소에 올린다. {url, name, w, h}."""
+        guard(request)
+        if store is None:
+            raise HTTPException(404, t("그림 올리기가 꺼져 있습니다."))
+        origin = (request.headers.get("origin") or "").rstrip("/")
+        if origin and settings.public_url and origin != settings.public_url:
+            raise HTTPException(403, t("이 사이트의 편집기에서만 그림을 올릴 수 있습니다."))
+        data = await request.body()
+        if len(data) > settings.max_upload_bytes:
+            raise HTTPException(413, t("그림이 너무 큽니다. 줄여서 한 장에 {mb}MB 까지 올릴 수 있습니다.", mb=_mb(settings.max_upload_bytes)))
+        if not data:
+            raise HTTPException(400, t("그림 파일을 읽지 못했습니다."))
+        if not limiter.check("upload", client_ip(request), settings.upload_daily_limit, 86_400):
+            raise HTTPException(429, t("그림은 하루 {n}장까지 올릴 수 있습니다.", n=settings.upload_daily_limit))
+        try:
+            clean, ext, w, h = await run_in_threadpool(images.normalize, data)
+        except images.BadImage as e:
+            raise HTTPException(415, str(e)) from e
+        name = images.name_for(clean, ext, w, h)
+        try:
+            await run_in_threadpool(store.put, name, clean, images.MEDIA[ext])
+        except Exception as e:
+            log.exception("그림 저장소에 올리지 못했습니다")
+            raise HTTPException(502, t("그림을 올리지 못했습니다. 잠시 뒤에 다시 해 주세요.")) from e
+        return {"url": f"{settings.public_url}/i/{name}", "name": name, "w": w, "h": h}
+
+    @app.get("/i/{name}", include_in_schema=False)
+    def image(name: str) -> Response:
+        """올린 그림. 이름이 내용의 해시라 바뀌지 않는다 — 브라우저와 앞단 CDN 이 오래 담아 둔다."""
+        if store is None or not images.valid_name(name):
+            raise HTTPException(404, t("찾을 수 없습니다."))
+        try:
+            data = store.get(name)
+        except Exception as e:
+            log.exception("그림 저장소에서 그림을 꺼내지 못했습니다")
+            raise HTTPException(502, t("그림을 불러오지 못했습니다.")) from e
+        if data is None:
+            raise HTTPException(404, t("찾을 수 없습니다."))
+        return Response(
+            data,
+            media_type=images.MEDIA[name.rsplit(".", 1)[1]],
+            headers={"Cache-Control": _IMMUTABLE, "Content-Security-Policy": "default-src 'none'; sandbox"},
+        )
 
     @app.get("/d/{token}/{name}", include_in_schema=False)
     def download(token: str, name: str) -> Response:
@@ -305,7 +379,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/robots.txt", include_in_schema=False)
     def robots() -> Response:
-        lines = ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /d/", "Disallow: /mcp"]
+        lines = ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /d/", "Disallow: /i/", "Disallow: /mcp"]
         if settings.public_url:
             lines.append(f"Sitemap: {settings.public_url}/sitemap.xml")
         return PlainTextResponse("\n".join(lines) + "\n")

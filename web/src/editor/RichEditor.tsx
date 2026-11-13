@@ -1,13 +1,15 @@
 import { Extension, InputRule } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { t } from "../lib/i18n";
+import { imageSrc } from "../lib/images";
 import { addRowBelow, blockKind, mergeSafe, setBlockKind, setColumnAlign, toggleCellShade, type BlockKind, type CellAlign } from "../lib/rich/commands";
 import type { Dialect } from "../lib/inline";
 import { fromPM, toPM } from "../lib/rich/convert";
 import { richExtensions } from "../lib/rich/schema";
 import type { StoredImage } from "../lib/store";
-import type { Doc } from "../lib/types";
+import type { Doc, Options } from "../lib/types";
+import { FontPicker } from "./Dialogs";
 import type { Command } from "@tiptap/pm/state";
 
 /** 문단 맨 앞에서 MD 기호를 치면 그 블록으로 바꾼다(- 목록, ## 큰 제목, ### 작은 제목, > 비고). */
@@ -43,14 +45,14 @@ const KINDS: [BlockKind, string][] = [
  * 문서 탭 — 보이는 모양 그대로 고친다.
  * 서버가 되읽은 문서(doc)로 열고, 고칠 때마다 MD 로 직렬화해 올린다. 밖에서 MD 가 바뀌면 부모가 key 를 올려 새로 연다.
  */
-export default function RichEditor({ doc, dialect, images, onChange, onPickImage, register }: { doc: Doc; dialect: Dialect; images: Record<string, StoredImage>; onChange: (md: string) => void; onPickImage: () => void; register: (insertImage: ((name: string) => void) | null) => void }) {
+export default function RichEditor({ doc, dialect, images, options, onOptions, onChange, onPickImage, register }: { doc: Doc; dialect: Dialect; images: Record<string, StoredImage>; options: Options; onOptions: (o: Options) => void; onChange: (md: string) => void; onPickImage: () => void; register: (insertImage: ((name: string) => void) | null) => void }) {
   const imagesRef = useRef(images);
   imagesRef.current = images;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const dialectRef = useRef(dialect); // 태그를 쓸 언어 — 서버가 되읽을 때와 같아야 한다
   dialectRef.current = dialect;
-  const extensions = useMemo(() => [...richExtensions({ resolveImage: (src) => (src.startsWith("data:") ? src : imagesRef.current[src]?.data) }), Shortcuts], []);
+  const extensions = useMemo(() => [...richExtensions({ resolveImage: (src) => imageSrc(src, imagesRef.current) }), Shortcuts], []);
   const content = useMemo(() => toPM(doc), [doc]);
 
   const editor = useEditor({
@@ -114,10 +116,15 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
   const color = (name: string) => () => (ui.color === name ? editor.chain().focus().unsetMark("mdColor").run() : editor.chain().focus().setMark("mdColor", { name }).run());
   const align = (a: CellAlign) => pm(setColumnAlign(a));
   const ga = t("가"); // 서식 단추의 보기 글자
+  // 단추를 눌러도 초점이 편집기에 남게 한다 — 초점이 단추로 옮겨 가는 틈에 고른 칸(칸 선택)이 글자 선택으로 바뀌어
+  // 칸 합치기가 듣지 않는 일이 있었다. 고르는 칸(select)은 눌러야 열리므로 막지 않는다.
+  const keepFocus = (e: ReactMouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+  };
 
   return (
     <div className="rich">
-      <div className="tools" role="toolbar" aria-label={t("문서 서식")}>
+      <div className="tools" role="toolbar" aria-label={t("문서 서식")} onMouseDown={keepFocus}>
         <select
           aria-label={t("블록 종류")}
           value={ui.kind ?? ""}
@@ -135,6 +142,7 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
             </option>
           ))}
         </select>
+        <FontPicker options={options} onChange={onOptions} />
         <span className="sep" />
         <button type="button" className="tool" aria-pressed={ui.bold} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleBold().run()} title={t("굵게 (Ctrl+B)")}><b className="ga">{ga}</b></button>
         <button type="button" className="tool" aria-pressed={ui.italic} disabled={!ui.marks} onClick={() => editor.chain().focus().toggleItalic().run()} title={t("기울임 (Ctrl+I)")}><i className="ga">{ga}</i></button>
@@ -152,7 +160,7 @@ export default function RichEditor({ doc, dialect, images, onChange, onPickImage
         <button type="button" className="tool word" disabled={!ui.canRedo} onClick={() => editor.chain().focus().redo().run()} title={t("다시 하기")}>{t("다시")}</button>
       </div>
       {ui.inTable ? (
-        <div className="tools table-tools" role="toolbar" aria-label={t("표")} ref={tableBar}>
+        <div className="tools table-tools" role="toolbar" aria-label={t("표")} ref={tableBar} onMouseDown={keepFocus}>
           <span className="label">{t("표")}</span>
           <button type="button" className="tool word" onClick={pm(addRowBelow)}>{t("아래에 행")}</button>
           <button type="button" className="tool word" onClick={() => editor.chain().focus().addColumnAfter().run()}>{t("오른쪽에 열")}</button>

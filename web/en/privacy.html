@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Privacy Policy — MDitor LaSee</title>
-    <meta name="description" content="What information MDitor LaSee handles and how. Documents are stored only in your browser and are never kept on the server." />
+    <meta name="description" content="What information MDitor LaSee handles and how. Documents are stored only in your browser and are never kept on the server. Images you add are uploaded to image storage." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="%PUBLIC_URL%/en/privacy" />
@@ -24,12 +24,13 @@
     <main>
       <article class="prose">
         <h1>Privacy Policy</h1>
-        <p class="lede">MDitor LaSee works without an account and does not keep your documents on its server. Below is the information the service handles and how it is processed.</p>
+        <p class="lede">MDitor LaSee works without an account and does not keep your documents on its server. Images you add to a document, however, are uploaded to the service’s image storage. Below is the information the service handles and how it is processed.</p>
         <div class="note-box">This English translation is provided for convenience. If it differs from the <a href="/privacy" hreflang="ko">Korean version</a>, the Korean version prevails.</div>
 
         <h2>Documents and images</h2>
         <ul>
-          <li>Documents, versions, attached images and autosaved drafts are stored only in your browser (IndexedDB and localStorage). The operator cannot see them.</li>
+          <li>Documents, versions and autosaved drafts are stored only in your browser (IndexedDB and localStorage). The operator cannot see them.</li>
+          <li>Images you add in the editor are uploaded to the service’s image storage (Cloudflare R2), and the document contains the image’s address. When an image is uploaded it is redrawn, which removes extra information such as the location where a photo was taken (EXIF). Image addresses are made hard to guess, but anyone who knows an address can see the image. Don’t add sensitive images.</li>
           <li>To build the preview, work out the pages and make PDFs, the document’s content is sent to the server. The server processes the request, returns the result, and does not keep the content.</li>
           <li>PDFs made with the MCP tool <code>render_pdf</code> are kept on the server temporarily, for up to 30 minutes, so the download link works, and are then deleted.</li>
           <li>A link made with ‘Copy link with document’ carries the document’s content after the # in the URL. That part is never sent to the server. Anyone who has the link can read the document, so share it with care.</li>
@@ -51,6 +52,7 @@
 
         <h2>Retention and deletion</h2>
         <p>Documents stored in your browser are deleted when you delete them in ‘My documents’ or clear the site’s data in your browser. There are no documents on the server to delete.</p>
+        <p>Images uploaded to the image storage remain even after you delete a document, because the same image can be used by several documents. To have an uploaded image removed, send its address to the contact below.</p>
 
         <h2>Contact</h2>
         <p>Questions about this policy: <span data-contact>Contact details are coming soon.</span></p>

@@ -306,7 +306,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 2px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--line);
   background: #fbfcfc;
 }
@@ -352,17 +352,26 @@ body {
 .tools .sep {
   width: 1px;
   height: 18px;
-  margin: 0 5px;
+  margin: 0 4px;
   background: var(--line);
 }
 
 .tools select {
   height: 30px;
-  padding: 0 6px;
+  padding: 0 2px 0 4px;
   border: 1px solid var(--line);
   border-radius: 5px;
   background: #fff;
   font-size: 13.5px;
+}
+
+/* 글꼴 칸은 가장 긴 이름(옵션)만큼 넓어지므로 고정한다 — 그래야 넓은 화면에서 도구 막대가 한 줄에 든다 */
+.tools select.font-pick {
+  width: 92px;
+}
+
+html[lang="en"] .tools select.font-pick {
+  width: auto;
 }
 
 .tools.table-tools {

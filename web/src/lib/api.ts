@@ -10,6 +10,10 @@ export type Config = {
   aiMaxChars: number;
   maxChars: number;
   maxImageBytes: number;
+  /** 그림을 저장소(R2)에 올린다. 아니면 문서와 함께 브라우저에 둔다. */
+  images?: boolean;
+  maxImageFileBytes?: number;
+  maxUploadBytes?: number;
   publicUrl: string;
   contact: string;
   ads: { client: string; content: string; editor: string };
@@ -80,6 +84,19 @@ export async function pages(input: RenderInput, signal?: AbortSignal): Promise<P
 export async function pdf(input: RenderInput, download: boolean, signal?: AbortSignal): Promise<{ blob: Blob; pages: number }> {
   const res = await post(download ? "/api/md/pdf" : "/api/md/preview-pdf", input, signal);
   return { blob: await res.blob(), pages: Number(res.headers.get("X-Mditor-Pages") ?? 0) };
+}
+
+export type Uploaded = { url: string; name: string; w: number; h: number };
+
+/** 그림 한 장을 저장소에 올린다(본문 = 줄인 그림 파일). */
+export async function uploadImage(blob: Blob): Promise<Uploaded> {
+  let res: Response;
+  try {
+    res = await fetch("/api/images", { method: "POST", headers: { "Content-Type": blob.type, "Accept-Language": lang }, body: blob });
+  } catch {
+    throw new ApiError(t("서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요."), 0);
+  }
+  return res.ok ? res.json() : fail(res);
 }
 
 export type Revision = {

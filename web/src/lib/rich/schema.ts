@@ -163,6 +163,10 @@ const MdImage = Node.create<{ resolve: ImageResolver }>({
       caption.placeholder = "그림 설명";
       caption.setAttribute("aria-label", "그림 설명");
       dom.append(img, missing, caption);
+      img.addEventListener("error", () => {
+        img.hidden = true; // 올린 그림을 불러오지 못했다
+        missing.hidden = false;
+      });
 
       const paint = () => {
         const url = this.options.resolve(current.attrs.src);

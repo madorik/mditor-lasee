@@ -37,6 +37,16 @@ EN: dict[str, str] = {
     "요청이 너무 큽니다.": "The request is too large.",
     "요청이 너무 잦습니다. 잠시 뒤에 다시 해 주세요.": "Too many requests. Please try again in a moment.",
     "링크가 만료되었습니다.": "This link has expired.",
+    # 그림 올리기
+    "PNG · JPEG · GIF · WebP 그림만 올릴 수 있습니다.": "Only PNG, JPEG, GIF and WebP images can be uploaded.",
+    "그림이 너무 큽니다. 가로 · 세로 {n}px 까지 올릴 수 있습니다.": "The image is too large. Width and height can be up to {n}px.",
+    "그림 파일을 읽지 못했습니다.": "Couldn’t read the image file.",
+    "그림 올리기가 꺼져 있습니다.": "Image upload is turned off.",
+    "이 사이트의 편집기에서만 그림을 올릴 수 있습니다.": "Images can only be uploaded from this site’s editor.",
+    "그림이 너무 큽니다. 줄여서 한 장에 {mb}MB 까지 올릴 수 있습니다.": "The image is too large. After resizing, each image can be up to {mb} MB.",
+    "그림은 하루 {n}장까지 올릴 수 있습니다.": "You can upload up to {n} images a day.",
+    "그림을 올리지 못했습니다. 잠시 뒤에 다시 해 주세요.": "Couldn’t upload the image. Please try again in a moment.",
+    "그림을 불러오지 못했습니다.": "Couldn’t load the image.",
     "찾을 수 없습니다.": "Not found.",
     # PDF
     "문서를 쪽에 배치하지 못했습니다. 한 쪽보다 큰 그림이나 표 머리글이 있는지 확인하세요.": (

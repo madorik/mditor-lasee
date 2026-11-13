@@ -34,7 +34,7 @@ export default defineConfig({
   },
   server: {
     fs: { allow: [".."] }, // 예시 문서(src/mditor/data/example.md)를 서버와 같이 쓴다
-    proxy: { "/api": "http://127.0.0.1:8000", "/mcp": "http://127.0.0.1:8000", "/d": "http://127.0.0.1:8000" },
+    proxy: { "/api": "http://127.0.0.1:8000", "/mcp": "http://127.0.0.1:8000", "/d": "http://127.0.0.1:8000", "/i": "http://127.0.0.1:8000" },
   },
   test: { environment: "node", include: ["src/**/*.test.ts"] },
 });

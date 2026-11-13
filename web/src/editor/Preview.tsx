@@ -1,5 +1,6 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { t } from "../lib/i18n";
+import { imageSrc } from "../lib/images";
 import { cellShade, INLINE_COLORS, segments, SHADE } from "../lib/inline";
 import { pageBreaks, type BlockPages } from "../lib/pages";
 import type { StoredImage } from "../lib/store";
@@ -84,6 +85,18 @@ function TableView({ b, pages }: { b: TableBlock; pages: BlockPages | undefined 
   );
 }
 
+/** 그림. 올린 그림을 불러오지 못하면(지워졌거나 저장소가 꺼져 있으면) 없다고 알린다. */
+function FigureView({ src, caption, images }: { src: string; caption: string; images: Record<string, StoredImage> }) {
+  const url = imageSrc(src, images);
+  const [broken, setBroken] = useState<string | null>(null);
+  return (
+    <figure className="md-image">
+      {url && broken !== url ? <img src={url} alt={caption} onError={() => setBroken(url)} /> : <div className="image-missing">{t("그림 ‘{src}’ 이 이 문서에 없습니다", { src })}</div>}
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
+
 function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages | undefined; change: string | undefined; images: Record<string, StoredImage> }) {
   let body: ReactNode = null;
   if (b.kind === "text") {
@@ -108,13 +121,7 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
   } else if (b.kind === "table") {
     body = <TableView b={b} pages={pages} />;
   } else {
-    const src = b.src.startsWith("data:") ? b.src : images[b.src]?.data;
-    body = (
-      <figure className="md-image">
-        {src ? <img src={src} alt={b.caption} /> : <div className="image-missing">{t("그림 ‘{src}’ 이 이 문서에 없습니다", { src: b.src })}</div>}
-        {b.caption && <figcaption>{b.caption}</figcaption>}
-      </figure>
-    );
+    body = <FigureView src={b.src} caption={b.caption} images={images} />;
   }
   return (
     <>

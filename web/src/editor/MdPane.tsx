@@ -2,12 +2,13 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref 
 import { t } from "../lib/i18n";
 import { tag, type Dialect } from "../lib/inline";
 import { insertBreak, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
-import type { MdError } from "../lib/types";
+import type { MdError, Options } from "../lib/types";
+import { FontPicker } from "./Dialogs";
 
 export type MdPaneHandle = { insert: (text: string) => void };
 
 /** MD 탭 — 글 그대로 고친다. 오류가 있으면 줄 번호와 함께 알려 준다. */
-export function MdPane({ value, dialect, onChange, error, onPickImage, handle }: { value: string; dialect: Dialect; onChange: (v: string) => void; error: MdError | null; onPickImage: () => void; handle?: Ref<MdPaneHandle> }) {
+export function MdPane({ value, dialect, onChange, error, options, onOptions, onPickImage, handle }: { value: string; dialect: Dialect; onChange: (v: string) => void; error: MdError | null; options: Options; onOptions: (o: Options) => void; onPickImage: () => void; handle?: Ref<MdPaneHandle> }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => value.split("\n").length, [value]);
@@ -81,6 +82,8 @@ export function MdPane({ value, dialect, onChange, error, onPickImage, handle }:
   return (
     <div className="mdpane">
       <div className="tools" role="toolbar" aria-label={t("글 서식")}>
+        <FontPicker options={options} onChange={onOptions} />
+        <span className="sep" />
         <button type="button" className="tool word" onClick={prefix("## ")} title={t("큰 제목(섹션)")}>{t("큰 제목")}</button>
         <button type="button" className="tool word" onClick={prefix("### ")} title={t("작은 제목(블록)")}>{t("작은 제목")}</button>
         <button type="button" className="tool word" onClick={prefix("- ")} title={t("목록")}>{t("목록")}</button>
