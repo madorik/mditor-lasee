@@ -10,9 +10,9 @@
   },
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "mditor.watalabs.com" }],
-      "destination": "https://lasee.watalabs.com/:path*",
+      "destination": "https://lasee.watalabs.com/$1",
       "statusCode": 308
     }
   ]
