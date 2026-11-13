@@ -1,0 +1,11 @@
+# 로컬에서 운영과 같은 모양으로 띄워 본다:  docker compose up --build
+services:
+  mditor:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MDITOR_PUBLIC_URL: ${MDITOR_PUBLIC_URL:-http://localhost:8000}

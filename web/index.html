@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDitor — 쪽 경계까지 PDF 와 같은 Markdown 문서 편집기</title>
+    <meta name="description" content="보고서를 보이는 모양 그대로 고치고, 원본은 Markdown 으로 남깁니다. 화면 미리보기의 쪽 경계는 PDF 를 실제로 그려 본 자리라 PDF 와 똑같습니다. 무료, 회원 가입 없음." />
+    <meta property="og:title" content="MDitor — 쪽 경계까지 PDF 와 같은 Markdown 문서 편집기" />
+    <meta property="og:description" content="보이는 대로 고치고, 원본은 Markdown 으로. 미리보기의 쪽 경계가 PDF 와 같습니다." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="%PUBLIC_URL%/" />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/syntax">문법</a>
+      <a class="link hide-s" href="/developers">개발자</a>
+      <a class="button small" href="/edit">편집기 열기</a>
+    </header>
+
+    <main>
+      <section class="wrap hero">
+        <div>
+          <h1>화면에서 쪽이 넘어간 자리에서, PDF 도 넘어갑니다</h1>
+          <p class="lede">
+            MDitor 는 보고서를 쓰는 문서 편집기입니다. 보이는 모양 그대로 고치고, 원본은 Markdown 으로 남습니다.
+            미리보기의 쪽 경계는 짐작한 것이 아니라 PDF 를 실제로 그려 본 자리입니다.
+          </p>
+          <div class="actions">
+            <a class="button" href="/edit">편집기 열기</a>
+            <a class="button ghost" href="/syntax">문법 보기</a>
+          </div>
+          <p class="fine">무료입니다. 가입하지 않아도 되고, 문서는 내 브라우저에만 보관됩니다.</p>
+        </div>
+
+        <div class="demo" aria-hidden="true">
+          <pre class="demo-md"><b>###</b> 분기별 실적
+| 구분 | 2분기 | 3분기 |
+|:---|---:|---:|
+| 매출 | 1,643 | <b>**</b>1,840<b>**</b> |
+| 반품률 | 2.1% | <b>{빨강}</b>2.6%<b>{/빨강}</b> |
+<b>&gt;</b> 매출은 부가세를 뺀 금액이다.</pre>
+          <div class="demo-paper docstyle">
+            <h3>분기별 실적</h3>
+            <table>
+              <thead>
+                <tr><th style="text-align:left">구분</th><th style="text-align:right">2분기</th><th style="text-align:right">3분기</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>매출</td><td style="text-align:right">1,643</td><td style="text-align:right"><strong>1,840</strong></td></tr>
+                <tr><td>반품률</td><td style="text-align:right">2.1%</td><td style="text-align:right"><span style="color:#c00000">2.6%</span></td></tr>
+              </tbody>
+            </table>
+            <div class="md-note">매출은 부가세를 뺀 금액이다.</div>
+            <div class="pagemark"><span>2쪽</span></div>
+            <h2 style="margin-top:0">3. 고객 응대</h2>
+            <h3 style="margin-top:0">문의 유형</h3>
+            <div class="md-list">
+              <div class="md-item">배송 지연·분실: 3,120건</div>
+              <div class="md-item" data-level="1">물류 센터 이전으로 9월 둘째 주에 몰렸다.</div>
+              <div class="md-item">결제·환불: 1,480건</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="wrap">
+          <h2>같은 문서를 고치는 두 가지 방법, 확인하는 두 가지 방법</h2>
+          <p class="intro">
+            왼쪽에서 고치고 오른쪽에서 확인합니다. 왼쪽은 ‘문서’ 와 ‘MD’, 오른쪽은 ‘화면’ 과 ‘PDF’ 로 바꿔 볼 수 있습니다.
+            어느 쪽에서 고쳐도 원본은 하나의 Markdown 입니다.
+          </p>
+          <ul class="rows3">
+            <li>
+              <div>
+                <h3>보이는 모양 그대로 고칩니다</h3>
+                <p>
+                  ‘문서’ 탭에서는 워드처럼 씁니다. 굵게·밑줄·글자 색을 입히고, 표에서 칸을 끌어 합치고, 열을 정렬합니다.
+                  워드나 엑셀에서 붙여 넣으면 이 문서에서 쓰는 서식만 남습니다.
+                </p>
+              </div>
+              <div class="sample paperlike docstyle" aria-hidden="true">
+                <div class="toolbar-shot" style="font-family:var(--font)">
+                  <span class="on"><b>가</b></span><span><s>가</s></span><span><u>가</u></span>
+                  <span><mark style="background:#d9d9d9;padding:0 3px">가</mark></span>
+                  <span style="color:#c00000">가</span><span style="color:#1f4e9b">가</span>
+                  <span style="font-size:13px">칸 합치기</span><span style="font-size:13px">오른쪽</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th rowspan="2">분야</th><th colspan="2">매출(백만 원)</th></tr>
+                    <tr><th>종이책</th><th>전자책</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>문학</td><td style="text-align:right"><strong>412</strong></td><td style="text-align:right">96</td></tr>
+                    <tr><td>기타</td><td style="text-align:right;background:#d9d9d9">184</td><td style="text-align:right">40</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>원본은 Markdown 입니다</h3>
+                <p>
+                  ‘MD’ 탭을 누르면 같은 문서가 글로 보입니다. 칸 합치기는 <code>&lt;</code> 와 <code>^</code>, 글자 색은 <code>{빨강}</code> 처럼
+                  Markdown 안에서 씁니다. 그래서 다른 Markdown 뷰어로 열어도 읽히고, 파일로 내려받아 어디에든 둘 수 있습니다.
+                </p>
+              </div>
+              <div class="sample">
+<pre>| 분야 | 매출(백만 원) | &lt; |
+| ^ | 종이책 | 전자책 |
+|:---|---:|---:|
+| 문학 | **412** | 96 |
+| 기타 | {음영}184{/음영} | 40 |</pre>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>쪽은 짐작하지 않습니다</h3>
+                <p>
+                  화면 높이로 쪽을 계산하면 글꼴과 줄바꿈이 달라 PDF 와 어긋납니다. MDitor 는 고칠 때마다 서버가 PDF 를 실제로 그려 보고,
+                  블록과 표의 행이 몇 쪽에 놓였는지를 화면에 알려 줍니다. 파란 점선이 그 자리입니다.
+                </p>
+              </div>
+              <div class="sample paperlike docstyle" aria-hidden="true">
+                <div class="md-list">
+                  <div class="md-item">택배사를 한 곳 더 계약해 배송 지연을 줄인다.</div>
+                  <div class="md-item">반품 사유를 주문 화면에서 바로 고르게 바꾼다.</div>
+                </div>
+                <div class="pagemark" style="margin-block:22px"><span>3쪽</span></div>
+                <div class="md-list">
+                  <div class="md-item">전자책 뷰어의 글꼴 설정을 개선한다.</div>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="ad-slot" hidden></div>
+
+      <section class="band desk">
+        <div class="wrap cols2">
+          <div>
+            <h2>AI 도 같은 글을 고칩니다</h2>
+            <p class="intro" style="margin-bottom:18px">
+              편집기 전용 형식이 따로 없습니다. 사람이 고치는 Markdown 을 AI 도 그대로 받아 고칩니다.
+              MCP 서버를 연결하면 Claude 같은 AI 에이전트가 문서를 쓰고, 문법을 검사하고, 쪽 배치를 확인하고, PDF 로 냅니다.
+            </p>
+            <a class="button ghost" href="/developers">개발자 안내 보기</a>
+          </div>
+          <div class="codebox">
+<pre data-fill>{
+  "mcpServers": {
+    "mditor": { "type": "http", "url": "{origin}/mcp" }
+  }
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="wrap">
+          <h2>자주 묻는 것</h2>
+          <dl class="qa" style="margin-top:28px">
+            <div>
+              <dt>문서는 어디에 저장되나요?</dt>
+              <dd>지금 쓰는 브라우저 안에만 저장됩니다. 서버는 미리보기와 PDF 를 만들 때 글을 잠깐 받아 처리할 뿐 보관하지 않습니다. 다른 기기로 옮기려면 MD 파일로 내려받으세요.</dd>
+            </div>
+            <div>
+              <dt>정말 무료인가요?</dt>
+              <dd>네. 광고로 운영합니다. 가입도 결제도 없습니다.</dd>
+            </div>
+            <div>
+              <dt>어떤 문서에 맞나요?</dt>
+              <dd>제목, 항목, 표가 반복되는 정형 문서에 맞습니다. 업무 보고서, 계획서, 회의록, 결과 보고서 같은 것들입니다. 자유로운 지면 배치가 필요한 문서에는 맞지 않습니다.</dd>
+            </div>
+            <div>
+              <dt>표가 한 쪽보다 길면 어떻게 되나요?</dt>
+              <dd>행 단위로 나뉘고 머리글이 다음 쪽에 다시 나옵니다. 어느 행에서 나뉘는지도 화면에 표시됩니다.</dd>
+            </div>
+            <div>
+              <dt>한자나 기호도 PDF 에 나오나요?</dt>
+              <dd>한글 11,172자와 한자 4,888자, 보고서에 자주 쓰는 기호(※ ① → ■ 등)가 나옵니다. 글꼴은 Pretendard 입니다.</dd>
+            </div>
+            <div>
+              <dt>저장하지 않고 창을 닫으면요?</dt>
+              <dd>쓰던 글은 브라우저에 임시로 남아, 다시 열면 이어서 쓸 수 있습니다. 저장할 때마다 판본이 남아 지난 내용으로 되돌릴 수도 있습니다.</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/syntax">문법</a>
+        <a href="/developers">개발자</a>
+        <a href="/privacy">개인정보처리방침</a>
+        <a href="/terms">이용약관</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>

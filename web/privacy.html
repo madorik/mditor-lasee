@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>개인정보처리방침 — MDitor</title>
+    <meta name="description" content="MDitor 가 다루는 정보와 처리 방식. 문서는 브라우저에만 저장되고 서버에 보관되지 않습니다." />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/privacy" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/syntax">문법</a>
+      <a class="link hide-s" href="/developers">개발자</a>
+      <a class="button small" href="/edit">편집기 열기</a>
+    </header>
+    <main>
+      <article class="prose">
+        <h1>개인정보처리방침</h1>
+        <p class="lede">MDitor 는 회원 가입 없이 쓰는 서비스이고, 이용자의 문서를 서버에 보관하지 않습니다. 아래는 서비스가 다루는 정보와 그 처리 방식입니다.</p>
+
+        <h2>문서와 그림</h2>
+        <ul>
+          <li>문서, 판본, 붙인 그림, 임시저장 글은 이용자의 브라우저(IndexedDB, localStorage)에만 저장됩니다. 운영자는 이 내용을 볼 수 없습니다.</li>
+          <li>미리보기, 쪽 계산, PDF 만들기를 위해 문서 내용이 서버로 전송됩니다. 서버는 요청을 처리해 결과를 돌려준 뒤 내용을 보관하지 않습니다.</li>
+          <li>MCP 의 <code>render_pdf</code> 로 만든 PDF 는 내려받기 링크를 위해 서버에 최대 30분 동안 임시로 보관한 뒤 지웁니다.</li>
+          <li>‘문서가 든 링크’ 는 문서 내용을 주소의 # 뒤에 담습니다. 이 부분은 서버로 전송되지 않습니다. 링크를 받은 사람은 문서를 볼 수 있으니 공유에 주의하세요.</li>
+        </ul>
+
+        <h2>AI 로 고치기</h2>
+        <p>이 기능을 쓸 때에만 문서 내용과 입력한 지시가 Anthropic 의 Claude API 로 전송되어 처리됩니다. 전송된 내용은 Anthropic 의 정책에 따라 처리됩니다. 민감한 내용이 든 문서에는 이 기능을 쓰지 마세요. 이 기능이 꺼져 있는 경우에는 전송이 일어나지 않습니다.</p>
+
+        <h2>접속 기록</h2>
+        <p>서비스 운영과 남용 방지를 위해 접속 IP 주소, 요청 시각, 요청 경로, 브라우저 정보가 서버와 호스팅 사업자의 기록에 남을 수 있습니다. 요청 횟수 제한을 위해 IP 주소를 메모리에서 잠시 셉니다.</p>
+
+        <h2>광고와 쿠키</h2>
+        <ul>
+          <li>이 서비스는 Google AdSense 광고를 게재합니다. Google 을 포함한 제3자 광고 사업자는 쿠키를 사용해 이용자의 이 사이트 및 다른 사이트 방문 기록을 바탕으로 광고를 게재할 수 있습니다.</li>
+          <li>이용자는 <a href="https://adssettings.google.com" rel="noopener">Google 광고 설정</a>에서 맞춤 광고를 끌 수 있고, <a href="https://www.aboutads.info" rel="noopener">aboutads.info</a> 에서 제3자 사업자의 맞춤 광고 쿠키를 거부할 수 있습니다.</li>
+          <li>Google 이 정보를 사용하는 방식은 <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">Google 의 안내</a>에서 볼 수 있습니다.</li>
+          <li>서비스 자체는 로그인이나 추적을 위한 쿠키를 쓰지 않습니다.</li>
+        </ul>
+
+        <h2>보관 기간과 삭제</h2>
+        <p>브라우저에 저장된 문서는 이용자가 ‘내 문서’ 에서 지우거나 브라우저의 사이트 데이터를 지우면 삭제됩니다. 서버에는 지울 문서가 없습니다.</p>
+
+        <h2>문의</h2>
+        <p>이 방침에 관한 문의: <span data-contact>운영자 문의처는 준비 중입니다.</span></p>
+        <p>이 방침은 서비스가 바뀌면 고칠 수 있으며, 바뀐 내용은 이 쪽에 올립니다.</p>
+      </article>
+    </main>
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/syntax">문법</a>
+        <a href="/developers">개발자</a>
+        <a href="/privacy">개인정보처리방침</a>
+        <a href="/terms">이용약관</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>

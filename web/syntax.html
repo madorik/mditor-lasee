@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>문법 안내 — MDitor</title>
+    <meta name="description" content="MDitor 문서의 Markdown 문법: 제목과 블록, 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙." />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/syntax" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/syntax" aria-current="page">문법</a>
+      <a class="link hide-s" href="/developers">개발자</a>
+      <a class="button small" href="/edit">편집기 열기</a>
+    </header>
+    <main>
+      <article class="prose">
+        <h1>문법 안내</h1>
+        <p class="lede">MDitor 문서는 Markdown 입니다. 일반 Markdown 뷰어로 열어도 읽히고, MDitor 는 같은 글을 보고서 모양으로 그려 PDF 로 냅니다. ‘문서’ 탭에서 고치면 이 문법으로 자동으로 써지니, 외우지 않아도 됩니다.</p>
+
+        <h2>뼈대</h2>
+        <div class="pair">
+          <figure><figcaption>쓰기</figcaption><div class="sample"><pre># 3분기 운영 보고
+
+## 1. 요약
+
+### 한눈에 보기
+- 매출이 12% 늘었다.
+  - 모바일 주문이 이끌었다.
+&gt; 부가세를 뺀 금액이다.
+
+정기 보고서의 본문 문단.</pre></div></figure>
+          <figure><figcaption>결과</figcaption><div class="sample paperlike docstyle">
+            <h1 style="font-size:1.5em">3분기 운영 보고</h1>
+            <h2>1. 요약</h2>
+            <h3>한눈에 보기</h3>
+            <div class="md-list"><div class="md-item">매출이 12% 늘었다.</div><div class="md-item" data-level="1">모바일 주문이 이끌었다.</div></div>
+            <div class="md-note">부가세를 뺀 금액이다.</div>
+            <p>정기 보고서의 본문 문단.</p>
+          </div></figure>
+        </div>
+        <table class="ref">
+          <thead><tr><th>쓰기</th><th>뜻</th></tr></thead>
+          <tbody>
+            <tr><td><code># 제목</code></td><td>문서 제목. 맨 첫 줄에 한 번 씁니다(없어도 됩니다).</td></tr>
+            <tr><td><code>## 제목</code></td><td>큰 제목. 문서를 섹션으로 나눕니다.</td></tr>
+            <tr><td><code>### 제목</code></td><td>작은 제목. 바로 아래 본문 하나와 한 덩어리(블록)가 됩니다.</td></tr>
+            <tr><td><code>- 항목</code></td><td>목록. 앞에 공백 2칸을 둘 때마다 한 단계 아래 항목이 됩니다(3단계까지).</td></tr>
+            <tr><td><code>&gt; 비고</code></td><td>블록 맨 아래에 작은 글씨로 붙는 설명. 줄마다 하나입니다.</td></tr>
+            <tr><td>그냥 쓴 줄</td><td>문단. 한 줄이 한 문단입니다.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>블록</strong>은 제목(<code>###</code>) + 본문 하나(문단·목록·표·그림) + 비고(<code>&gt;</code>)입니다. PDF 에서 블록은 쪽이 넘어갈 때 통째로 다음 쪽으로 갑니다. 제목 없이 본문만 써도 블록이 되고, 블록 사이는 빈 줄 하나로 띄웁니다.</p>
+        <div class="note-box"><code>####</code> 이하 제목은 작은 제목으로 읽습니다. 번호 목록(<code>1.</code>)·코드 블록·링크 문법은 없습니다. 번호는 글자로 쓰면 됩니다.</div>
+
+        <h2>글 서식</h2>
+        <table class="ref">
+          <thead><tr><th>쓰기</th><th>결과</th></tr></thead>
+          <tbody>
+            <tr><td><code>**굵게**</code></td><td><strong>굵게</strong></td></tr>
+            <tr><td><code>~~취소선~~</code></td><td><s>취소선</s></td></tr>
+            <tr><td><code>{밑줄}밑줄{/밑줄}</code></td><td><u>밑줄</u></td></tr>
+            <tr><td><code>{음영}음영{/음영}</code></td><td><mark style="background:#d9d9d9">음영</mark></td></tr>
+            <tr><td><code>{빨강}빨강{/빨강}</code> <code>{파랑}…</code> <code>{회색}…</code></td><td><span style="color:#c00000">빨강</span> <span style="color:#1f4e9b">파랑</span> <span style="color:#7f7f7f">회색</span></td></tr>
+            <tr><td><code>첫 줄&lt;br&gt;둘째 줄</code></td><td>첫 줄<br />둘째 줄</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>**</code> 와 <code>~~</code> 는 여는 기호 <strong>뒤</strong>와 닫는 기호 <strong>앞</strong>이 공백이 아니어야 짝이 됩니다. <code>** 글 **</code> 은 서식이 아닙니다.</li>
+          <li>짝 없는 기호는 글자 그대로 남습니다. 각주 표시 <code>1.31**</code> 를 그냥 써도 됩니다.</li>
+          <li>기호를 글자로 쓰려면 앞에 <code>\</code> 를 붙입니다: <code>\*\*</code>, <code>\{빨강}</code>, <code>\&lt;br&gt;</code>.</li>
+          <li>제목과 그림 설명에는 서식을 쓰지 않습니다.</li>
+        </ul>
+
+        <h2>표</h2>
+        <div class="pair">
+          <figure><figcaption>쓰기</figcaption><div class="sample"><pre>| 분야 | 매출(백만 원) | &lt; | 비중 |
+| ^ | 종이책 | 전자책 | ^ |
+|:---|---:|---:|:---:|
+| 문학 | 412 | 96 | 27.6% |
+| 기타 | {음영}184{/음영} | 40 | 12.2% |</pre></div></figure>
+          <figure><figcaption>결과</figcaption><div class="sample paperlike docstyle">
+            <table>
+              <thead>
+                <tr><th rowspan="2" style="text-align:left">분야</th><th colspan="2">매출(백만 원)</th><th rowspan="2">비중</th></tr>
+                <tr><th style="text-align:right">종이책</th><th style="text-align:right">전자책</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>문학</td><td style="text-align:right">412</td><td style="text-align:right">96</td><td style="text-align:center">27.6%</td></tr>
+                <tr><td>기타</td><td style="text-align:right;background:#d9d9d9">184</td><td style="text-align:right">40</td><td style="text-align:center">12.2%</td></tr>
+              </tbody>
+            </table>
+          </div></figure>
+        </div>
+        <ul>
+          <li>구분선(<code>|---|</code>) <strong>위</strong>가 머리글입니다. 머리글은 여러 줄일 수 있고, 표가 쪽을 넘어가면 다음 쪽에 다시 나옵니다.</li>
+          <li>구분선으로 열 정렬을 정합니다: <code>:---</code> 왼쪽, <code>:---:</code> 가운데, <code>---:</code> 오른쪽.</li>
+          <li><strong>칸 합치기</strong>: 칸에 <code>&lt;</code> 만 있으면 왼쪽 칸과, <code>^</code> 만 있으면 위 칸과 합칩니다. 행마다 칸 수는 그대로 둡니다. 머리글과 본문은 따로 합치고, 합친 모양이 직사각형이 아니면 합쳐지지 않습니다.</li>
+          <li><strong>칸 배경</strong>: 칸 내용 전체를 <code>{음영}…{/음영}</code> 으로 감쌉니다.</li>
+          <li>칸 안의 <code>|</code> 는 <code>\|</code>, 줄바꿈은 <code>&lt;br&gt;</code> 입니다. <code>&lt;</code> 나 <code>^</code> 한 글자만 든 칸을 글자로 쓰려면 <code>\&lt;</code>, <code>\^</code> 로 씁니다.</li>
+          <li>모든 행의 칸 수는 머리글과 같아야 합니다. 모자라면 빈 칸으로 채워지고, 넘치면 그 줄 번호와 함께 오류로 알려 줍니다.</li>
+        </ul>
+
+        <h2>그림</h2>
+        <p><code>![설명](이름)</code> 을 한 줄에 혼자 씁니다. 편집기에서 ‘그림’ 을 눌러 붙이면 이름이 자동으로 들어갑니다. 설명은 그림 아래에 나옵니다. 그림은 문서와 함께 브라우저에 보관됩니다.</p>
+
+        <h2>쪽</h2>
+        <ul>
+          <li>쪽은 PDF 를 실제로 그려 본 결과로 정해집니다. 화면 미리보기의 파란 점선(‘2쪽’)이 PDF 에서 쪽이 넘어가는 자리입니다.</li>
+          <li>블록은 남은 자리에 안 들어가면 통째로 다음 쪽으로 갑니다. 한 쪽보다 큰 표는 행 단위로 나뉘고 머리글이 반복됩니다.</li>
+          <li>‘문서 → 쪽 설정’ 에서 용지·방향·여백·글자 크기를 바꾸고, 큰 제목마다 새 쪽에서 시작하게 할 수 있습니다.</li>
+        </ul>
+        <p><a class="button" href="/edit" style="color:#fff">편집기에서 써 보기</a></p>
+      </article>
+      <div class="ad-slot" hidden></div>
+    </main>
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/syntax">문법</a>
+        <a href="/developers">개발자</a>
+        <a href="/privacy">개인정보처리방침</a>
+        <a href="/terms">이용약관</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>

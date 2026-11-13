@@ -1,0 +1,249 @@
+/* 공통 토큰과 문서 모양. 편집기와 정적 쪽이 같이 쓴다. */
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+@import "@fontsource-variable/hahmlet";
+
+:root {
+  --paper: #ffffff;
+  --desk: #e8ecef; /* 종이를 올려 둔 책상 */
+  --desk-deep: #dbe1e6;
+  --ink: #1b2430;
+  --graphite: #5b6672;
+  --line: #cdd4da;
+  --guide: #1387c9; /* 청색 연필 — 인쇄되지 않는 안내선(쪽 경계) */
+  --guide-ink: #0a6396;
+  --guide-tint: #e1f2fb;
+  --seal: #c8341f; /* 인주 — 오류 */
+  --seal-tint: #fbe9e6;
+  --ok: #1d7a4f;
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --display: "Hahmlet Variable", "Noto Serif KR", "Apple SD Gothic Neo", serif;
+  --mono: ui-monospace, "SF Mono", "D2Coding", Menlo, Consolas, monospace;
+  --r: 6px;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--guide);
+  outline-offset: 2px;
+}
+
+/* ───────── 문서 모양 — 미리보기 종이와 문서 편집기가 같이 쓴다(PDF 와 같은 비율) ───────── */
+
+.docstyle {
+  font-family: var(--font);
+  font-size: var(--doc-size, 10.5pt);
+  line-height: 1.6;
+  color: var(--ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.docstyle h1 {
+  margin: 0 0 0.5em;
+  font-size: 1.9em;
+  line-height: 1.32;
+  font-weight: 700;
+}
+
+.docstyle h2 {
+  margin: 1.1em 0 0.6em;
+  padding-bottom: 0.12em;
+  border-bottom: 0.8pt solid var(--ink);
+  font-size: 1.33em;
+  line-height: 1.43;
+  font-weight: 700;
+}
+
+.docstyle h3 {
+  margin: 0.9em 0 0.2em;
+  font-size: 1.1em;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.docstyle p {
+  margin: 0.75em 0 0;
+}
+
+.docstyle h3 + p,
+.docstyle h3 + ul,
+.docstyle h3 + .md-list {
+  margin-top: 0;
+}
+
+.docstyle ul.md-list,
+.docstyle .md-list {
+  margin: 0.75em 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docstyle .md-list > li,
+.docstyle .md-item {
+  position: relative;
+  margin: 0 0 0.15em;
+  padding-left: 1.3em;
+}
+
+.docstyle .md-list > li::before,
+.docstyle .md-item::before {
+  content: "•";
+  position: absolute;
+  left: 0.3em;
+}
+
+/* 단계 — 위의 항목 규칙(.md-list > li)보다 뒤에 오고 구체성도 같거나 높아야 한다 */
+.docstyle .md-list > [data-level="1"] {
+  margin-left: 1.3em;
+}
+.docstyle .md-list > [data-level="2"] {
+  margin-left: 2.6em;
+}
+.docstyle .md-list > [data-level="3"] {
+  margin-left: 3.9em;
+}
+.docstyle .md-list > li[data-level="1"]::before,
+.docstyle .md-list > .md-item[data-level="1"]::before {
+  content: "–";
+}
+.docstyle .md-list > li[data-level="2"]::before,
+.docstyle .md-list > li[data-level="3"]::before,
+.docstyle .md-list > .md-item[data-level="2"]::before,
+.docstyle .md-list > .md-item[data-level="3"]::before {
+  content: "·";
+}
+
+.docstyle table {
+  width: 100%;
+  margin: 0.75em 0 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+.docstyle h3 + table,
+.docstyle h3 + .tableWrapper > table {
+  margin-top: 0.35em;
+}
+
+.docstyle th,
+.docstyle td {
+  padding: 3.5pt 5pt;
+  border: 0.5pt solid #9aa3ad;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.docstyle th {
+  background: #eef1f4;
+  font-weight: 700;
+  text-align: center;
+}
+
+.docstyle td p,
+.docstyle th p {
+  margin: 0;
+}
+
+.docstyle blockquote.md-note,
+.docstyle .md-note {
+  margin: 0.3em 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.9em;
+  line-height: 1.5;
+  color: var(--graphite);
+}
+
+.docstyle figure.md-image {
+  margin: 0.75em 0 0;
+  text-align: center;
+}
+
+.docstyle figure.md-image img {
+  max-width: 100%;
+  max-height: 110mm;
+  vertical-align: top;
+}
+
+.docstyle figcaption {
+  margin-top: 0.35em;
+  font-size: 0.9em;
+  color: var(--graphite);
+}
+
+.docstyle mark,
+.docstyle .md-shade {
+  background: #d9d9d9;
+  color: inherit;
+}
+
+/* ───────── 쪽 경계 — 이 서비스의 표식 ───────── */
+
+.pagemark {
+  position: relative;
+  height: 0;
+  margin: 1.1em calc(-1 * var(--paper-pad, 20mm));
+  border-top: 1.5px dashed var(--guide);
+  font-family: var(--font);
+  user-select: none;
+}
+
+/* 재단선: 종이 양 끝에서 살짝 나온 짧은 선 */
+.pagemark::before,
+.pagemark::after {
+  content: "";
+  position: absolute;
+  top: -1.5px;
+  width: 14px;
+  border-top: 1.5px solid var(--guide);
+}
+.pagemark::before {
+  left: -14px;
+}
+.pagemark::after {
+  right: -14px;
+}
+
+.pagemark > span {
+  position: absolute;
+  right: 10px;
+  top: -0.85em;
+  padding: 0 0.55em;
+  border-radius: 999px;
+  background: var(--guide);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}

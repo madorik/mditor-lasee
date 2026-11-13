@@ -1,0 +1,90 @@
+"""공유 기준 파일 — 서버가 만들고(여기), 화면 테스트(vitest)가 읽는다.
+
+파일이 최신이 아니면 실패한다. 다시 만들려면:  MDITOR_WRITE_FIXTURE=1 uv run pytest tests/test_fixture.py
+"""
+
+import json
+import os
+import random
+from pathlib import Path
+
+from mditor import inline, md, table
+from mditor.inline import Seg
+from mditor.settings import example_md
+
+from .synthetic import INLINE, MD
+
+PATH = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "rich" / "fixture.json"
+CTX = (None, "cell", "para", "item")
+
+
+def _json(segs):
+    return [s.to_json() for s in segs]
+
+
+def build() -> dict:
+    doc = md.apply_md(None, MD)  # 한 번 되읽은 문서가 기준이다
+    example = md.apply_md(None, example_md())
+    rnd = random.Random(20261113)
+    alphabet = ["가", "나", " ", " ", "*", "~", "{", "}", "\\", "<", "br>", "{빨강}", "{/밑줄}", "\n", "a", "|", "^", "-", "#"]
+    rand = []
+    for _ in range(400):
+        raw = [
+            Seg(
+                "".join(rnd.choice(alphabet) for _ in range(rnd.randint(1, 5))),
+                rnd.random() < 0.4, rnd.random() < 0.4, rnd.random() < 0.3, rnd.random() < 0.3,
+                rnd.choice([None, None, "빨강", "파랑"]),
+            )
+            for _ in range(rnd.randint(1, 5))
+        ]
+        norm = inline.normalize(raw)
+        rand.append({"raw": _json(raw), "norm": _json(norm), "md": [inline.write(norm, c) for c in CTX]})
+    grids = [
+        [["a", "<", "c"], ["^", "^", "d"], ["e", "f", "<"]],
+        [["기준", "<"], ["^", "따로"]],
+        [["a", "<"], ["^", "<"]],
+        [["<", "a"], ["^", "b"]],
+        [["^", "<"]],
+        [["a", "<br>", "<"]],
+        [["a", "^"], ["<", "^"], ["^", "<"]],
+    ]
+    tables = []
+    for rows in grids:
+        sp, hidden = table.spans(rows)
+        tables.append({
+            "rows": rows,
+            "spans": sorted([r, c, h, w] for (r, c), (h, w) in sp.items()),
+            "hidden": sorted([r, c] for r, c in hidden),
+            "canonical": table.canonical(rows),
+        })
+    return {
+        "doc": doc,
+        "md": md.doc_md(doc),
+        "example": {"doc": example, "md": md.doc_md(example)},
+        "inline": [
+            {
+                "src": s,
+                "segs": _json(inline.normalize(inline.segments(s))),
+                "canon": [inline.canon(s, c) for c in CTX],
+                "cellShade": list(inline.cell_shade(s)),
+            }
+            for s in INLINE
+        ],
+        "random": rand,
+        "tables": tables,
+    }
+
+
+def test_fixture_is_current():
+    text = json.dumps(build(), ensure_ascii=False, indent=1) + "\n"
+    if os.environ.get("MDITOR_WRITE_FIXTURE"):
+        PATH.parent.mkdir(parents=True, exist_ok=True)
+        PATH.write_text(text, encoding="utf-8")
+    assert PATH.exists(), "기준 파일이 없습니다 — MDITOR_WRITE_FIXTURE=1 로 만드세요"
+    assert PATH.read_text(encoding="utf-8") == text, "기준 파일이 낡았습니다 — MDITOR_WRITE_FIXTURE=1 로 다시 만드세요"
+
+
+def test_fixture_md_reads_back_to_itself():
+    data = build()
+    again = md.apply_md(data["doc"], data["md"])
+    assert again == data["doc"] and md.doc_md(again) == data["md"]

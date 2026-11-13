@@ -1,0 +1,1007 @@
+@import "../styles/tokens.css";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+  min-height: 0;
+}
+
+/* ───────── 머리 ───────── */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 14px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  flex: none;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand i {
+  font-style: normal;
+  color: var(--guide);
+}
+
+.docname {
+  flex: 0 1 320px;
+  min-width: 80px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: transparent;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.docname:hover,
+.docname:focus {
+  border-color: var(--line);
+  background: #fff;
+}
+
+.top .spacer {
+  flex: 1;
+}
+
+.state {
+  flex: none;
+  font-size: 13px;
+  color: var(--graphite);
+  white-space: nowrap;
+}
+
+.state.dirty::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--guide);
+}
+
+/* ───────── 단추 ───────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: #aab4bd;
+  background: #f6f8f9;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn.primary {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.btn.primary:hover:not(:disabled) {
+  border-color: #000;
+  background: #0f1620;
+}
+
+.btn.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn.quiet:hover:not(:disabled) {
+  background: var(--desk);
+  border-color: transparent;
+}
+
+.btn.danger {
+  color: var(--seal);
+}
+
+.menu {
+  position: relative;
+  flex: none;
+}
+
+.menu-pop {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(27, 36, 48, 0.16);
+}
+
+.menu-pop.left {
+  right: auto;
+  left: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover:not(:disabled) {
+  background: var(--desk);
+}
+
+.menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.menu-item small {
+  color: var(--graphite);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--line);
+}
+
+/* ───────── 작업 화면 ───────── */
+
+.work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.pane {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane.left {
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.pane.right .pane-head {
+  background: var(--desk);
+  border-bottom-color: var(--desk-deep);
+}
+
+.tabs {
+  display: inline-flex;
+  flex: none;
+  padding: 3px;
+  border-radius: 7px;
+  background: var(--desk);
+}
+
+.pane.right .tabs {
+  background: var(--desk-deep);
+}
+
+.tab {
+  min-width: 52px;
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--graphite);
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(27, 36, 48, 0.14);
+}
+
+.pane-info {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--graphite);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.pane-info b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.pane-info .chg {
+  color: var(--guide-ink);
+}
+
+.pane-body {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mobile-switch {
+  display: none;
+}
+
+/* ───────── 도구 막대 ───────── */
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfc;
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  background: var(--desk);
+}
+
+.tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tool[aria-pressed="true"] {
+  background: var(--guide-tint);
+  color: var(--guide-ink);
+}
+
+.tool.word {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tool .ga {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.tools .sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 5px;
+  background: var(--line);
+}
+
+.tools select {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  font-size: 13.5px;
+}
+
+.tools.table-tools {
+  background: var(--guide-tint);
+  border-bottom-color: #c5e3f4;
+}
+
+.tools.table-tools .label {
+  margin-right: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--guide-ink);
+}
+
+/* ───────── 문서 편집기 ───────── */
+
+.rich {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+.rich-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 26px 34px 80px;
+}
+
+.rich .ProseMirror {
+  max-width: 170mm;
+  min-height: 100%;
+  margin: 0 auto;
+  outline: none;
+  white-space: pre-wrap;
+}
+
+.rich .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.rich .ProseMirror li {
+  display: block;
+}
+
+.rich .ProseMirror .selectedCell {
+  background-image: linear-gradient(rgba(19, 135, 201, 0.16), rgba(19, 135, 201, 0.16));
+}
+
+.rich .ProseMirror .tableWrapper {
+  margin-top: 0.75em;
+  overflow-x: auto;
+}
+
+.rich .ProseMirror .tableWrapper table {
+  margin-top: 0;
+  min-width: 0 !important;
+}
+
+.rich .ProseMirror h1:empty::before,
+.rich .ProseMirror h2:empty::before,
+.rich .ProseMirror h3:empty::before,
+.rich .ProseMirror h1:has(> br:only-child)::before,
+.rich .ProseMirror h2:has(> br:only-child)::before,
+.rich .ProseMirror h3:has(> br:only-child)::before {
+  content: attr(data-empty);
+  color: #a9b2ba;
+  pointer-events: none;
+  position: absolute;
+}
+
+.rich .md-note {
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+
+.rich figure.md-image {
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+}
+
+.rich figure.md-image.ProseMirror-selectednode {
+  border-color: var(--guide);
+  background: var(--guide-tint);
+}
+
+.md-image-missing {
+  padding: 22px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  color: var(--graphite);
+  font-size: 13px;
+}
+
+.md-image-caption {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 0.9em;
+  color: var(--graphite);
+  text-align: center;
+}
+
+.md-image-caption:hover,
+.md-image-caption:focus {
+  border-color: var(--line);
+  background: #fff;
+}
+
+.hint {
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  height: 100%;
+  padding: 32px;
+  color: var(--graphite);
+  text-align: center;
+}
+
+.hint strong {
+  color: var(--ink);
+}
+
+.hint .btn {
+  justify-self: center;
+}
+
+/* ───────── MD 편집 ───────── */
+
+.mdpane {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+.mderror {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid #f1c9c2;
+  background: var(--seal-tint);
+  color: #8c2414;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mderror b {
+  flex: none;
+}
+
+.mdedit {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  min-height: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 21px;
+}
+
+.gutter {
+  overflow: hidden;
+  padding: 12px 0;
+  background: #f6f8f9;
+  border-right: 1px solid var(--line);
+  color: #9aa4ad;
+  text-align: right;
+  user-select: none;
+}
+
+.gutter div {
+  padding: 0 8px 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gutter div.bad {
+  background: var(--seal);
+  color: #fff;
+}
+
+.mdedit textarea {
+  width: 100%;
+  height: 100%;
+  padding: 12px 14px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: var(--paper);
+  font: inherit;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+
+/* ───────── 미리보기 ───────── */
+
+.desk {
+  height: 100%;
+  overflow: auto;
+  padding: 24px 24px 64px;
+  background: var(--desk);
+}
+
+.paper {
+  position: relative;
+  margin: 0 auto;
+  background: var(--paper);
+  box-shadow:
+    0 0 0 1px rgba(27, 36, 48, 0.06),
+    0 2px 6px rgba(27, 36, 48, 0.08),
+    0 14px 30px rgba(27, 36, 48, 0.07);
+}
+
+.paper > :first-child,
+.paper section:first-child > :first-child,
+.paper .blk > :first-child {
+  margin-top: 0;
+}
+
+.paper .blk {
+  position: relative;
+  margin-top: 0.75em;
+}
+
+.paper .blk.titled {
+  margin-top: 0.9em;
+}
+
+.paper h2 + .blk,
+.paper section > .blk:first-child {
+  margin-top: 0;
+}
+
+.paper .blk > h3 {
+  margin: 0 0 0.2em;
+}
+
+.paper .blk > p,
+.paper .blk > .md-list,
+.paper .blk > figure {
+  margin-top: 0;
+}
+
+.paper .blk > table {
+  margin-top: 0;
+}
+
+.paper .blk > h3 + table {
+  margin-top: 0.35em;
+}
+
+/* 저장본에서 달라진 블록 — 왼쪽 여백의 연필 줄 */
+.paper .blk[data-change]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: -11px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--guide);
+}
+
+.paper .blk[data-change="added"]::before {
+  background: var(--ok);
+}
+
+.paper tr.pagemark-row > td {
+  height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.paper tr.pagemark-row .pagemark {
+  margin: 0.7em calc(-1 * var(--paper-pad, 20mm));
+}
+
+.paper .first-page {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  padding: 0 0.55em;
+  border-radius: 999px;
+  background: var(--guide-tint);
+  color: var(--guide-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+  font-family: var(--font);
+}
+
+.paper .image-missing {
+  display: grid;
+  place-content: center;
+  min-height: 90px;
+  border: 1px dashed var(--line);
+  color: var(--graphite);
+  font-size: 0.9em;
+}
+
+.paper-foot {
+  margin: 14px auto 0;
+  color: var(--graphite);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.pdfview {
+  display: grid;
+  grid-template-rows: 1fr;
+  height: 100%;
+  background: #525659;
+}
+
+.pdfview iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #525659;
+}
+
+.pdfview .hint {
+  color: #dfe3e6;
+}
+
+.pdfview .hint strong {
+  color: #fff;
+}
+
+/* ───────── 알림 · 대화상자 ───────── */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: var(--guide-tint);
+  border-bottom: 1px solid #c5e3f4;
+  color: #0b4f77;
+  font-size: 13.5px;
+}
+
+.notice.warn {
+  background: #fff6dd;
+  border-bottom-color: #f0dfa6;
+  color: #6b5200;
+}
+
+.notice .btn {
+  min-height: 26px;
+  padding: 0 9px;
+  font-size: 13px;
+}
+
+.notice .grow {
+  flex: 1;
+}
+
+.toast {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 8px 24px rgba(27, 36, 48, 0.3);
+}
+
+.toast.bad {
+  background: #8c2414;
+}
+
+.scrim {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(27, 36, 48, 0.42);
+}
+
+.modal {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: min(520px, 100%);
+  max-height: min(680px, 100%);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(27, 36, 48, 0.32);
+}
+
+.modal.wide {
+  width: min(760px, 100%);
+}
+
+.modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 18px 16px;
+}
+
+.modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.modal p {
+  margin: 0 0 10px;
+  color: var(--graphite);
+  font-size: 14px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.field input[type="number"],
+.field select,
+.modal textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+}
+
+.modal textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.rows {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.rows li:hover {
+  background: #f4f6f7;
+}
+
+.rows li.on {
+  background: var(--guide-tint);
+}
+
+.rows .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rows button.name {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.rows time,
+.rows .meta {
+  flex: none;
+  color: var(--graphite);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.result {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafb;
+  font-size: 14px;
+}
+
+.result ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.result .nums {
+  color: #8c2414;
+}
+
+.errline {
+  margin: 10px 0 0;
+  color: #8c2414;
+  font-size: 13.5px;
+}
+
+/* ───────── 광고 ───────── */
+
+.ad {
+  display: block;
+  min-height: 90px;
+  max-height: 100px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+  text-align: center;
+}
+
+.ad-demo {
+  display: grid;
+  place-content: center;
+  color: #9aa4ad;
+  font-size: 12px;
+  background: repeating-linear-gradient(135deg, #f4f6f7 0 10px, #fafbfb 10px 20px);
+}
+
+/* ───────── 좁은 화면 ───────── */
+
+@media (max-width: 900px) {
+  .work {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .work[data-side="edit"] .pane.right,
+  .work[data-side="view"] .pane.left {
+    display: none;
+  }
+
+  .mobile-switch {
+    display: inline-flex;
+  }
+
+  .top {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  .top .spacer,
+  .state {
+    display: none;
+  }
+
+  .docname {
+    flex: 1 1 60px;
+    min-width: 40px;
+  }
+
+  .top .btn {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 13px;
+  }
+
+  /* 편집 · 미리보기 전환은 둘째 줄에 넓게 */
+  .top .mobile-switch {
+    order: 9;
+    flex: 1 0 100%;
+  }
+
+  .top .mobile-switch .tabs {
+    display: flex;
+    width: 100%;
+  }
+
+  .top .mobile-switch .tab {
+    flex: 1;
+  }
+
+  .pane-info {
+    display: none;
+  }
+
+  .pane.right .pane-info {
+    display: block;
+  }
+
+  .rich-scroll {
+    padding: 18px 16px 72px;
+  }
+
+  .desk {
+    padding: 14px 10px 56px;
+  }
+
+  .ad {
+    min-height: 60px;
+    max-height: 70px;
+  }
+
+  .field {
+    grid-template-columns: 96px 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,47 @@
+[project]
+name = "mditor"
+version = "0.1.0"
+description = "MDitor — 원본은 Markdown, 쪽 경계는 PDF와 똑같은 문서 편집기 (코어 · API 서버 · MCP 서버)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "reportlab>=5.1",
+    "pillow>=10",
+    "mcp>=2.3,<3",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "anthropic>=2.8,<3",
+]
+
+[project.scripts]
+mditor-mcp = "mditor.mcp_server:main"
+mditor-server = "mditor.api:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "pypdf>=5",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mditor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

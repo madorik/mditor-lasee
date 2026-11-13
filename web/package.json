@@ -1,0 +1,35 @@
+{
+  "name": "mditor-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "e2e": "node e2e/editor.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/hahmlet": "5.3.0",
+    "@tanstack/react-query": "5.107.1",
+    "@tiptap/core": "3.32.1",
+    "@tiptap/extension-table": "3.32.1",
+    "@tiptap/pm": "3.32.1",
+    "@tiptap/react": "3.32.1",
+    "@tiptap/starter-kit": "3.32.1",
+    "pretendard": "1.3.9",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "6.3.0",
+    "puppeteer-core": "^25.17.0",
+    "typescript": "~5.9.0",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

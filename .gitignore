@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+web/dist/
+dist/
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+*.pdf
+.DS_Store
+.mditor-cache/
+web/tsconfig.tsbuildinfo

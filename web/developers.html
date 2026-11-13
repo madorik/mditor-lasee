@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>개발자 안내 (MCP · API) — MDitor</title>
+    <meta name="description" content="MDitor MCP 서버와 HTTP API. AI 에이전트가 Markdown 으로 문서를 쓰고, 검사하고, 쪽 배치를 확인하고, PDF 로 냅니다." />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/developers" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/syntax">문법</a>
+      <a class="link hide-s" href="/developers" aria-current="page">개발자</a>
+      <a class="button small" href="/edit">편집기 열기</a>
+    </header>
+    <main>
+      <article class="prose">
+        <h1>개발자 안내</h1>
+        <p class="lede">MDitor 는 MCP 서버와 HTTP API 를 엽니다. AI 에이전트나 내 프로그램이 Markdown 으로 문서를 쓰고, 문법을 검사하고, 쪽 배치를 확인하고, PDF 로 낼 수 있습니다. 웹 편집기와 같은 파서와 렌더러를 쓰므로 결과가 같습니다.</p>
+
+        <h2>MCP 서버 연결</h2>
+        <p>주소 하나만 등록하면 됩니다. 인증은 없습니다.</p>
+        <div class="codebox"><pre data-fill>{origin}/mcp</pre></div>
+        <h3>Claude Code</h3>
+        <div class="codebox"><pre data-fill>claude mcp add --transport http mditor {origin}/mcp</pre></div>
+        <h3>설정 파일로 등록하는 클라이언트 (Claude Desktop, Cursor 등)</h3>
+        <div class="codebox"><pre data-fill>{
+  "mcpServers": {
+    "mditor": { "type": "http", "url": "{origin}/mcp" }
+  }
+}</pre></div>
+        <p>전송 방식은 Streamable HTTP 입니다. 서버는 상태를 두지 않으므로 세션을 유지할 필요가 없습니다.</p>
+
+        <h2>도구</h2>
+        <table class="ref">
+          <thead><tr><th>도구</th><th>하는 일</th></tr></thead>
+          <tbody>
+            <tr><td><code>syntax_guide</code></td><td>문법 전체를 돌려줍니다. 문서를 쓰기 전에 한 번 읽습니다.</td></tr>
+            <tr><td><code>check_markdown</code></td><td>문서를 읽어 봅니다. 맞으면 뼈대(섹션·블록)와 표준 꼴 Markdown 을, 틀리면 줄 번호와 고칠 내용을 돌려줍니다.</td></tr>
+            <tr><td><code>page_layout</code></td><td>PDF 를 실제로 그려 보고 전체 쪽 수, 섹션·블록이 놓인 쪽, 긴 표와 목록이 넘어가는 자리를 돌려줍니다.</td></tr>
+            <tr><td><code>render_pdf</code></td><td>PDF 를 만들어 내려받기 링크를 돌려줍니다(30분 뒤 지워집니다). 용지·방향·여백·글자 크기를 정할 수 있습니다.</td></tr>
+            <tr><td><code>diff_markdown</code></td><td>고치기 전과 뒤를 블록 단위로 견줍니다. 새로 나온 숫자도 따로 알려 줍니다.</td></tr>
+            <tr><td><code>editor_link</code></td><td>문서를 웹 편집기에서 여는 링크를 만듭니다. 내용은 주소의 # 뒤에 실려 서버에 저장되지 않습니다.</td></tr>
+          </tbody>
+        </table>
+        <p>에이전트에게는 이렇게 시키면 됩니다.</p>
+        <div class="sample" style="margin-bottom:18px"><pre class="wrapcode">MDitor 로 3분기 운영 보고서를 써 줘. 문법을 먼저 읽고, 다 쓰면 검사한 뒤 표가 쪽 중간에서 어색하게 잘리지 않는지 보고 PDF 로 내 줘.</pre></div>
+
+        <h2>HTTP API</h2>
+        <p>MCP 없이 직접 부를 수도 있습니다. 본문은 JSON 이고 모든 호출은 저장하지 않습니다.</p>
+        <table class="ref">
+          <thead><tr><th>호출</th><th>돌려주는 것</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /api/md/preview</code></td><td>되읽은 문서(JSON)와 표준 꼴 Markdown. 틀리면 <code>{ok: false, error: {line, message}}</code></td></tr>
+            <tr><td><code>POST /api/md/preview-pages</code></td><td>쪽 배치: 섹션·블록·항목·표 행이 놓인 쪽과 전체 쪽 수</td></tr>
+            <tr><td><code>POST /api/md/pdf</code></td><td>PDF 파일. 쪽 수는 응답 헤더 <code>X-Mditor-Pages</code></td></tr>
+          </tbody>
+        </table>
+        <div class="codebox"><pre data-fill>curl -X POST {origin}/api/md/pdf \
+  -H "Content-Type: application/json" \
+  -d '{"md": "# 보고서\n\n## 1. 요약\n\n- 첫 항목\n", "options": {"page": "A4"}}' \
+  -o report.pdf</pre></div>
+        <p><code>options</code> 에는 <code>page</code>(A4·Letter), <code>landscape</code>, <code>margin_mm</code>(8~40), <code>font_size</code>(8~14), <code>section_break</code>, <code>page_numbers</code> 를 넣을 수 있습니다. 그림은 <code>images</code> 에 <code>{이름: data URI}</code> 로 보냅니다.</p>
+        <div class="note-box">공개 서비스라 요청 횟수와 문서 크기에 한도가 있습니다(문서 40만 자, 그림 합계 8MB). 한도를 넘으면 429 또는 413 으로 답합니다. 대량으로 쓰려면 직접 서버를 띄우세요.</div>
+
+        <h2>내 컴퓨터에서 돌리기</h2>
+        <p>소스는 <a href="https://github.com/madorik/mditor">github.com/madorik/mditor</a> 에 있습니다. 로컬 MCP 서버(stdio)는 PDF 를 파일로 바로 쓰고, 문서에 적힌 그림 파일을 디스크에서 읽습니다. 설치와 실행 방법은 저장소의 README 를 보세요.</p>
+      </article>
+      <div class="ad-slot" hidden></div>
+    </main>
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/syntax">문법</a>
+        <a href="/developers">개발자</a>
+        <a href="/privacy">개인정보처리방침</a>
+        <a href="/terms">이용약관</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>
