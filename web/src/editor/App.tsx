@@ -7,10 +7,10 @@ import { lang, t } from "../lib/i18n";
 import { decodeHash } from "../lib/share";
 import { currentId, deleteDoc, getDoc, listDocs, newDoc, putDoc, setCurrentId, type DocSummary, type StoredDoc } from "../lib/store";
 import { DocsDialog } from "./Dialogs";
-import { Start } from "./Start";
 import { Workspace, type FileActions } from "./Workspace";
 
 const BLANK = t("# 제목 없는 문서\n\n## 1. 개요\n\n- 여기에 내용을 적으세요.\n");
+const blankDoc = () => newDoc(t("제목 없는 문서"), BLANK);
 // 예시 문서 — 화면 언어에 맞는 것(서식 태그도 그 언어로 적혀 있다)
 const example = lang === "en" ? exampleEn : exampleKo;
 
@@ -24,7 +24,7 @@ const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types]
 export function App() {
   const [config, setConfig] = useState<api.Config | null>(null);
   const [ready, setReady] = useState(false);
-  const [doc, setDoc] = useState<StoredDoc | null>(null); // null 이면 시작 화면
+  const [doc, setDoc] = useState<StoredDoc | null>(null); // 처음 불러오는 동안만 null
   // 예시처럼 아직 이 브라우저에 보관하지 않은 문서. 저장(이름·쪽 설정·그림 포함)하면 내 문서가 된다.
   const [temp, setTemp] = useState(false);
   const [docs, setDocs] = useState<DocSummary[]>([]);
@@ -62,15 +62,17 @@ export function App() {
           await open(newDoc(titleOf(shared, t("받은 문서")), shared));
           return;
         }
-        // 2) 지난번에 열어 둔 문서, 3) 가장 최근 문서, 4) 없으면 시작 화면
+        // 2) 지난번에 열어 둔 문서, 3) 가장 최근 문서, 4) 없으면 새 문서를 바로 연다
         const all = await listDocs();
         const id = currentId();
         const last = (id ? await getDoc(id) : null) ?? (all.length ? await getDoc(all[0].id) : null);
         if (!alive) return;
-        setDocs(all);
         if (last) {
+          setDocs(all);
           setCurrentId(last.id);
           setDoc(last);
+        } else {
+          await open(blankDoc());
         }
       } catch (e) {
         if (alive) setFatal(e instanceof Error ? e.message : t("화면을 열지 못했습니다."));
@@ -92,7 +94,7 @@ export function App() {
 
   const newBlank = useCallback(() => {
     setShowDocs(false);
-    void open(newDoc(t("제목 없는 문서"), BLANK));
+    void open(blankDoc());
   }, [open]);
 
   const openExample = useCallback(() => {
@@ -174,18 +176,14 @@ export function App() {
       </div>
     );
   }
-  if (!config || !ready) return <div className="hint" style={{ height: "100dvh" }}>{t("문서를 여는 중입니다")}</div>;
+  if (!config || !ready || !doc) return <div className="hint" style={{ height: "100dvh" }}>{t("문서를 여는 중입니다")}</div>;
 
   const file: FileActions = { newDoc: newBlank, openFile: pickFile, myDocs: () => setShowDocs(true), example: openExample };
 
   return (
     <>
-      {doc ? (
-        <Workspace key={doc.id} stored={doc} temp={temp} config={config} onStored={onStored} file={file} />
-      ) : (
-        <Start onNew={newBlank} onOpen={pickFile} onExample={openExample} />
-      )}
-      {showDocs && doc && (
+      <Workspace key={doc.id} stored={doc} temp={temp} config={config} onStored={onStored} file={file} />
+      {showDocs && (
         <DocsDialog
           docs={docs}
           currentId={doc.id}
@@ -207,10 +205,15 @@ export function App() {
             setDocs(rest);
             if (id === doc.id) {
               const next = rest.length ? await getDoc(rest[0].id) : null;
-              if (next) setCurrentId(next.id);
-              else setShowDocs(false); // 남은 문서가 없으면 시작 화면으로
-              setTemp(false);
-              setDoc(next);
+              if (next) {
+                setCurrentId(next.id);
+                setTemp(false);
+                setDoc(next);
+              } else {
+                // 남은 문서가 없으면 새 문서를 연다
+                setShowDocs(false);
+                await open(blankDoc());
+              }
             }
           }}
         />

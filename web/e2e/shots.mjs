@@ -21,9 +21,18 @@ const shot = async (path, name, { width = 1440, height = 900, full = false, wait
   await page.close();
 };
 await shot("/", "landing", { full: true });
-await shot("/edit", "start");
-await shot("/edit", "edit", { wait: 3500, before: (p) => p.click('.start [data-act="example"]') });
-await shot("/edit", "edit-mobile", { width: 390, height: 780, wait: 3500, before: (p) => p.click('.start [data-act="example"]') });
+/** 처음 열린 새 문서에서 파일 메뉴 → 예시 문서 보기 */
+const example = async (p) => {
+  await p.waitForSelector(".ProseMirror");
+  const click = (sel, text) => p.evaluate((sel, text) => [...document.querySelectorAll(sel)].find((el) => el.textContent.trim() === text).click(), sel, text);
+  await click(".top .btn", "파일");
+  await p.waitForSelector(".menu-item");
+  await click(".menu-item", "예시 문서 보기");
+  await p.waitForSelector(".notice");
+};
+await shot("/edit", "new", { wait: 2500 });
+await shot("/edit", "edit", { wait: 3500, before: example });
+await shot("/edit", "edit-mobile", { width: 390, height: 780, wait: 3500, before: example });
 await shot("/syntax", "syntax", { full: true });
 await shot("/developers", "developers", { full: true });
 await browser.close();

@@ -30,8 +30,13 @@ await page.setViewport({ width: W, height: H, deviceScaleFactor: SCALE });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.goto(`${base}${lang === "en" ? "/en" : ""}/edit`, { waitUntil: "networkidle0" });
-await page.click('.start [data-act="example"]');
+// 처음 열린 새 문서에서 파일 메뉴 → 예시 문서 보기
 await page.waitForSelector(".ProseMirror");
+const clickText = (sel, text) => page.evaluate((sel, text) => [...document.querySelectorAll(sel)].find((el) => el.textContent.trim() === text).click(), sel, text);
+await clickText(".top .btn", lang === "en" ? "File" : "파일");
+await page.waitForSelector(".menu-item");
+await clickText(".menu-item", lang === "en" ? "View example" : "예시 문서 보기");
+await page.waitForSelector(".notice");
 await page.waitForSelector(".paper .pagemark");
 
 // 찍을 때만: 예시 알림 띠를 숨기고, 마우스 포인터를 그린다(헤드리스 화면에는 포인터가 없다)

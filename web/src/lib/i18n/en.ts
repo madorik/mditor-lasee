@@ -71,7 +71,7 @@ export const en: Record<string, string> = {
   "이름 없는 문서": "Untitled document",
   "수정안을 문서에 넣었습니다. 확인한 뒤 저장하세요.": "The revision is now in the document. Check it, then save.",
 
-  // ── 앱 · 시작 화면
+  // ── 앱
   "# 제목 없는 문서\n\n## 1. 개요\n\n- 여기에 내용을 적으세요.\n": "# Untitled document\n\n## 1. Overview\n\n- Write your content here.\n",
   "제목 없는 문서": "Untitled document",
   "받은 문서": "Shared document",
@@ -79,15 +79,12 @@ export const en: Record<string, string> = {
   "화면을 열지 못했습니다.": "Couldn’t open the editor.",
   "화면을 열지 못했습니다": "Couldn’t open the editor",
   "다시 불러오기": "Reload",
+  "페이지가 이동됩니다. 그래도 이동하시겠습니까?": "You’re about to leave this page. Leave anyway?",
+  "저장하지 않은 글은 임시저장되어 다음에 이어서 열 수 있습니다. 페이지가 이동됩니다. 그래도 이동하시겠습니까?": "Unsaved changes are kept as a draft you can pick up next time. You’re about to leave this page. Leave anyway?",
+  "저장하지 않은 글은 남지 않습니다. 페이지가 이동됩니다. 그래도 이동하시겠습니까?": "Unsaved changes will be lost. You’re about to leave this page. Leave anyway?",
   "파일을 열지 못했습니다.": "Couldn’t open the file.",
   "MD 파일(.md)만 끌어다 놓아 열 수 있습니다. 그림은 편집기의 그림 단추로 넣으세요.": "Only MD files (.md) can be opened by dropping them here. To add an image, use the Image button in the editor.",
   "놓으면 이 MD 파일을 새 문서로 엽니다": "Drop to open this MD file as a new document",
-  "무엇으로 시작할까요?": "How would you like to start?",
-  "문서는 이 브라우저에만 보관됩니다. 서버에는 남지 않습니다.": "Documents are stored only in this browser. Nothing is kept on the server.",
-  "빈 문서에서 시작합니다.": "Start from a blank document.",
-  "내 컴퓨터의 MD 파일(.md)을 엽니다. 이 창에 끌어다 놓아도 됩니다.": "Open an MD file (.md) from your computer. You can also drag it into this window.",
-  "예시 보기": "View example",
-  "분기 보고서 예시로 표 · 목록 · 쪽 나눔을 둘러봅니다. 저장하기 전에는 내 문서에 남지 않습니다.": "Explore tables, lists and page breaks in a sample quarterly report. It isn’t kept in My documents unless you save it.",
 
   // ── 대화 상자: 쪽 설정
   "바꾸면 미리보기의 쪽 경계와 PDF 에 바로 반영됩니다.": "Changes apply right away to the page breaks in the preview and to the PDF.",

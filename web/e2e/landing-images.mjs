@@ -28,8 +28,13 @@ await page.setViewport({ width: W, height: H, deviceScaleFactor: 2 });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.goto(`${base}${lang === "en" ? "/en" : ""}/edit`, { waitUntil: "networkidle0" });
-await page.click('.start [data-act="example"]');
+// 처음 열린 새 문서에서 파일 메뉴 → 예시 문서 보기
 await page.waitForSelector(".ProseMirror");
+const clickText = (sel, text) => page.evaluate((sel, text) => [...document.querySelectorAll(sel)].find((el) => el.textContent.trim() === text).click(), sel, text);
+await clickText(".top .btn", lang === "en" ? "File" : "파일");
+await page.waitForSelector(".menu-item");
+await clickText(".menu-item", lang === "en" ? "View example" : "예시 문서 보기");
+await page.waitForSelector(".notice");
 await page.waitForSelector(".paper .pagemark");
 // 예시 알림 띠는 그림에 넣지 않는다
 await page.addStyleTag({ content: ".notice { display: none !important; }" });

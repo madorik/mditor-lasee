@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import * as api from "../lib/api";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
@@ -176,15 +176,38 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     }, 400);
     return () => clearTimeout(t);
   }, [text, stored.md, stored.id, baseVersion, temp]);
+  const leaving = useRef(false); // 이미 물어보고 떠나는 중 — 브라우저가 한 번 더 묻지 않게
   useEffect(() => {
     if (!dirty) return;
     const stop = (e: BeforeUnloadEvent) => {
+      if (leaving.current) return;
       e.preventDefault();
       e.returnValue = "";
     };
+    const back = () => (leaving.current = false); // 뒤로 가기로 이 화면에 돌아왔을 때
     window.addEventListener("beforeunload", stop);
-    return () => window.removeEventListener("beforeunload", stop);
+    window.addEventListener("pageshow", back);
+    return () => {
+      window.removeEventListener("beforeunload", stop);
+      window.removeEventListener("pageshow", back);
+    };
   }, [dirty]);
+
+  /** 머리의 상표(첫 화면 링크) — 편집 중에 잘못 눌러 떠나지 않게 먼저 묻는다. 새 탭으로 여는 것은 묻지 않는다. */
+  const confirmLeave = (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const ask = dirty
+      ? temp
+        ? t("저장하지 않은 글은 남지 않습니다. 페이지가 이동됩니다. 그래도 이동하시겠습니까?")
+        : t("저장하지 않은 글은 임시저장되어 다음에 이어서 열 수 있습니다. 페이지가 이동됩니다. 그래도 이동하시겠습니까?")
+      : t("페이지가 이동됩니다. 그래도 이동하시겠습니까?");
+    if (!window.confirm(ask)) {
+      e.preventDefault();
+      return;
+    }
+    if (dirty && !temp) writeDraft(stored.id, { md: text, at: Date.now(), version: baseVersion }); // 임시저장 타이머를 기다리지 않는다
+    leaving.current = true;
+  };
 
   /** 브라우저에 보관한 뒤에 화면에 반영한다 — '저장됨' 이 보이면 정말 보관된 것이다. */
   const persist = useCallback(
@@ -296,7 +319,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     <div className="app">
       <div>
         <header className="top">
-          <a className="brand" href={localPath("/")} title={t("MDitor 라씨 첫 화면")}>
+          <a className="brand" href={localPath("/")} title={t("MDitor 라씨 첫 화면")} onClick={confirmLeave}>
             MD<i>itor</i>{" "}
             <span className="sub">{t("라씨")}</span>
           </a>

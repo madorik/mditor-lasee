@@ -25,7 +25,7 @@ const ok = (cond, label, detail = "") => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** start: 시작 화면에서 누를 것(new · open · example). null 이면 시작 화면에 그대로 둔다. */
+/** start: 처음 열린 새 문서 다음에 할 것 — "example" 이면 파일 메뉴로 예시를 연다, "new" 면 새 문서 그대로, null 이면 아무것도 기다리지 않는다. */
 async function openPage(path = "/edit", viewport = { width: 1440, height: 900 }, { start = "example" } = {}) {
   const context = await browser.createBrowserContext(); // 빈 브라우저 저장소
   const page = await context.newPage();
@@ -40,12 +40,15 @@ async function openPage(path = "/edit", viewport = { width: 1440, height: 900 },
   await page.goto(base + path, { waitUntil: "networkidle0" });
   const cdp = await page.createCDPSession();
   if (start === null) return { page, cdp, state, context };
-  if (!path.includes("#")) {
-    await page.waitForSelector(`.start [data-act="${start}"]`);
-    await page.click(`.start [data-act="${start}"]`);
-  }
   await page.waitForSelector(".ProseMirror", { timeout: 15000 });
   await page.waitForSelector(".paper h2");
+  if (start === "example" && !path.includes("#")) {
+    const en = path.startsWith("/en/");
+    await clickText(page, ".top .btn", en ? "File" : "파일");
+    await clickText(page, ".menu-item", en ? "View example" : "예시 문서 보기");
+    await page.waitForSelector(".notice");
+    await page.waitForSelector(".paper h2");
+  }
   return { page, cdp, state, context };
 }
 
@@ -137,7 +140,7 @@ console.log("문서 편집기");
   const { page, cdp, state, context } = await openPage();
   await settle();
   const first = state.md;
-  ok(first.startsWith("# 2026년 3분기 온라인 서점 운영 보고"), "시작 화면에서 예시를 열면 예시 문서가 열린다");
+  ok(first.startsWith("# 2026년 3분기 온라인 서점 운영 보고"), "파일 메뉴에서 예시를 열면 예시 문서가 열린다");
   const indent = await page.evaluate(() => {
     const li = document.querySelector('.ProseMirror li[data-level="1"]');
     return li ? parseFloat(getComputedStyle(li).marginLeft) : -1;
@@ -383,29 +386,24 @@ console.log("쪽 경계 · 오류 줄 · 링크");
   await linked.context.close();
 }
 
-// ───────────────────────── 3. 시작 화면 · 새 문서 · 파일 열기 ─────────────────────────
-console.log("시작 화면 · 새 문서 · 파일 열기");
+// ───────────────────────── 3. 새 문서 · 파일 열기 ─────────────────────────
+console.log("새 문서 · 파일 열기");
 {
-  const { page, state, context } = await openPage("/edit", undefined, { start: null });
-  await page.waitForSelector(".start");
-  ok(!(await page.$(".ProseMirror")), "보관한 문서가 없으면 시작 화면이 뜬다");
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  await settle();
+  ok(state.md.startsWith("# 제목 없는 문서") && !(await page.$(".notice")), "보관한 문서가 없으면 새 문서가 바로 열린다(예시 알림 없음)", JSON.stringify(state.md.slice(0, 30)));
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForSelector(".ProseMirror");
+  ok((await page.$eval(".docname", (el) => el.value)) === "제목 없는 문서", "새 문서는 바로 보관되고, 다시 열면 그 문서가 열린다");
 
   // 예시: 보기만 하면 내 문서에 남지 않는다
-  await page.click('.start [data-act="example"]');
-  await page.waitForSelector(".ProseMirror");
+  await clickText(page, ".top .btn", "파일");
+  await clickText(page, ".menu-item", "예시 문서 보기");
+  await page.waitForSelector(".notice");
   ok((await page.$eval(".notice", (el) => el.textContent)).includes("예시 문서입니다"), "예시는 예시라고 알린다");
   await page.reload({ waitUntil: "networkidle0" });
-  await page.waitForSelector(".start");
-  ok(true, "예시는 저장하지 않으면 남지 않는다");
-
-  // 새 문서
-  await page.click('.start [data-act="new"]');
   await page.waitForSelector(".ProseMirror");
-  await settle();
-  ok(state.md.startsWith("# 제목 없는 문서") && !(await page.$(".notice")), "새 문서가 열린다(예시 알림 없음)", JSON.stringify(state.md.slice(0, 30)));
-  await page.reload({ waitUntil: "networkidle0" });
-  await page.waitForSelector(".ProseMirror");
-  ok((await page.$eval(".docname", (el) => el.value)) === "제목 없는 문서", "새 문서는 바로 보관된다");
+  ok((await page.$eval(".docname", (el) => el.value)) === "제목 없는 문서" && !(await page.$(".notice")), "예시는 저장하지 않으면 남지 않는다");
 
   // 파일 메뉴 → 파일 열기: 파일 이름이 문서 이름이 된다
   const dir = mkdtempSync(join(tmpdir(), "mditor-e2e-"));
@@ -443,7 +441,7 @@ console.log("시작 화면 · 새 문서 · 파일 열기");
   ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("MD 파일(.md)만"), "MD 가 아닌 파일은 열지 않고 알린다");
   ok((await page.$eval(".docname", (el) => el.value)) === "놓은 파일", "그때 열린 문서는 그대로다");
 
-  // 내 문서: 예시는 들지 않는다. 모두 지우면 시작 화면으로
+  // 내 문서: 예시는 들지 않는다. 모두 지우면 새 문서가 열린다
   await clickText(page, ".top .btn", "파일");
   await clickText(page, ".menu-item", "내 문서");
   await page.waitForSelector(".rows li");
@@ -451,12 +449,43 @@ console.log("시작 화면 · 새 문서 · 파일 열기");
   ok(names.length === 4 && !names.some((n) => n.includes("온라인 서점")), "내 문서에는 연 문서만 있고 예시는 없다", JSON.stringify(names));
   for (let n = names.length; n > 0; n--) {
     await page.click(".rows li .btn.danger");
-    await page.waitForFunction((n) => document.querySelectorAll(".rows li").length === n - 1 || document.querySelector(".start"), {}, n);
+    await page.waitForFunction((n) => document.querySelectorAll(".rows li").length === n - 1, {}, n);
   }
-  await page.waitForSelector(".start");
-  ok(true, "문서를 모두 지우면 시작 화면으로 돌아간다");
+  await docName(page, "제목 없는 문서");
+  ok(!(await page.$(".rows")), "문서를 모두 지우면 새 문서가 열린다");
 
   rmSync(dir, { recursive: true, force: true });
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
+// ───────────────────────── 3-1. 상표 링크 — 떠나기 전에 묻는다 ─────────────────────────
+console.log("상표 링크");
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  page.removeAllListeners("dialog");
+  const asked = [];
+  let answer = false;
+  page.on("dialog", (d) => (asked.push(`${d.type()}:${d.message()}`), answer ? d.accept() : d.dismiss()));
+
+  await page.click(".top .brand");
+  await sleep(300);
+  ok(asked.length === 1 && asked[0].startsWith("confirm:") && asked[0].includes("페이지가 이동됩니다"), "상표를 누르면 이동할지 묻는다", JSON.stringify(asked));
+  ok(new URL(page.url()).pathname === "/edit" && (await page.$(".ProseMirror")), "아니요를 누르면 편집 화면에 그대로 있다");
+
+  // 고친 글이 있으면: 한 번만 묻고(브라우저가 또 묻지 않는다), 떠나도 임시저장으로 남는다
+  await page.click(".ProseMirror h2");
+  await page.keyboard.press("End");
+  await page.keyboard.type(" abc");
+  await page.waitForFunction(() => document.querySelector(".ProseMirror h2")?.textContent.endsWith("abc"));
+  asked.length = 0;
+  answer = true;
+  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click(".top .brand")]);
+  ok(asked.length === 1 && asked[0].includes("임시저장"), "고친 글이 있으면 임시저장된다고 알리고 한 번만 묻는다", JSON.stringify(asked));
+  ok(new URL(page.url()).pathname === "/", "예를 누르면 첫 화면으로 간다", page.url());
+  await page.goto(base + "/edit", { waitUntil: "networkidle0" });
+  await page.waitForSelector(".ProseMirror h2");
+  ok((await page.$eval(".ProseMirror h2", (el) => el.textContent)).endsWith("abc") && (await page.$$eval(".notice", (els) => els.some((el) => el.textContent.includes("저장하지 않고 닫았던 글")))), "다시 열면 고친 글이 이어서 열린다");
   ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
   await context.close();
 }
