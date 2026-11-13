@@ -1,12 +1,18 @@
 // 글 서식 규칙. 서버 src/mditor/inline.py 와 **같은 규칙**이다. 고치면 둘 다 고친다
 // (공유 기준 파일 fixture.json 이 어긋남을 잡는다).
+//
+// 태그는 한국어 이름({빨강})과 영어 이름({red})이 같은 태그다. 안에서는 한국어 이름으로 다루고,
+// 쓸 때만 문서의 태그 언어(dialect)로 쓴다. 문서의 태그 언어는 처음 나오는 짝 맞은 태그가 정한다(dialectOf).
 
 export const INLINE_COLORS: Record<string, string> = { 빨강: "#c00000", 파랑: "#1f4e9b", 회색: "#7f7f7f" };
 export const SHADE = "#d9d9d9";
 const FLAGS = ["밑줄", "음영"] as const;
+export type Dialect = "ko" | "en";
+const EN: Record<string, string> = { 빨강: "red", 파랑: "blue", 회색: "gray", 밑줄: "underline", 음영: "shade" };
+const ALIASES: Record<string, string> = { ...Object.fromEntries(Object.entries(EN).map(([k, v]) => [v, k])), grey: "회색" };
 const WS = " \t\u00a0\u3000";
 const ESCAPABLE = "\\*~{}<>^|#-+!";
-const TAG_NAMES = "빨강|파랑|회색|밑줄|음영";
+const TAG_NAMES = ["빨강", "파랑", "회색", "밑줄", "음영", ...Object.keys(ALIASES)].join("|");
 const TOKEN = () =>
   new RegExp(`\\\\([\\\\*~{}<>^|#\\-+!])|(\\*\\*)|(~~)|\\{(/?)(${TAG_NAMES})\\}|(<br[ \\t]*/?>)`, "gi");
 const TAG_AT = new RegExp(`\\{/?(?:${TAG_NAMES})\\}`, "y");
@@ -54,7 +60,8 @@ type Tok = {
   start: number;
   end: number;
   kind: "esc" | "bold" | "strike" | "open" | "close" | "br";
-  value: string;
+  value: string; // esc: 글자, open/close: 태그 이름(안에서 쓰는 한국어 이름)
+  raw: string; // open/close: 글에 적힌 태그 이름 그대로
   paired: boolean;
   opens: boolean;
   partner: number;
@@ -64,11 +71,11 @@ function scan(s: string): Tok[] {
   const toks: Tok[] = [];
   for (const m of s.matchAll(TOKEN())) {
     const start = m.index ?? 0;
-    const base = { start, end: start + m[0].length, value: "", paired: false, opens: false, partner: -1 };
+    const base = { start, end: start + m[0].length, value: "", raw: "", paired: false, opens: false, partner: -1 };
     if (m[1] !== undefined) toks.push({ ...base, kind: "esc", value: m[1], paired: true });
     else if (m[2]) toks.push({ ...base, kind: "bold" });
     else if (m[3]) toks.push({ ...base, kind: "strike" });
-    else if (m[5]) toks.push({ ...base, kind: m[4] ? "close" : "open", value: m[5] });
+    else if (m[5]) toks.push({ ...base, kind: m[4] ? "close" : "open", value: ALIASES[m[5].toLowerCase()] ?? m[5], raw: m[5] });
     else toks.push({ ...base, kind: "br", paired: true });
   }
 
@@ -244,8 +251,22 @@ export function normalize(segs: Seg[]): Seg[] {
   return cur;
 }
 
-const openTag = (level: number, value: unknown) => ["**", "~~", "{밑줄}", "{음영}", `{${value}}`][level];
-const closeTag = (level: number, value: unknown) => ["**", "~~", "{/밑줄}", "{/음영}", `{/${value}}`][level];
+/** 태그 이름을 문서의 태그 언어로(`tag("음영", "en") === "shade"`). */
+export const tag = (name: string, dialect: Dialect = "ko"): string => (dialect === "en" ? (EN[name] ?? name) : name);
+const tagOf = (level: number, value: unknown, dialect: Dialect) => tag(level === 2 ? "밑줄" : level === 3 ? "음영" : String(value), dialect);
+const openTag = (level: number, value: unknown, dialect: Dialect) => (level < 2 ? ["**", "~~"][level] : `{${tagOf(level, value, dialect)}}`);
+const closeTag = (level: number, value: unknown, dialect: Dialect) => (level < 2 ? ["**", "~~"][level] : `{/${tagOf(level, value, dialect)}}`);
+
+/** 문서의 태그 언어 — 처음 나오는 짝 맞은 태그가 정한다. 태그가 없으면 null. */
+export function dialectOf(text: string): Dialect | null {
+  for (const line of text.split("\n")) {
+    if (!line.includes("{")) continue;
+    for (const t of scan(line)) {
+      if (t.kind === "open" && t.paired) return t.raw.toLowerCase() in ALIASES ? "en" : "ko";
+    }
+  }
+  return null;
+}
 
 export type Ctx = "cell" | "para" | "item" | null;
 
@@ -255,15 +276,15 @@ export type Ctx = "cell" | "para" | "item" | null;
  * ctx="para": 문단이 블록 기호(#, >, -, |, 그림)로 시작하거나 가로줄(---)로 읽히면 이스케이프.
  * ctx="item": 항목이 `- ` 뒤에 붙어 가로줄로 읽히면 이스케이프.
  */
-export function write(segs: Seg[], ctx: Ctx = null): string {
+export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): string {
   const pieces: [boolean, string][] = []; // [기호인지, 글자]
   let cur: Style = [false, false, false, false, null];
   const off: Style = [false, false, false, false, null];
   for (const [st, text] of [...segs.map((s) => [style(s), s.text] as [Style, string]), [off, ""] as [Style, string]]) {
     const first = [0, 1, 2, 3, 4].find((i) => cur[i] !== st[i]);
     if (first !== undefined) {
-      for (let j = 4; j >= first; j--) if (cur[j]) pieces.push([true, closeTag(j, cur[j])]);
-      for (let j = first; j < 5; j++) if (st[j]) pieces.push([true, openTag(j, st[j])]);
+      for (let j = 4; j >= first; j--) if (cur[j]) pieces.push([true, closeTag(j, cur[j], dialect)]);
+      for (let j = first; j < 5; j++) if (st[j]) pieces.push([true, openTag(j, st[j], dialect)]);
     }
     if (text) pieces.push([false, text]);
     cur = st;
@@ -335,8 +356,8 @@ export function write(segs: Seg[], ctx: Ctx = null): string {
 }
 
 /** 서식 문자열을 표준 꼴로. */
-export function canon(s: string, ctx: Ctx = null): string {
-  return write(normalize(segments(s)), ctx);
+export function canon(s: string, ctx: Ctx = null, dialect: Dialect = "ko"): string {
+  return write(normalize(segments(s)), ctx, dialect);
 }
 
 /** 서식을 뗀 글자만(줄바꿈은 공백). */

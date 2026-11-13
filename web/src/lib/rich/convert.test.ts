@@ -1,5 +1,6 @@
 import { getSchema } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
+import type { Dialect } from "../inline";
 import type { Doc } from "../types";
 import { fromPM, inlineToMd, inlineToPM, tableMd, toPM } from "./convert";
 import fixture from "./fixture.json";
@@ -8,10 +9,10 @@ import { richExtensions } from "./schema";
 const schema = getSchema(richExtensions());
 
 /** 문서 → 편집기(스키마 검사까지) → MD */
-function through(doc: Doc): string {
+function through(doc: Doc, dialect: Dialect = "ko"): string {
   const node = schema.nodeFromJSON(toPM(doc));
   node.check();
-  return fromPM(node.toJSON());
+  return fromPM(node.toJSON(), dialect);
 }
 
 describe("문서 → 편집기 → MD 가 서버 MD 와 바이트 단위로 같다", () => {
@@ -23,10 +24,17 @@ describe("문서 → 편집기 → MD 가 서버 MD 와 바이트 단위로 같�
     expect(through(fixture.example.doc as Doc)).toBe(fixture.example.md);
   });
 
+  it("영어 태그로 쓴 문서 · 영어 예시 문서", () => {
+    expect(through(fixture.en.doc as Doc, "en")).toBe(fixture.en.md);
+    expect(through(fixture.exampleEn.doc as Doc, "en")).toBe(fixture.exampleEn.md);
+  });
+
   it("글 서식 문자열 하나하나", () => {
     for (const c of fixture.inline) {
       const para = schema.nodeFromJSON({ type: "paragraph", content: inlineToPM(c.canon[0]) });
       expect(inlineToMd(para.toJSON().content), c.src).toBe(c.canon[0]);
+      const en = schema.nodeFromJSON({ type: "paragraph", content: inlineToPM(c.canonEn[0]) });
+      expect(inlineToMd(en.toJSON().content, null, "en"), c.src).toBe(c.canonEn[0]);
     }
   });
 

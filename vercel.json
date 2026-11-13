@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "buildCommand": "cd web && npm ci && npm run build",
+  "regions": ["icn1"],
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{web/node_modules/**,web/src/**,web/e2e/**,web/public/**,tests/**}"
+    }
+  }
+}

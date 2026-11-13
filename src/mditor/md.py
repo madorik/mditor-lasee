@@ -21,6 +21,7 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from . import inline, table
+from .i18n import t
 
 MAX_LEVEL = 3
 MAX_COLS = 40
@@ -43,7 +44,7 @@ class MdError(ValueError):
     """MD 를 읽다 난 오류. ``line`` 은 1부터 세는 줄 번호."""
 
     def __init__(self, line: int | None, message: str) -> None:
-        super().__init__(message if line is None else f"{line}번째 줄: {message}")
+        super().__init__(message if line is None else t("{line}번째 줄: {message}", line=line, message=message))
         self.line = line
         self.message = message
 
@@ -137,28 +138,29 @@ def _align(delim: str) -> str | None:
     return "center" if left and right else "left" if left else "right" if right else None
 
 
-def _cell(raw: str) -> str:
+def _cell(raw: str, dialect: str) -> str:
     if table.marker(raw):
         return raw
     shaded, inner = inline.cell_shade(raw)
-    text = inline.canon(inner, "cell")
-    return f"{{음영}}{text}{{/음영}}" if shaded else text
+    text = inline.canon(inner, "cell", dialect)
+    shade = inline.tag("음영", dialect)
+    return f"{{{shade}}}{text}{{/{shade}}}" if shaded else text
 
 
-def _table(rows: list[tuple[int, list[str]]]) -> Block:
+def _table(rows: list[tuple[int, list[str]]], dialect: str) -> Block:
     d = next((i for i, (_, cells) in enumerate(rows) if cells and all(_DELIM_CELL.match(c) for c in cells)), None)
     if d is None:
-        raise MdError(rows[0][0], "표에 구분선(|---|) 줄이 없습니다. 머리글 줄 바로 아래에 넣으세요.")
+        raise MdError(rows[0][0], t("표에 구분선(|---|) 줄이 없습니다. 머리글 줄 바로 아래에 넣으세요."))
     if d == 0:
-        raise MdError(rows[0][0], "구분선(|---|) 위에 머리글 줄이 없습니다.")
+        raise MdError(rows[0][0], t("구분선(|---|) 위에 머리글 줄이 없습니다."))
     width = len(rows[d - 1][1])
     if width > MAX_COLS:
-        raise MdError(rows[d - 1][0], f"표는 {MAX_COLS}칸까지 쓸 수 있습니다(지금 {width}칸).")
+        raise MdError(rows[d - 1][0], t("표는 {max}칸까지 쓸 수 있습니다(지금 {width}칸).", max=MAX_COLS, width=width))
     grid: list[list[str]] = []
     for ln, cells in [*rows[:d], *rows[d + 1 :]]:
         if len(cells) > width:
-            raise MdError(ln, f"이 줄은 {len(cells)}칸인데 머리글은 {width}칸입니다.")
-        grid.append([_cell(c) for c in [*cells, *([""] * (width - len(cells)))]])
+            raise MdError(ln, t("이 줄은 {cells}칸인데 머리글은 {width}칸입니다.", cells=len(cells), width=width))
+        grid.append([_cell(c, dialect) for c in [*cells, *([""] * (width - len(cells)))]])
     marks = [*rows[d][1], *(["---"] * width)][:width]
     return {
         "kind": "table",
@@ -190,7 +192,7 @@ def _finish(b: Block) -> Block | None:
     return out
 
 
-def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
+def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Block]:
     """(줄 번호, 줄) → id 없는 블록 목록. 섹션 머리(##)는 여기 오기 전에 걸러진다.
 
     묶는 규칙: 제목(###)이 새 블록을 연다. 문단·목록·표·그림은 아직 본문이 없을 때만 지금 블록에 붙고,
@@ -233,11 +235,11 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             while i < len(lines) and lines[i][1].strip().startswith("|"):
                 rows.append((lines[i][0], split_cells(lines[i][1])))
                 i += 1
-            body("table").update(_table(rows))
+            body("table").update(_table(rows, dialect))
             continue
         m = _BULLET.match(raw.replace("\t", "  "))
         if m:
-            item_text = inline.canon(m.group(2), "item")
+            item_text = inline.canon(m.group(2), "item", dialect)
             if not item_text:
                 continue
             level = min(len(m.group(1)) // 2, MAX_LEVEL)
@@ -250,7 +252,7 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
             continue
         m = _NOTE.match(text)
         if m:
-            note = inline.canon(m.group(1))
+            note = inline.canon(m.group(1), None, dialect)
             if note:
                 if cur is None:
                     cur = {}
@@ -260,15 +262,20 @@ def parse_blocks(lines: list[tuple[int, str]]) -> list[Block]:
         if m:
             body("image").update(src=m.group(2).strip(), caption=_one_line(m.group(1)))
             continue
-        para = inline.canon(text, "para")
+        para = inline.canon(text, "para", dialect)
         if para:
             body("text")["text"] = para
     flush()
     return out
 
 
-def parse(text: str) -> Doc:
-    """MD → id 없는 문서. 줄 번호가 든 MdError 를 낸다."""
+def parse(text: str, dialect: str | None = None) -> Doc:
+    """MD → id 없는 문서. 줄 번호가 든 MdError 를 낸다.
+
+    글 서식 태그는 문서의 태그 언어로 쓴다 — 문서에 태그가 있으면 그것(``inline.dialect_of``),
+    없으면 ``dialect``(부르는 쪽의 언어), 그것도 없으면 한국어.
+    """
+    dialect = inline.dialect_of(text) or dialect or "ko"
     title = ""
     sections: list[dict[str, Any]] = []
     cur: list[tuple[int, str]] = []
@@ -276,7 +283,7 @@ def parse(text: str) -> Doc:
     seen = False
 
     def close() -> None:
-        blocks = parse_blocks(cur)
+        blocks = parse_blocks(cur, dialect)
         if cur_title or blocks or sections:
             sections.append({"title": cur_title, "blocks": blocks})
 
@@ -458,9 +465,9 @@ def union_base(prev: Any, base: Any) -> dict[str, Any]:
     return {"sections": out}
 
 
-def apply_md(base: Any, text: str) -> Doc:
+def apply_md(base: Any, text: str, dialect: str | None = None) -> Doc:
     """MD 를 읽어 원본(base)의 id 를 이은 새 문서를 만든다. 원본은 고치지 않는다."""
-    return attach_ids(parse(text), base)
+    return attach_ids(parse(text, dialect), base)
 
 
 # ───────────────────────── 견주기 ─────────────────────────
@@ -558,9 +565,9 @@ def merge_sections(current: str, reply: str) -> tuple[str, list[str]]:
     heads = [_one_line(h) for h, _ in cur_parts]
     known = all(_one_line(h) in heads for h, _ in parts)
     if mode != "part" and not (mode is None and parts and known and not "".join(lead).strip()):
-        return body + "\n", ["(문서 전체)"]
+        return body + "\n", [t("(문서 전체)")]
     if not known or "".join(lead).strip():
-        return body + "\n", ["(문서 전체)"]
+        return body + "\n", [t("(문서 전체)")]
     used: set[int] = set()
     changed: list[str] = []
     out = list(cur_parts)

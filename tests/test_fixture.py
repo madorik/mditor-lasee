@@ -6,6 +6,7 @@
 import json
 import os
 import random
+import re
 from pathlib import Path
 
 from mditor import inline, md, table
@@ -16,6 +17,13 @@ from .synthetic import INLINE, MD
 
 PATH = Path(__file__).resolve().parents[1] / "web" / "src" / "lib" / "rich" / "fixture.json"
 CTX = (None, "cell", "para", "item")
+EXAMPLE_EN = Path(__file__).resolve().parents[1] / "src" / "mditor" / "data" / "example.en.md"
+
+
+def _to_en(text: str) -> str:
+    """한국어 태그를 영어 태그로 바꾼 같은 문서."""
+    return re.sub(r"\{(/?)(빨강|파랑|회색|밑줄|음영)\}", lambda m: "{" + m.group(1) + inline.EN[m.group(2)] + "}", text)
+
 
 
 def _json(segs):
@@ -25,6 +33,8 @@ def _json(segs):
 def build() -> dict:
     doc = md.apply_md(None, MD)  # 한 번 되읽은 문서가 기준이다
     example = md.apply_md(None, example_md())
+    doc_en = md.apply_md(None, _to_en(MD))  # 영어 태그로 쓴 같은 문서
+    example_en = md.apply_md(None, EXAMPLE_EN.read_text(encoding="utf-8"))
     rnd = random.Random(20261113)
     alphabet = ["가", "나", " ", " ", "*", "~", "{", "}", "\\", "<", "br>", "{빨강}", "{/밑줄}", "\n", "a", "|", "^", "-", "#"]
     rand = []
@@ -38,7 +48,10 @@ def build() -> dict:
             for _ in range(rnd.randint(1, 5))
         ]
         norm = inline.normalize(raw)
-        rand.append({"raw": _json(raw), "norm": _json(norm), "md": [inline.write(norm, c) for c in CTX]})
+        rand.append({
+            "raw": _json(raw), "norm": _json(norm),
+            "md": [inline.write(norm, c) for c in CTX], "mdEn": [inline.write(norm, c, "en") for c in CTX],
+        })
     grids = [
         [["a", "<", "c"], ["^", "^", "d"], ["e", "f", "<"]],
         [["기준", "<"], ["^", "따로"]],
@@ -61,11 +74,18 @@ def build() -> dict:
         "doc": doc,
         "md": md.doc_md(doc),
         "example": {"doc": example, "md": md.doc_md(example)},
+        "en": {"doc": doc_en, "md": md.doc_md(doc_en)},
+        "exampleEn": {"doc": example_en, "md": md.doc_md(example_en)},
+        "dialect": [
+            {"src": s, "dialect": inline.dialect_of(s)}
+            for s in (MD, _to_en(MD), "글만\n", "{red} 짝 없음\n{밑줄}x{/밑줄}", "\\{red}x\\{/red} {음영}y{/음영}", "a {Red}b{/RED}\n{빨강}c{/빨강}")
+        ],
         "inline": [
             {
                 "src": s,
                 "segs": _json(inline.normalize(inline.segments(s))),
                 "canon": [inline.canon(s, c) for c in CTX],
+                "canonEn": [inline.canon(s, c, "en") for c in CTX],
                 "cellShade": list(inline.cell_shade(s)),
             }
             for s in INLINE
@@ -88,3 +108,5 @@ def test_fixture_md_reads_back_to_itself():
     data = build()
     again = md.apply_md(data["doc"], data["md"])
     assert again == data["doc"] and md.doc_md(again) == data["md"]
+    en = data["en"]
+    assert md.doc_md(md.apply_md(en["doc"], en["md"])) == en["md"] and "{red}" in en["md"] and "{빨강}" not in en["md"]

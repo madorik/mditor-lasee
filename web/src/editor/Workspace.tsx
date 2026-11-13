@@ -2,7 +2,9 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../lib/api";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
+import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
 import { imageName, readImage } from "../lib/images";
+import { dialectOf, type Dialect } from "../lib/inline";
 import { encodeLink } from "../lib/share";
 import { isPersistent, putDoc, withVersion, type StoredDoc } from "../lib/store";
 import type { Doc, Preview as PreviewResult } from "../lib/types";
@@ -11,7 +13,7 @@ import { AiDialog, SettingsDialog, VersionsDialog } from "./Dialogs";
 import { MdPane, type MdPaneHandle } from "./MdPane";
 import { PdfPreview } from "./PdfPreview";
 import { Preview } from "./Preview";
-import { Menu, Tabs, useDebounced, when } from "./ui";
+import { Menu, MOD, Tabs, useDebounced, when } from "./ui";
 
 // 편집기 코드는 늦게 불러온다(TipTap 묶음이 크다)
 const RichEditor = lazy(() => import("./RichEditor"));
@@ -29,9 +31,21 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-const fileStem = (name: string) => name.replace(/[\\/:*?"<>|]+/g, " ").trim() || "문서";
+const fileStem = (name: string) => name.replace(/[\\/:*?"<>|]+/g, " ").trim() || t("문서");
 
-export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: StoredDoc; config: api.Config; onStored: (doc: StoredDoc) => void; onOpenDocs: () => void }) {
+/** 머리의 '파일' 메뉴가 부르는 것 — 문서를 바꿔 여는 일은 App 이 한다. */
+export type FileActions = { newDoc: () => void; openFile: () => void; myDocs: () => void; example: () => void };
+
+type Props = {
+  stored: StoredDoc;
+  /** 아직 이 브라우저에 보관하지 않은 문서(예시). 임시저장도 하지 않는다. */
+  temp: boolean;
+  config: api.Config;
+  onStored: (doc: StoredDoc) => void;
+  file: FileActions;
+};
+
+export function Workspace({ stored, temp, config, onStored, file }: Props) {
   // 임시저장이 있으면 이어서 연다
   const [draft, setDraft] = useState<Draft | null>(() => {
     const d = readDraft(stored.id);
@@ -63,6 +77,8 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
   }, []);
 
   const baseVersion = stored.versions.length;
+  // 문서의 태그 언어 — 문서에 처음 나오는 태그를 따르고, 태그가 없으면 화면 언어. 서버(md.parse)와 같은 규칙이다.
+  const dialect: Dialect = useMemo(() => dialectOf(text) ?? lang, [text]);
   const dText = useDebounced(text, 300);
   const pText = useDebounced(text, 1200);
 
@@ -152,12 +168,13 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
   // ── 임시저장 · 창 닫기 막기
   const dirty = text !== stored.md;
   useEffect(() => {
+    if (temp) return;
     const t = setTimeout(() => {
       if (text !== stored.md) writeDraft(stored.id, { md: text, at: Date.now(), version: baseVersion });
       else clearDraft(stored.id);
     }, 400);
     return () => clearTimeout(t);
-  }, [text, stored.md, stored.id, baseVersion]);
+  }, [text, stored.md, stored.id, baseVersion, temp]);
   useEffect(() => {
     if (!dirty) return;
     const stop = (e: BeforeUnloadEvent) => {
@@ -184,7 +201,7 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
       try {
         const r = md === text && fresh && result ? result : await api.preview(md, stored.base, lastDoc.current);
         if (!r.ok) {
-          say(`저장하지 못했습니다. ${r.error.line ? `${r.error.line}번째 줄: ` : ""}${r.error.message}`, true);
+          say(`${t("저장하지 못했습니다.")} ${r.error.line ? `${t("{line}번째 줄", { line: r.error.line })}: ` : ""}${r.error.message}`, true);
           return false;
         }
         const next = withVersion({ ...stored, name }, r.md, r.doc);
@@ -196,10 +213,10 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
           if (leftTab === "md" || md !== text) replaceText(r.md);
           else setText(r.md);
         }
-        say("저장했습니다");
+        say(t("저장했습니다"));
         return true;
       } catch (e) {
-        say(e instanceof Error ? e.message : "저장하지 못했습니다.", true);
+        say(e instanceof Error ? e.message : t("저장하지 못했습니다."), true);
         return false;
       } finally {
         setBusy(false);
@@ -229,13 +246,13 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
     try {
       const img = await readImage(file);
       const total = Object.values(stored.images).reduce((n, v) => n + v.data.length * 0.75, 0) + img.data.length * 0.75;
-      if (total > config.maxImageBytes) throw new Error(`그림은 문서마다 합쳐서 ${Math.round(config.maxImageBytes / 1_000_000)}MB 까지 붙일 수 있습니다.`);
+      if (total > config.maxImageBytes) throw new Error(t("그림은 문서마다 합쳐서 {mb}MB 까지 붙일 수 있습니다.", { mb: Math.round(config.maxImageBytes / 1_000_000) }));
       const id = imageName(file, stored.images);
       await persist({ ...stored, images: { ...stored.images, [id]: img } });
       if (leftTab === "doc") insertImage.current?.(id);
       else mdPane.current?.insert(`![](${id})`);
     } catch (e) {
-      say(e instanceof Error ? e.message : "그림을 붙이지 못했습니다.", true);
+      say(e instanceof Error ? e.message : t("그림을 붙이지 못했습니다."), true);
     }
   };
 
@@ -249,7 +266,7 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
       );
       download(blob, `${fileStem(name)}.pdf`);
     } catch (e) {
-      say(e instanceof Error ? e.message : "PDF 를 만들지 못했습니다.", true);
+      say(e instanceof Error ? e.message : t("PDF 를 만들지 못했습니다."), true);
     } finally {
       setBusy(false);
     }
@@ -258,14 +275,14 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(await encodeLink(location.origin, text));
-      say("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다(그림은 빠집니다).");
+      say(t("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다(그림은 빠집니다)."));
     } catch {
-      say("링크를 복사하지 못했습니다.", true);
+      say(t("링크를 복사하지 못했습니다."), true);
     }
   };
 
   const rename = () => {
-    const next = name.trim() || "이름 없는 문서";
+    const next = name.trim() || t("이름 없는 문서");
     setName(next);
     if (next !== stored.name) void persist({ ...stored, name: next });
   };
@@ -278,107 +295,128 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
     <div className="app">
       <div>
         <header className="top">
-          <a className="brand" href="/" title="MDitor 첫 화면">
+          <a className="brand" href={localPath("/")} title={t("MDitor 첫 화면")}>
             MD<i>itor</i>
           </a>
-          <input className="docname" value={name} aria-label="문서 이름" onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} />
-          <span className="spacer" />
-          <div className="mobile-switch">
-            <Tabs label="화면 전환" value={side} onChange={setSide} items={[["edit", "편집"], ["view", "미리보기"]]} />
-          </div>
-          <span className={`state ${dirty ? "dirty" : ""}`}>{dirty ? "저장 안 한 변경" : stored.versions.length ? `판본 ${stored.versions[stored.versions.length - 1].n} 저장됨` : "저장 전"}</span>
-          <button type="button" className="btn primary" disabled={busy || (!dirty && stored.versions.length > 0)} onClick={save} title="저장 (Ctrl+S)">
-            저장
-          </button>
-          {config.ai && (
-            <button type="button" className="btn" onClick={() => setDialog("ai")}>
-              AI 로 고치기
-            </button>
-          )}
-          <Menu label="내보내기">
+          <Menu label={t("파일")} align="left" className="btn quiet">
             {(close) => (
               <>
-                <button type="button" className="menu-item" role="menuitem" disabled={busy} onClick={() => (close(), void exportPdf())}>PDF 내려받기</button>
-                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), exportMd())}>MD 내려받기</button>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), file.newDoc())}>{t("새 문서")}</button>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), file.openFile())}>
+                  {t("파일 열기…")} <small>{MOD}O</small>
+                </button>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), file.myDocs())}>{t("내 문서")}</button>
                 <div className="menu-sep" />
-                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), void copyLink())}>문서가 든 링크 복사</button>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), file.example())}>{t("예시 문서 보기")}</button>
               </>
             )}
           </Menu>
-          <Menu label="문서">
+          <input className="docname" value={name} aria-label={t("문서 이름")} onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} />
+          <span className="spacer" />
+          <div className="mobile-switch">
+            <Tabs label={t("화면 전환")} value={side} onChange={setSide} items={[["edit", t("편집")], ["view", t("미리보기")]]} />
+          </div>
+          <span className={`state ${dirty ? "dirty" : ""}`}>{dirty ? t("저장 안 한 변경") : stored.versions.length ? t("판본 {n} 저장됨", { n: stored.versions[stored.versions.length - 1].n }) : t("저장 전")}</span>
+          <button type="button" className="btn primary" disabled={busy || (!dirty && stored.versions.length > 0)} onClick={save} title={t("저장 (Ctrl+S)")}>
+            {t("저장")}
+          </button>
+          {config.ai && (
+            <button type="button" className="btn" onClick={() => setDialog("ai")}>
+              {t("AI 로 고치기")}
+            </button>
+          )}
+          <Menu label={t("내보내기")}>
             {(close) => (
               <>
-                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), onOpenDocs())}>내 문서 · 새 문서</button>
+                <button type="button" className="menu-item" role="menuitem" disabled={busy} onClick={() => (close(), void exportPdf())}>{t("PDF 내려받기")}</button>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), exportMd())}>{t("MD 내려받기")}</button>
+                <div className="menu-sep" />
+                <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), void copyLink())}>{t("문서가 든 링크 복사")}</button>
+              </>
+            )}
+          </Menu>
+          <Menu label={t("문서")}>
+            {(close) => (
+              <>
                 <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), setDialog("versions"))}>
-                  판본 <small>{stored.versions.length}개</small>
+                  {t("판본")} <small>{t("{n}개", { n: stored.versions.length })}</small>
                 </button>
                 <button type="button" className="menu-item" role="menuitem" onClick={() => (close(), setDialog("settings"))}>
-                  쪽 설정 <small>{stored.options.page}{stored.options.landscape ? " 가로" : ""}</small>
+                  {t("쪽 설정")} <small>{stored.options.page}{stored.options.landscape ? ` ${t("가로")}` : ""}</small>
                 </button>
                 <div className="menu-sep" />
-                <a className="menu-item" role="menuitem" href="/syntax" target="_blank" rel="noreferrer">문법 안내</a>
+                <a className="menu-item" role="menuitem" href={localPath("/syntax")} target="_blank" rel="noreferrer">{t("문법 안내")}</a>
+                <div className="menu-sep" />
+                <a className="menu-item" role="menuitem" href={langPath(otherLang, "/edit")} hrefLang={otherLang} lang={otherLang}>{LANG_NAMES[otherLang]}</a>
               </>
             )}
           </Menu>
         </header>
         {!isPersistent() && (
           <div className="notice warn">
-            <span className="grow">이 브라우저 창에서는 문서를 보관할 수 없습니다. 창을 닫기 전에 ‘내보내기 → MD 내려받기’ 로 챙겨 두세요.</span>
+            <span className="grow">{t("이 브라우저 창에서는 문서를 보관할 수 없습니다. 창을 닫기 전에 ‘내보내기 → MD 내려받기’ 로 챙겨 두세요.")}</span>
+          </div>
+        )}
+        {temp && (
+          <div className="notice">
+            <span className="grow">{t("예시 문서입니다. 마음껏 고쳐 보세요 — 저장하면 내 문서에 들어가고, 저장하지 않으면 남지 않습니다.")}</span>
+            <button type="button" className="btn" onClick={file.newDoc}>{t("새 문서")}</button>
+            <button type="button" className="btn" onClick={file.openFile}>{t("파일 열기")}</button>
           </div>
         )}
         {draft && (
           <div className="notice">
-            <span className="grow">저장하지 않고 닫았던 글({when(draft.at)})을 이어서 열었습니다.</span>
-            <button type="button" className="btn" onClick={() => (clearDraft(stored.id), setDraft(null), replaceText(stored.md))}>저장본으로 되돌리기</button>
-            <button type="button" className="btn quiet" onClick={() => setDraft(null)}>닫기</button>
+            <span className="grow">{t("저장하지 않고 닫았던 글({when})을 이어서 열었습니다.", { when: when(draft.at) })}</span>
+            <button type="button" className="btn" onClick={() => (clearDraft(stored.id), setDraft(null), replaceText(stored.md))}>{t("저장본으로 되돌리기")}</button>
+            <button type="button" className="btn quiet" onClick={() => setDraft(null)}>{t("닫기")}</button>
           </div>
         )}
       </div>
 
       <main className="work" data-side={side}>
-        <section className="pane left" aria-label="편집">
+        <section className="pane left" aria-label={t("편집")}>
           <div className="pane-head">
-            <Tabs label="편집 방식" value={leftTab} onChange={switchLeft} items={[["doc", "문서"], ["md", "MD"]]} />
-            <span className="pane-info">{leftTab === "doc" ? "보이는 모양 그대로 고칩니다" : "Markdown 원본을 고칩니다"}</span>
+            <Tabs label={t("편집 방식")} value={leftTab} onChange={switchLeft} items={[["doc", t("문서")], ["md", "MD"]]} />
+            <span className="pane-info">{leftTab === "doc" ? t("보이는 모양 그대로 고칩니다") : t("Markdown 원본을 고칩니다")}</span>
           </div>
           <div className="pane-body">
             {leftTab === "md" ? (
-              <MdPane value={text} onChange={setText} error={error} onPickImage={() => fileInput.current?.click()} handle={mdPane} />
+              <MdPane value={text} dialect={dialect} onChange={setText} error={error} onPickImage={() => fileInput.current?.click()} handle={mdPane} />
             ) : rich ? (
-              <Suspense fallback={<div className="hint">편집기를 불러오는 중입니다</div>}>
-                <RichEditor key={rich.key} doc={rich.doc} images={stored.images} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} register={(fn) => (insertImage.current = fn)} />
+              <Suspense fallback={<div className="hint">{t("편집기를 불러오는 중입니다")}</div>}>
+                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} images={stored.images} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} register={(fn) => (insertImage.current = fn)} />
               </Suspense>
             ) : error ? (
               <div className="hint">
-                <strong>MD 에 고칠 곳이 있어 문서 모드로 열 수 없습니다</strong>
-                <span>{error.line ? `${error.line}번째 줄: ` : ""}{error.message}</span>
-                <button type="button" className="btn primary" onClick={() => switchLeft("md")}>MD 탭에서 고치기</button>
+                <strong>{t("MD 에 고칠 곳이 있어 문서 모드로 열 수 없습니다")}</strong>
+                <span>{error.line ? `${t("{line}번째 줄", { line: error.line })}: ` : ""}{error.message}</span>
+                <button type="button" className="btn primary" onClick={() => switchLeft("md")}>{t("MD 탭에서 고치기")}</button>
               </div>
             ) : previewQ.isError ? (
               <div className="hint">
-                <strong>서버에 연결하지 못했습니다</strong>
+                <strong>{t("서버에 연결하지 못했습니다")}</strong>
                 <span>{previewQ.error instanceof Error ? previewQ.error.message : ""}</span>
-                <button type="button" className="btn" onClick={() => void previewQ.refetch()}>다시 시도</button>
+                <button type="button" className="btn" onClick={() => void previewQ.refetch()}>{t("다시 시도")}</button>
               </div>
             ) : (
-              <div className="hint">문서를 여는 중입니다</div>
+              <div className="hint">{t("문서를 여는 중입니다")}</div>
             )}
           </div>
         </section>
 
-        <section className="pane right" aria-label="미리보기">
+        <section className="pane right" aria-label={t("미리보기")}>
           <div className="pane-head">
-            <Tabs label="미리보기 방식" value={rightTab} onChange={setRightTab} items={[["screen", "화면"], ["pdf", "PDF"]]} />
+            <Tabs label={t("미리보기 방식")} value={rightTab} onChange={setRightTab} items={[["screen", t("미리보기")], ["pdf", "PDF"]]} />
             <span className="pane-info" aria-live="polite">
-              {layout ? <><b>전체 {layout.total}쪽</b>{pagesStale ? " · 쪽 다시 계산 중" : ""}</> : "쪽 계산 중"}
-              {dirty && changeCount > 0 && <span className="chg"> · 저장본에서 바뀐 블록 {changeCount}개</span>}
+              {layout ? <><b>{layout.total === 1 ? t("전체 1쪽") : t("전체 {n}쪽", { n: layout.total })}</b>{pagesStale ? ` · ${t("쪽 다시 계산 중")}` : ""}</> : t("쪽 계산 중")}
+              {dirty && changeCount > 0 && <span className="chg"> · {changeCount === 1 ? t("저장본에서 바뀐 블록 1개") : t("저장본에서 바뀐 블록 {n}개", { n: changeCount })}</span>}
             </span>
           </div>
           <div className="pane-body">
             {rightTab === "screen" ? (
               <Preview doc={viewDoc} layout={layout} changes={dirty ? changes : null} images={stored.images} options={stored.options} />
             ) : (
-              <PdfPreview blob={pdfQ.data?.blob ?? null} loading={pdfQ.isFetching || !pDoc} error={pdfQ.isError ? (pdfQ.error instanceof Error ? pdfQ.error.message : "오류") : null} />
+              <PdfPreview blob={pdfQ.data?.blob ?? null} loading={pdfQ.isFetching || !pDoc} error={pdfQ.isError ? (pdfQ.error instanceof Error ? pdfQ.error.message : t("오류")) : null} />
             )}
           </div>
         </section>
@@ -407,7 +445,7 @@ export function Workspace({ stored, config, onStored, onOpenDocs }: { stored: St
           onApply={(md) => {
             setDialog(null);
             replaceText(md);
-            say("수정안을 문서에 넣었습니다. 확인한 뒤 저장하세요.");
+            say(t("수정안을 문서에 넣었습니다. 확인한 뒤 저장하세요."));
           }}
         />
       )}

@@ -11,7 +11,8 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-from . import md, render
+from . import i18n, md, render
+from .i18n import t
 from .render import Options
 
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -23,19 +24,20 @@ class InputError(ValueError):
 
 def clean(text: str, limit: int) -> str:
     if not isinstance(text, str):
-        raise InputError("markdown 은 문자열이어야 합니다.")
+        raise InputError(t("markdown 은 문자열이어야 합니다."))
     if len(text) > limit:
-        raise InputError(f"문서가 너무 깁니다({len(text):,}자). {limit:,}자까지 다룰 수 있습니다.")
+        raise InputError(t("문서가 너무 깁니다({length}자). {limit}자까지 다룰 수 있습니다.", length=f"{len(text):,}", limit=f"{limit:,}"))
     return _CONTROL.sub("", text)
 
 
-def read(text: str, base: Any = None, prev: Any = None) -> dict[str, Any]:
+def read(text: str, base: Any = None, prev: Any = None, dialect: str | None = None) -> dict[str, Any]:
     """MD → 되읽은 문서. 미리보기·저장·AI 대조가 모두 이 결과를 쓴다. 저장하지 않는다.
 
     base 는 저장본(변경 표시의 기준), prev 는 직전에 되읽은 문서(id 를 잇는 기준)다.
+    dialect 는 태그가 아직 없는 문서의 태그 언어 — 주지 않으면 지금 요청의 언어(i18n)를 따른다.
     """
     try:
-        doc = md.apply_md(md.union_base(prev, base) if prev else base, text)
+        doc = md.apply_md(md.union_base(prev, base) if prev else base, text, dialect or i18n.lang())
     except md.MdError as e:
         return {"ok": False, "error": e.to_json()}
     canonical = md.doc_md(doc)
@@ -119,7 +121,7 @@ def decode_images(images: Any, limit: int) -> dict[str, bytes]:
             continue
         total += len(data)
         if total > limit:
-            raise InputError(f"그림이 너무 큽니다. 합쳐서 {limit // 1_000_000}MB 까지 붙일 수 있습니다.")
+            raise InputError(t("그림이 너무 큽니다. 합쳐서 {mb}MB 까지 붙일 수 있습니다.", mb=limit // 1_000_000))
         out[name] = data
     return out
 

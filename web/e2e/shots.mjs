@@ -21,8 +21,9 @@ const shot = async (path, name, { width = 1440, height = 900, full = false, wait
   await page.close();
 };
 await shot("/", "landing", { full: true });
-await shot("/edit", "edit", { wait: 3500 });
-await shot("/edit", "edit-mobile", { width: 390, height: 780, wait: 3500 });
+await shot("/edit", "start");
+await shot("/edit", "edit", { wait: 3500, before: (p) => p.click('.start [data-act="example"]') });
+await shot("/edit", "edit-mobile", { width: 390, height: 780, wait: 3500, before: (p) => p.click('.start [data-act="example"]') });
 await shot("/syntax", "syntax", { full: true });
 await shot("/developers", "developers", { full: true });
 await browser.close();

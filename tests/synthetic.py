@@ -108,5 +108,11 @@ INLINE = [
     "{음영}칸 전체{/음영}",
     "{음영}앞{/음영} 뒤 {음영}또{/음영}",
     "{음영}{/음영}",
+    # 영어 태그 — 한국어 태그와 같은 태그다
+    "{red}red **bold red**{/red} {underline}under{/underline} {shade}shade{/shade}",
+    "{RED}case{/Red} {grey}grey{/gray} {Blue}blue{/BLUE}",
+    "{red}섞인 이름{/빨강} {음영}shade{/shade}",
+    r"literal \{red} and {red} unclosed",
+    "{shade}whole cell{/shade}",
     "---", "***", "- -", "-- -", "___", "* * *", "-", "--",
 ]

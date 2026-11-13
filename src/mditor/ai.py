@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import core, md
+from .i18n import t
 from .settings import Settings, syntax_guide
 
 
@@ -20,7 +21,7 @@ class AiError(RuntimeError):
 
 def system_prompt() -> str:
     return f"""You are the editing assistant inside MDitor, a document editor whose source format is a constrained \
-Markdown dialect. People write formal Korean documents (reports, plans, minutes) in it, and the same Markdown is \
+Markdown dialect. People write formal documents (reports, plans, minutes; mostly Korean, some English) in it, and the same Markdown is \
 rendered to a paginated PDF. You receive the current document and one editing instruction, and you return revised \
 Markdown that the server merges back into the document.
 
@@ -42,8 +43,11 @@ text that sits above the first `## ` heading. After the marker, give the complet
 block, so an untouched block must come back identical or it shows up as an edit the person never asked for.
 - Keep the document's language and tone. Formal Korean reports are usually written in terse noun-ending or \
 plain-form sentences; match what is already there.
+- Formatting tags have Korean and English names that mean the same thing ({{빨강}} = {{red}}, {{파랑}} = {{blue}}, \
+{{회색}} = {{gray}}, {{밑줄}} = {{underline}}, {{음영}} = {{shade}}). Use the names the document already uses.
 - Every number, date and name must come from the document or the instruction. If the instruction asks for content \
-you have no data for, write the sentence with `[확인 필요]` where the missing fact goes, so the person can fill it in.
+you have no data for, write the sentence with `[확인 필요]` (in an English document, `[TBC]`) where the missing fact \
+goes, so the person can fill it in.
 - Stay inside the dialect. A table row must have as many cells as its header, and merged cells keep their `<` and \
 `^` markers.
 - If the instruction is not an editing request, or cannot be applied to this document, reply with \
@@ -55,12 +59,12 @@ def revise(settings: Settings, text: str, instruction: str, base: Any = None) ->
     import anthropic
 
     if not settings.ai_enabled:
-        raise AiError("AI 수정이 꺼져 있습니다.", 404)
+        raise AiError(t("AI 수정이 꺼져 있습니다."), 404)
     if len(text) > settings.ai_max_md_chars:
-        raise AiError(f"AI 수정은 {settings.ai_max_md_chars:,}자까지의 문서에 쓸 수 있습니다.", 413)
+        raise AiError(t("AI 수정은 {limit}자까지의 문서에 쓸 수 있습니다.", limit=f"{settings.ai_max_md_chars:,}"), 413)
     instruction = instruction.strip()
     if not instruction:
-        raise AiError("무엇을 고칠지 적어 주세요.", 422)
+        raise AiError(t("무엇을 고칠지 적어 주세요."), 422)
 
     client = anthropic.Anthropic()
     try:
@@ -82,22 +86,25 @@ def revise(settings: Settings, text: str, instruction: str, base: Any = None) ->
         ) as stream:
             message = stream.get_final_message()
     except anthropic.RateLimitError as e:
-        raise AiError("AI 사용량이 몰렸습니다. 잠시 뒤에 다시 해 주세요.", 429) from e
+        raise AiError(t("AI 사용량이 몰렸습니다. 잠시 뒤에 다시 해 주세요."), 429) from e
     except anthropic.APIStatusError as e:
-        raise AiError(f"AI 호출에 실패했습니다({e.status_code}).", 502) from e
+        raise AiError(t("AI 호출에 실패했습니다({status}).", status=e.status_code), 502) from e
     except anthropic.APIConnectionError as e:
-        raise AiError("AI 서버에 연결하지 못했습니다.", 502) from e
+        raise AiError(t("AI 서버에 연결하지 못했습니다."), 502) from e
 
     if message.stop_reason == "refusal":
-        raise AiError("AI 가 이 요청을 처리하지 않았습니다. 지시를 바꿔 다시 해 보세요.", 422)
+        raise AiError(t("AI 가 이 요청을 처리하지 않았습니다. 지시를 바꿔 다시 해 보세요."), 422)
     if message.stop_reason == "max_tokens":
-        raise AiError("문서가 길어 끝까지 고치지 못했습니다. 섹션을 나눠 요청해 보세요.", 422)
+        raise AiError(t("문서가 길어 끝까지 고치지 못했습니다. 섹션을 나눠 요청해 보세요."), 422)
     reply = "".join(block.text for block in message.content if block.type == "text")
     merged, touched = md.merge_sections(text, reply) if reply.strip() else (text, [])
     result = core.read(merged, base)
     if not result["ok"]:
         err = result["error"]
-        raise AiError(f"AI 가 돌려준 글을 읽지 못했습니다({err['line']}번째 줄: {err['message']}). 다시 해 보세요.", 422)
+        raise AiError(
+            t("AI 가 돌려준 글을 읽지 못했습니다({line}번째 줄: {message}). 다시 해 보세요.", line=err["line"], message=err["message"]),
+            422,
+        )
     return {
         "md": merged,
         "changed": merged.strip() != text.strip(),

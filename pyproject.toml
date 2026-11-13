@@ -22,6 +22,13 @@ mditor-mcp = "mditor.mcp_server:main"
 mditor-server = "mditor.api:main"
 
 [dependency-groups]
+# Vercel 은 `uv sync --no-dev` 로 설치하고 엑스트라([server])는 깔지 않는다.
+# 그래서 서버 의존성을 기본 그룹으로도 둔다 — 위 [server] 와 같게 유지한다(tests/test_packaging.py 가 본다).
+server = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "anthropic>=2.8,<3",
+]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
@@ -29,6 +36,9 @@ dev = [
     "pypdf>=5",
     "ruff>=0.8",
 ]
+
+[tool.uv]
+default-groups = ["dev", "server"]
 
 [build-system]
 requires = ["hatchling"]

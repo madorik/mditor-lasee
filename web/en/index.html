@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDitor — A Markdown editor whose page breaks match the PDF</title>
+    <meta name="description" content="Edit reports as they look and keep the source in Markdown. The page breaks in the preview come from actually rendering the PDF, so they match it exactly. Free, no sign-up." />
+    <meta property="og:title" content="MDitor — A Markdown editor whose page breaks match the PDF" />
+    <meta property="og:description" content="Edit what you see, keep the source in Markdown. The preview's page breaks match the PDF." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="%PUBLIC_URL%/en/" />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/en/" />
+    <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/" />
+    <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/" />
+    <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/en/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/en/syntax">Syntax</a>
+      <a class="link hide-s" href="/en/developers">Developers</a>
+      <a class="lang" href="/" hreflang="ko" lang="ko">한국어</a>
+      <a class="button small" href="/en/edit">Open editor</a>
+    </header>
+
+    <main>
+      <section class="wrap hero">
+        <div class="hero-text">
+          <h1>Where the preview turns the page, so does the PDF</h1>
+          <p class="lede">
+            MDitor is a document editor for reports. You edit the document as it looks, and the source stays plain Markdown.
+            The page breaks in the preview aren’t estimates: they’re where the PDF actually breaks, because MDitor renders the PDF to find them.
+          </p>
+          <div class="actions">
+            <a class="button" href="/en/edit">Open editor</a>
+            <a class="button ghost" href="/en/syntax">See the syntax</a>
+          </div>
+          <p class="fine">Free. No sign-up, and your documents stay in your browser.</p>
+        </div>
+
+        <figure class="hero-video">
+          <video autoplay muted loop playsinline preload="metadata" width="1920" height="1080" poster="/src/assets/hero/hero-en.webp"
+            aria-label="Typing more text in the Document tab moves the page boundary (a blue dashed line) in the preview, and the PDF turns to the next page at the same place">
+            <source src="/src/assets/hero/hero-en.mp4" type="video/mp4" />
+          </video>
+        </figure>
+      </section>
+
+      <section class="band">
+        <div class="wrap">
+          <h2>Two ways to edit the same document, two ways to check it</h2>
+          <p class="intro">
+            Edit on the left, check on the right. The left pane switches between Document and MD, the right pane between Preview and PDF.
+            Whichever side you edit, the source is one and the same Markdown.
+          </p>
+          <!-- 그림은 e2e/landing-images.mjs 로 만든다(예시 문서의 같은 자리를 네 가지로 찍은 것) -->
+          <div class="views">
+            <div class="view-col">
+              <h3 class="view-head">Edit <span>left pane</span></h3>
+              <figure class="view">
+                <img src="/src/assets/landing/en/edit-doc.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="Document tab: a sales table with merged header cells and the start of section 3, laid out like a word processor, with bold, underline, color and table buttons above" />
+                <figcaption><b>Document</b> Edit the document as it looks, like in a word processor.</figcaption>
+              </figure>
+              <figure class="view">
+                <img src="/src/assets/landing/en/edit-md.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="MD tab: the same table as Markdown. Merged cells are written as &lt; and ^, and shading as {shade}" />
+                <figcaption><b>MD</b> Edit the same spot in the Markdown source.</figcaption>
+              </figure>
+            </div>
+            <div class="view-col">
+              <h3 class="view-head">Check <span>right pane</span></h3>
+              <figure class="view">
+                <img src="/src/assets/landing/en/view-preview.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="Preview tab: below the table’s total row there is a blue dashed line marked ‘Page 2’, and section 3 begins under it" />
+                <figcaption><b>Preview</b> The blue dashed line is where the PDF turns the page.</figcaption>
+              </figure>
+              <figure class="view">
+                <img src="/src/assets/landing/en/view-pdf.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="PDF tab: page 1 ends at the table’s total row, and page 2 begins with section 3" />
+                <figcaption><b>PDF</b> Exactly the PDF you’ll download. Page 2 starts at the same spot.</figcaption>
+              </figure>
+            </div>
+          </div>
+          <ul class="rows3">
+            <li>
+              <div>
+                <h3>Edit it as it looks</h3>
+                <p>
+                  In the Document tab you write as you would in a word processor: add bold, underline and text color, drag across table cells to merge them, and align columns.
+                  When you paste from Word or Excel, only the formatting this document supports is kept.
+                </p>
+              </div>
+              <div class="sample paperlike docstyle" aria-hidden="true">
+                <div class="toolbar-shot" style="font-family:var(--font)">
+                  <span class="on"><b>B</b></span><span><s>S</s></span><span><u>U</u></span>
+                  <span><mark style="background:#d9d9d9;padding:0 3px">A</mark></span>
+                  <span style="color:#c00000">A</span><span style="color:#1f4e9b">A</span>
+                  <span style="font-size:13px">Merge cells</span><span style="font-size:13px">Right</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th rowspan="2">Category</th><th colspan="2">Sales ($M)</th></tr>
+                    <tr><th>Print</th><th>E-book</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Fiction</td><td style="text-align:right"><strong>412</strong></td><td style="text-align:right">96</td></tr>
+                    <tr><td>Other</td><td style="text-align:right;background:#d9d9d9">184</td><td style="text-align:right">40</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>The source is Markdown</h3>
+                <p>
+                  Switch to the MD tab and the same document appears as text. Merged cells are written with <code>&lt;</code> and <code>^</code>, text color with tags like <code>{red}</code>,
+                  all inside ordinary Markdown. So any Markdown viewer can still read it, and you can download it as a file and keep it anywhere.
+                </p>
+              </div>
+              <div class="sample">
+<pre>| Category | Sales ($M) | &lt; |
+| ^ | Print | E-book |
+|:---|---:|---:|
+| Fiction | **412** | 96 |
+| Other | {shade}184{/shade} | 40 |</pre>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>No guessing where pages break</h3>
+                <p>
+                  Working out pages from screen height goes wrong, because fonts and line wrapping differ from the PDF. Every time you edit, MDitor has the server actually render the PDF,
+                  then shows in the preview which page each block and table row landed on. The blue dashed line marks the spot.
+                </p>
+              </div>
+              <div class="sample paperlike docstyle" aria-hidden="true">
+                <div class="md-list">
+                  <div class="md-item">Sign a second courier to cut shipping delays.</div>
+                  <div class="md-item">Let customers pick a return reason right on the order page.</div>
+                </div>
+                <div class="pagemark" style="margin-block:22px"><span>Page 3</span></div>
+                <div class="md-list">
+                  <div class="md-item">Improve the font settings in the e-book reader.</div>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="ad-slot" hidden></div>
+
+      <section class="band desk">
+        <div class="wrap cols2">
+          <div>
+            <h2>AI edits the same text</h2>
+            <p class="intro" style="margin-bottom:18px">
+              There’s no editor-only format. The Markdown you edit is exactly what an AI reads and edits, too.
+              Connect the MCP server and an AI agent such as Claude can write documents, check the syntax, verify the page layout, and export PDFs.
+            </p>
+            <a class="button ghost" href="/en/developers">Read the developer guide</a>
+          </div>
+          <div class="codebox">
+<pre data-fill>{
+  "mcpServers": {
+    "mditor": { "type": "http", "url": "{origin}/mcp" }
+  }
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="wrap">
+          <h2>Frequently asked questions</h2>
+          <dl class="qa" style="margin-top:28px">
+            <div>
+              <dt>Where are my documents stored?</dt>
+              <dd>Only in the browser you’re using. The server receives the text briefly to build the preview and the PDF, and doesn’t keep it. To move a document to another device, download it as an MD file.</dd>
+            </div>
+            <div>
+              <dt>Is it really free?</dt>
+              <dd>Yes. It’s supported by ads. There’s no sign-up and no payment.</dd>
+            </div>
+            <div>
+              <dt>What kinds of documents is it for?</dt>
+              <dd>Structured documents built from repeating headings, items and tables: work reports, plans, meeting minutes, project reports and the like. It isn’t a fit for documents that need a free-form page layout.</dd>
+            </div>
+            <div>
+              <dt>What happens when a table is longer than a page?</dt>
+              <dd>It splits between rows, and the header rows repeat on the next page. The preview shows which row it breaks at.</dd>
+            </div>
+            <div>
+              <dt>Which characters show up in the PDF?</dt>
+              <dd>English letters, digits and punctuation, all 11,172 Hangul syllables, 4,888 Hanja (Chinese characters), and the symbols common in reports (※ ① → ■ and so on). The typeface is Pretendard.</dd>
+            </div>
+            <div>
+              <dt>What if I close the window without saving?</dt>
+              <dd>Your draft stays in the browser, so you can pick up where you left off when you come back. Every save also keeps a version, so you can go back to earlier content.</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/en/syntax">Syntax</a>
+        <a href="/en/developers">Developers</a>
+        <a href="/en/privacy">Privacy</a>
+        <a href="/en/terms">Terms</a>
+        <a href="/" hreflang="ko" lang="ko">한국어</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>

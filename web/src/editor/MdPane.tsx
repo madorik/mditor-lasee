@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
+import { t } from "../lib/i18n";
+import { tag, type Dialect } from "../lib/inline";
 import { insertBreak, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
 import type { MdError } from "../lib/types";
 
 export type MdPaneHandle = { insert: (text: string) => void };
 
 /** MD 탭 — 글 그대로 고친다. 오류가 있으면 줄 번호와 함께 알려 준다. */
-export function MdPane({ value, onChange, error, onPickImage, handle }: { value: string; onChange: (v: string) => void; error: MdError | null; onPickImage: () => void; handle?: Ref<MdPaneHandle> }) {
+export function MdPane({ value, dialect, onChange, error, onPickImage, handle }: { value: string; dialect: Dialect; onChange: (v: string) => void; error: MdError | null; onPickImage: () => void; handle?: Ref<MdPaneHandle> }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => value.split("\n").length, [value]);
@@ -40,7 +42,10 @@ export function MdPane({ value, onChange, error, onPickImage, handle }: { value:
     return [el.value, el.selectionStart, el.selectionEnd] as const;
   };
   const wrap = (open: string, close: string) => () => apply(wrapSelection(...sel(), open, close));
+  /** 서식 태그로 감싼다 — 문서의 태그 언어로({밑줄} · {underline}) */
+  const wrapTag = (name: string) => wrap(`{${tag(name, dialect)}}`, `{/${tag(name, dialect)}}`);
   const prefix = (p: string) => () => apply(prefixLines(...sel(), p));
+  const ga = t("가"); // 서식 단추의 보기 글자
 
   const jump = () => {
     const el = ta.current;
@@ -62,7 +67,7 @@ export function MdPane({ value, onChange, error, onPickImage, handle }: { value:
       wrap("**", "**")();
     } else if (mod && e.key.toLowerCase() === "u") {
       e.preventDefault();
-      wrap("{밑줄}", "{/밑줄}")();
+      wrapTag("밑줄")();
     } else if (e.key === "Tab") {
       e.preventDefault();
       const el = e.currentTarget;
@@ -72,27 +77,27 @@ export function MdPane({ value, onChange, error, onPickImage, handle }: { value:
 
   return (
     <div className="mdpane">
-      <div className="tools" role="toolbar" aria-label="글 서식">
-        <button type="button" className="tool word" onClick={prefix("## ")} title="큰 제목(섹션)">큰 제목</button>
-        <button type="button" className="tool word" onClick={prefix("### ")} title="작은 제목(블록)">작은 제목</button>
-        <button type="button" className="tool word" onClick={prefix("- ")} title="목록">목록</button>
-        <button type="button" className="tool word" onClick={prefix("> ")} title="비고">비고</button>
+      <div className="tools" role="toolbar" aria-label={t("글 서식")}>
+        <button type="button" className="tool word" onClick={prefix("## ")} title={t("큰 제목(섹션)")}>{t("큰 제목")}</button>
+        <button type="button" className="tool word" onClick={prefix("### ")} title={t("작은 제목(블록)")}>{t("작은 제목")}</button>
+        <button type="button" className="tool word" onClick={prefix("- ")} title={t("목록")}>{t("목록")}</button>
+        <button type="button" className="tool word" onClick={prefix("> ")} title={t("비고")}>{t("비고")}</button>
         <span className="sep" />
-        <button type="button" className="tool" onClick={wrap("**", "**")} title="굵게 (Ctrl+B)"><b className="ga">가</b></button>
-        <button type="button" className="tool" onClick={wrap("~~", "~~")} title="취소선"><s className="ga">가</s></button>
-        <button type="button" className="tool" onClick={wrap("{밑줄}", "{/밑줄}")} title="밑줄 (Ctrl+U)"><u className="ga">가</u></button>
-        <button type="button" className="tool" onClick={wrap("{음영}", "{/음영}")} title="음영"><mark className="ga" style={{ background: "#d9d9d9", padding: "0 3px" }}>가</mark></button>
-        <button type="button" className="tool" onClick={wrap("{빨강}", "{/빨강}")} title="빨강"><span className="ga" style={{ color: "#c00000" }}>가</span></button>
-        <button type="button" className="tool" onClick={wrap("{파랑}", "{/파랑}")} title="파랑"><span className="ga" style={{ color: "#1f4e9b" }}>가</span></button>
-        <button type="button" className="tool" onClick={wrap("{회색}", "{/회색}")} title="회색"><span className="ga" style={{ color: "#7f7f7f" }}>가</span></button>
+        <button type="button" className="tool" onClick={wrap("**", "**")} title={t("굵게 (Ctrl+B)")}><b className="ga">{ga}</b></button>
+        <button type="button" className="tool" onClick={wrap("~~", "~~")} title={t("취소선")}><s className="ga">{ga}</s></button>
+        <button type="button" className="tool" onClick={wrapTag("밑줄")} title={t("밑줄 (Ctrl+U)")}><u className="ga">{ga}</u></button>
+        <button type="button" className="tool" onClick={wrapTag("음영")} title={t("음영")}><mark className="ga" style={{ background: "#d9d9d9", padding: "0 3px" }}>{ga}</mark></button>
+        <button type="button" className="tool" onClick={wrapTag("빨강")} title={t("빨강")}><span className="ga" style={{ color: "#c00000" }}>{ga}</span></button>
+        <button type="button" className="tool" onClick={wrapTag("파랑")} title={t("파랑")}><span className="ga" style={{ color: "#1f4e9b" }}>{ga}</span></button>
+        <button type="button" className="tool" onClick={wrapTag("회색")} title={t("회색")}><span className="ga" style={{ color: "#7f7f7f" }}>{ga}</span></button>
         <span className="sep" />
-        <button type="button" className="tool word" onClick={() => apply(insertBreak(sel()[1], sel()[2]))} title="줄바꿈 <br>">줄바꿈</button>
-        <button type="button" className="tool word" onClick={() => apply(insertTable(sel()[0], sel()[2]))} title="표 넣기">표</button>
-        <button type="button" className="tool word" onClick={onPickImage} title="그림 넣기">그림</button>
+        <button type="button" className="tool word" onClick={() => apply(insertBreak(sel()[1], sel()[2]))} title={t("줄바꿈 <br>")}>{t("줄바꿈")}</button>
+        <button type="button" className="tool word" onClick={() => apply(insertTable(sel()[0], sel()[2]))} title={t("표 넣기")}>{t("표")}</button>
+        <button type="button" className="tool word" onClick={onPickImage} title={t("그림 넣기")}>{t("그림")}</button>
       </div>
       {error ? (
-        <button type="button" className="mderror" onClick={jump} title="오류가 난 줄로 가기">
-          <b>{error.line ? `${error.line}번째 줄` : "오류"}</b>
+        <button type="button" className="mderror" onClick={jump} title={t("오류가 난 줄로 가기")}>
+          <b>{error.line ? t("{line}번째 줄", { line: error.line }) : t("오류")}</b>
           <span>{error.message}</span>
         </button>
       ) : (
@@ -111,7 +116,7 @@ export function MdPane({ value, onChange, error, onPickImage, handle }: { value:
           value={value}
           wrap="off"
           spellCheck={false}
-          aria-label="Markdown 원본"
+          aria-label={t("Markdown 원본")}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           onScroll={(e) => {

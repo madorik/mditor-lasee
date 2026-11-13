@@ -1,5 +1,7 @@
 // 서버 호출. 미리보기류는 모두 저장하지 않는다.
+// 모든 요청에 화면 언어(Accept-Language)를 실어 보낸다 — 서버가 알림 글과, 서식 태그가 아직 없는 문서의 태그 언어를 고른다.
 
+import { lang, t } from "./i18n";
 import type { Doc, Options, PageLayout, Preview } from "./types";
 
 export type Config = {
@@ -30,7 +32,7 @@ export class ApiError extends Error {
 }
 
 async function fail(res: Response): Promise<never> {
-  let message = `요청에 실패했습니다(${res.status}).`;
+  let message = t("요청에 실패했습니다({status}).", { status: res.status });
   try {
     const body = await res.json();
     if (typeof body.detail === "string") message = body.detail;
@@ -43,17 +45,17 @@ async function fail(res: Response): Promise<never> {
 async function post(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
   let res: Response;
   try {
-    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
+    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang }, body: JSON.stringify(body), signal });
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError("서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요.", 0);
+    throw new ApiError(t("서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요."), 0);
   }
   return res.ok ? res : fail(res);
 }
 
 export async function loadConfig(): Promise<Config> {
   if (window.__MDITOR__) return window.__MDITOR__;
-  const res = await fetch("/api/config"); // 개발 서버(vite)에서는 HTML 에 설정이 박혀 있지 않다
+  const res = await fetch("/api/config", { headers: { "Accept-Language": lang } }); // 개발 서버(vite)에서는 HTML 에 설정이 박혀 있지 않다
   return res.ok ? res.json() : fail(res);
 }
 

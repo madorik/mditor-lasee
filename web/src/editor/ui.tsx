@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { lang, t } from "../lib/i18n";
+
+/** 단축키 표시 — 맥은 ⌘, 그 밖은 Ctrl+ */
+export const MOD = typeof navigator !== "undefined" && /Mac|iP(hone|ad|od)/.test(navigator.userAgent) ? "⌘" : "Ctrl+";
 
 export function Tabs<T extends string>({ value, onChange, items, label }: { value: T; onChange: (v: T) => void; items: [T, string][]; label: string }) {
   return (
@@ -60,8 +64,8 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
       <div className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <header>
           <h2>{title}</h2>
-          <button type="button" className="btn quiet" onClick={onClose} aria-label="닫기">
-            닫기
+          <button type="button" className="btn quiet" onClick={onClose} aria-label={t("닫기")}>
+            {t("닫기")}
           </button>
         </header>
         <div className="modal-body">{children}</div>
@@ -80,10 +84,14 @@ export function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** 때 표시 — 오늘이면 "오늘 09:30", 아니면 "2026.11.13 09:30"(영어: "Today 09:30", "Nov 13, 2026 09:30"). */
 export function when(at: number): string {
   const d = new Date(at);
   const pad = (n: number) => String(n).padStart(2, "0");
   const sameDay = new Date().toDateString() === d.toDateString();
   const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return sameDay ? `오늘 ${time}` : `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${time}`;
+  if (sameDay) return t("오늘 {time}", { time });
+  return lang === "en" ? `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${time}` : `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${time}`;
 }

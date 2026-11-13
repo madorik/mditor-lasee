@@ -1,6 +1,8 @@
 // 문서를 주소의 # 뒤에 실어 주고받는다(서버로 가지 않는다). 서버 core.editor_link 와 같은 꼴:
 // #md=<base64url(deflate-raw(utf-8))>
 
+import { localPath } from "./i18n";
+
 async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
   void writer.write(data as BufferSource);
@@ -12,7 +14,7 @@ export async function encodeLink(origin: string, md: string): Promise<string> {
   const packed = await pipe(new TextEncoder().encode(md), new CompressionStream("deflate-raw"));
   let bin = "";
   packed.forEach((b) => (bin += String.fromCharCode(b)));
-  return `${origin}/edit#md=${btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "")}`;
+  return `${origin}${localPath("/edit")}#md=${btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "")}`;
 }
 
 /** 주소에 문서가 실려 있으면 꺼낸다. 없거나 깨졌으면 null. */

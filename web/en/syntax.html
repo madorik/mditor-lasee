@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Syntax guide — MDitor</title>
+    <meta name="description" content="Markdown syntax for MDitor documents: headings and blocks, text formatting, merged and shaded table cells, images, and how pages break." />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/en/syntax" />
+    <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/syntax" />
+    <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/syntax" />
+    <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/syntax" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/en/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/en/syntax" aria-current="page">Syntax</a>
+      <a class="link hide-s" href="/en/developers">Developers</a>
+      <a class="lang" href="/syntax" hreflang="ko" lang="ko">한국어</a>
+      <a class="button small" href="/en/edit">Open editor</a>
+    </header>
+    <main>
+      <article class="prose">
+        <h1>Syntax guide</h1>
+        <p class="lede">An MDitor document is Markdown. Any Markdown viewer can read it, and MDitor lays the same text out as a report and exports it as a PDF. When you edit in the Document tab, this syntax is written for you, so there’s nothing to memorize.</p>
+
+        <h2>Structure</h2>
+        <div class="pair">
+          <figure><figcaption>Write</figcaption><div class="sample"><pre># Q3 Operations Report
+
+## 1. Summary
+
+### At a glance
+- Sales rose 12%.
+  - Mobile orders led the way.
+&gt; Amounts exclude VAT.
+
+A body paragraph of the report.</pre></div></figure>
+          <figure><figcaption>Result</figcaption><div class="sample paperlike docstyle">
+            <h1 style="font-size:1.5em">Q3 Operations Report</h1>
+            <h2>1. Summary</h2>
+            <h3>At a glance</h3>
+            <div class="md-list"><div class="md-item">Sales rose 12%.</div><div class="md-item" data-level="1">Mobile orders led the way.</div></div>
+            <div class="md-note">Amounts exclude VAT.</div>
+            <p>A body paragraph of the report.</p>
+          </div></figure>
+        </div>
+        <table class="ref">
+          <thead><tr><th>Write</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code># Title</code></td><td>Document title. Write it once, on the very first line (optional).</td></tr>
+            <tr><td><code>##&nbsp;Heading</code></td><td>Section heading. Divides the document into sections.</td></tr>
+            <tr><td><code>###&nbsp;Heading</code></td><td>Block heading. Forms a single unit (a block) with the one body element right below it.</td></tr>
+            <tr><td><code>- Item</code></td><td>List. Each two spaces of indent moves an item one level down (up to three levels).</td></tr>
+            <tr><td><code>&gt; Note</code></td><td>Note: a remark in small type attached to the bottom of a block. One per line.</td></tr>
+            <tr><td>A plain line</td><td>Paragraph. Each line is one paragraph.</td></tr>
+          </tbody>
+        </table>
+        <p>A <strong>block</strong> is a heading (<code>###</code>) + one body element (a paragraph, list, table or image) + notes (<code>&gt;</code>). In the PDF, when a page break falls inside a block, the whole block moves to the next page. Body content without a heading is a block too. Separate blocks with one blank line.</p>
+        <div class="note-box">Headings of level <code>####</code> and below are read as block headings. There are no numbered lists (<code>1.</code>), code blocks or links. Just type numbers as text.</div>
+
+        <h2>Text formatting</h2>
+        <table class="ref">
+          <thead><tr><th>Write</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td><code>**bold**</code></td><td><strong>bold</strong></td></tr>
+            <tr><td><code>~~strikethrough~~</code></td><td><s>strikethrough</s></td></tr>
+            <tr><td><code>{underline}underline{/underline}</code></td><td><u>underline</u></td></tr>
+            <tr><td><code>{shade}shade{/shade}</code></td><td><mark style="background:#d9d9d9">shade</mark></td></tr>
+            <tr><td><code>{red}red{/red}</code> <code>{blue}…</code> <code>{gray}…</code></td><td><span style="color:#c00000">red</span> <span style="color:#1f4e9b">blue</span> <span style="color:#7f7f7f">gray</span></td></tr>
+            <tr><td><code>first line&lt;br&gt;second line</code></td><td>first line<br />second line</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>**</code> and <code>~~</code> only pair up when the character right <strong>after</strong> the opening marker and right <strong>before</strong> the closing marker aren’t spaces. <code>** text **</code> is not formatting.</li>
+          <li>Unpaired markers stay as plain text, so you can type a footnote mark like <code>1.31**</code> as is.</li>
+          <li>To write a marker as plain text, put <code>\</code> in front of it: <code>\*\*</code>, <code>\{red}</code>, <code>\&lt;br&gt;</code>.</li>
+          <li>Headings and image captions don’t take formatting.</li>
+        </ul>
+        <div class="note-box">Korean tag names work too and mean the same thing: <code>{빨강}</code> = <code>{red}</code>, <code>{파랑}</code> = <code>{blue}</code>, <code>{회색}</code> = <code>{gray}</code>, <code>{밑줄}</code> = <code>{underline}</code>, <code>{음영}</code> = <code>{shade}</code>. A document sticks to one tag language: the first tag in the document decides it, and in a document with no tags yet, the editor’s language decides.</div>
+
+        <h2>Tables</h2>
+        <div class="pair">
+          <figure><figcaption>Write</figcaption><div class="sample"><pre>| Category | Sales ($M) | &lt; | Share |
+| ^ | Print | E-book | ^ |
+|:---|---:|---:|:---:|
+| Fiction | 412 | 96 | 27.6% |
+| Other | {shade}184{/shade} | 40 | 12.2% |</pre></div></figure>
+          <figure><figcaption>Result</figcaption><div class="sample paperlike docstyle">
+            <table>
+              <thead>
+                <tr><th rowspan="2" style="text-align:left">Category</th><th colspan="2">Sales ($M)</th><th rowspan="2">Share</th></tr>
+                <tr><th style="text-align:right">Print</th><th style="text-align:right">E-book</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Fiction</td><td style="text-align:right">412</td><td style="text-align:right">96</td><td style="text-align:center">27.6%</td></tr>
+                <tr><td>Other</td><td style="text-align:right;background:#d9d9d9">184</td><td style="text-align:right">40</td><td style="text-align:center">12.2%</td></tr>
+              </tbody>
+            </table>
+          </div></figure>
+        </div>
+        <ul>
+          <li>Rows <strong>above</strong> the separator (<code>|---|</code>) are the header. The header can span several rows, and it repeats on the next page when a table runs across pages.</li>
+          <li>The separator sets column alignment: <code>:---</code> left, <code>:---:</code> center, <code>---:</code> right.</li>
+          <li><strong>Merge cells</strong>: a cell containing only <code>&lt;</code> merges with the cell to its left; a cell containing only <code>^</code> merges with the cell above. Every row keeps the same number of cells. Header and body cells merge separately, and a merge that wouldn’t form a rectangle doesn’t happen.</li>
+          <li><strong>Cell shading</strong>: wrap the whole cell content in <code>{shade}…{/shade}</code>.</li>
+          <li>Inside a cell, write <code>|</code> as <code>\|</code> and a line break as <code>&lt;br&gt;</code>. To put a lone <code>&lt;</code> or <code>^</code> in a cell as text, write <code>\&lt;</code> or <code>\^</code>.</li>
+          <li>Every row must have as many cells as the header. Missing cells are filled in as empty; extra cells are reported as an error with the line number.</li>
+        </ul>
+
+        <h2>Images</h2>
+        <p>Write <code>![caption](name)</code> on a line of its own. When you add an image with the editor’s Image button, the name is filled in for you. The caption appears below the image. Images are stored in your browser along with the document.</p>
+
+        <h2>Pages</h2>
+        <ul>
+          <li>Page breaks come from actually rendering the PDF. The blue dashed line in the preview (‘Page 2’) is exactly where the PDF turns the page.</li>
+          <li>A block that doesn’t fit in the space left on a page moves to the next page as a whole. A table taller than a page splits between rows and repeats its header.</li>
+          <li>In Document → Page setup you can change the paper size, orientation, margins and font size, and start every section on a new page.</li>
+        </ul>
+        <p><a class="button" href="/en/edit" style="color:#fff">Try it in the editor</a></p>
+      </article>
+      <div class="ad-slot" hidden></div>
+    </main>
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/en/syntax">Syntax</a>
+        <a href="/en/developers">Developers</a>
+        <a href="/en/privacy">Privacy</a>
+        <a href="/en/terms">Terms</a>
+        <a href="/syntax" hreflang="ko" lang="ko">한국어</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>

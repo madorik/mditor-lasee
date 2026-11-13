@@ -1082,6 +1082,11 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+server = [
+    { name = "anthropic" },
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1101,6 +1106,11 @@ dev = [
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.8" },
+]
+server = [
+    { name = "anthropic", specifier = ">=2.8,<3" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [[package]]

@@ -2,6 +2,9 @@
 //   node e2e/editor.mjs [주소]          (서버가 떠 있어야 한다: uv run mditor-server)
 // 한글 조합(IME)은 CDP 의 Input.imeSetComposition → Input.insertText 로 흉내 낸다.
 // 실제 OS 입력기(Windows/Edge, macOS/Safari)는 사람이 따로 확인한다.
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { deflateRawSync } from "node:zlib";
 import puppeteer from "puppeteer-core";
 
@@ -22,7 +25,8 @@ const ok = (cond, label, detail = "") => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function openPage(path = "/edit", viewport = { width: 1440, height: 900 }) {
+/** start: 시작 화면에서 누를 것(new · open · example). null 이면 시작 화면에 그대로 둔다. */
+async function openPage(path = "/edit", viewport = { width: 1440, height: 900 }, { start = "example" } = {}) {
   const context = await browser.createBrowserContext(); // 빈 브라우저 저장소
   const page = await context.newPage();
   await page.setViewport(viewport);
@@ -34,9 +38,14 @@ async function openPage(path = "/edit", viewport = { width: 1440, height: 900 })
     if (r.method() === "POST" && r.url().endsWith("/api/md/preview")) state.md = JSON.parse(r.postData()).md;
   });
   await page.goto(base + path, { waitUntil: "networkidle0" });
+  const cdp = await page.createCDPSession();
+  if (start === null) return { page, cdp, state, context };
+  if (!path.includes("#")) {
+    await page.waitForSelector(`.start [data-act="${start}"]`);
+    await page.click(`.start [data-act="${start}"]`);
+  }
   await page.waitForSelector(".ProseMirror", { timeout: 15000 });
   await page.waitForSelector(".paper h2");
-  const cdp = await page.createCDPSession();
   return { page, cdp, state, context };
 }
 
@@ -89,6 +98,32 @@ const clickText = async (page, selector, text) => {
   await handle.asElement().click();
 };
 
+/** 글이 text 로 시작하는 것을 누른다(단축키 표시처럼 뒤에 붙는 글이 있을 때). */
+const clickPrefix = async (page, selector, text) => {
+  const handle = await page.evaluateHandle(
+    (selector, text) => [...document.querySelectorAll(selector)].find((el) => el.textContent.trim().startsWith(text)),
+    selector,
+    text,
+  );
+  if (!handle.asElement()) throw new Error(`no ${selector} starting with ${text}`);
+  await handle.asElement().click();
+};
+
+const docName = (page, name) => page.waitForFunction((name) => document.querySelector(".docname")?.value === name, { timeout: 8000 }, name);
+
+/** 파일을 창에 끌어다 놓는다(실제 끌기 대신 drop 이벤트를 보낸다). */
+const dropFile = (page, name, text, type) =>
+  page.evaluate(
+    (name, text, type) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([text], name, { type }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    },
+    name,
+    text,
+    type,
+  );
+
 const setMd = (page, value) =>
   page.evaluate((value) => {
     const ta = document.querySelector(".mdedit textarea");
@@ -102,7 +137,7 @@ console.log("문서 편집기");
   const { page, cdp, state, context } = await openPage();
   await settle();
   const first = state.md;
-  ok(first.startsWith("# 2026년 3분기 온라인 서점 운영 보고"), "처음 열면 예시 문서가 열린다");
+  ok(first.startsWith("# 2026년 3분기 온라인 서점 운영 보고"), "시작 화면에서 예시를 열면 예시 문서가 열린다");
   const indent = await page.evaluate(() => {
     const li = document.querySelector('.ProseMirror li[data-level="1"]');
     return li ? parseFloat(getComputedStyle(li).marginLeft) : -1;
@@ -255,7 +290,7 @@ console.log("문서 편집기");
   await clickText(page, ".pane.right .tab", "PDF");
   await page.waitForSelector('.pdfview iframe[src^="blob:"]', { timeout: 15000 });
   ok(true, "PDF 탭에 PDF 가 뜬다");
-  await clickText(page, ".pane.right .tab", "화면");
+  await clickText(page, ".pane.right .tab", "미리보기");
 
   // 저장 → 다시 열기
   await clickText(page, ".top .btn", "저장");
@@ -337,7 +372,85 @@ console.log("쪽 경계 · 오류 줄 · 링크");
   await linked.context.close();
 }
 
-// ───────────────────────── 3. 좁은 화면 ─────────────────────────
+// ───────────────────────── 3. 시작 화면 · 새 문서 · 파일 열기 ─────────────────────────
+console.log("시작 화면 · 새 문서 · 파일 열기");
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: null });
+  await page.waitForSelector(".start");
+  ok(!(await page.$(".ProseMirror")), "보관한 문서가 없으면 시작 화면이 뜬다");
+
+  // 예시: 보기만 하면 내 문서에 남지 않는다
+  await page.click('.start [data-act="example"]');
+  await page.waitForSelector(".ProseMirror");
+  ok((await page.$eval(".notice", (el) => el.textContent)).includes("예시 문서입니다"), "예시는 예시라고 알린다");
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForSelector(".start");
+  ok(true, "예시는 저장하지 않으면 남지 않는다");
+
+  // 새 문서
+  await page.click('.start [data-act="new"]');
+  await page.waitForSelector(".ProseMirror");
+  await settle();
+  ok(state.md.startsWith("# 제목 없는 문서") && !(await page.$(".notice")), "새 문서가 열린다(예시 알림 없음)", JSON.stringify(state.md.slice(0, 30)));
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForSelector(".ProseMirror");
+  ok((await page.$eval(".docname", (el) => el.value)) === "제목 없는 문서", "새 문서는 바로 보관된다");
+
+  // 파일 메뉴 → 파일 열기: 파일 이름이 문서 이름이 된다
+  const dir = mkdtempSync(join(tmpdir(), "mditor-e2e-"));
+  const utf = join(dir, "3분기 보고.md");
+  writeFileSync(utf, "# 파일에서 연 문서\r\n\r\n## 1. 내용\r\n\r\n- 디스크에서 읽었다\r\n");
+  await clickText(page, ".top .btn", "파일");
+  const [chooser] = await Promise.all([page.waitForFileChooser(), clickPrefix(page, ".menu-item", "파일 열기")]);
+  await chooser.accept([utf]);
+  await docName(page, "3분기 보고");
+  await settle();
+  ok(state.md === "# 파일에서 연 문서\n\n## 1. 내용\n\n- 디스크에서 읽었다\n", "파일 메뉴로 MD 파일을 연다(이름 = 파일 이름, CRLF → LF)", JSON.stringify(state.md));
+
+  // Ctrl+O · EUC-KR 파일
+  const euc = join(dir, "옛 문서.md");
+  writeFileSync(euc, Buffer.concat([Buffer.from("# "), Buffer.from([0xb0, 0xa1, 0xb3, 0xaa, 0xb4, 0xd9]), Buffer.from("\n\n## 1. A\n\n- B\n")]));
+  const [chooser2] = await Promise.all([
+    page.waitForFileChooser(),
+    (async () => {
+      await page.keyboard.down("Control");
+      await page.keyboard.press("o");
+      await page.keyboard.up("Control");
+    })(),
+  ]);
+  await chooser2.accept([euc]);
+  await docName(page, "옛 문서");
+  await settle();
+  ok(state.md.startsWith("# 가나다\n"), "Ctrl+O 로 열고, EUC-KR 파일도 한글로 읽는다", JSON.stringify(state.md.slice(0, 20)));
+
+  // 끌어다 놓기
+  await dropFile(page, "놓은 파일.md", "# 끌어다 놓은 문서\n\n## 1. 내용\n\n- 놓았다\n", "text/markdown");
+  await docName(page, "놓은 파일");
+  ok(true, "MD 파일을 끌어다 놓으면 새 문서로 열린다");
+  await dropFile(page, "그림.png", "png", "image/png");
+  await page.waitForSelector(".toast.bad");
+  ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("MD 파일(.md)만"), "MD 가 아닌 파일은 열지 않고 알린다");
+  ok((await page.$eval(".docname", (el) => el.value)) === "놓은 파일", "그때 열린 문서는 그대로다");
+
+  // 내 문서: 예시는 들지 않는다. 모두 지우면 시작 화면으로
+  await clickText(page, ".top .btn", "파일");
+  await clickText(page, ".menu-item", "내 문서");
+  await page.waitForSelector(".rows li");
+  const names = await page.$$eval(".rows .name", (els) => els.map((el) => el.textContent));
+  ok(names.length === 4 && !names.some((n) => n.includes("온라인 서점")), "내 문서에는 연 문서만 있고 예시는 없다", JSON.stringify(names));
+  for (let n = names.length; n > 0; n--) {
+    await page.click(".rows li .btn.danger");
+    await page.waitForFunction((n) => document.querySelectorAll(".rows li").length === n - 1 || document.querySelector(".start"), {}, n);
+  }
+  await page.waitForSelector(".start");
+  ok(true, "문서를 모두 지우면 시작 화면으로 돌아간다");
+
+  rmSync(dir, { recursive: true, force: true });
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
+// ───────────────────────── 4. 좁은 화면 ─────────────────────────
 console.log("좁은 화면");
 {
   const { page, state, context } = await openPage("/edit", { width: 390, height: 780 });
@@ -351,6 +464,53 @@ console.log("좁은 화면");
   ok(await page.$eval(".pane.right", (el) => getComputedStyle(el).display !== "none"), "미리보기로 전환된다");
   ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
   await context.close();
+}
+
+// ───────────────────────── 5. 영어 화면 · 영어 태그 ─────────────────────────
+console.log("영어 화면 · 영어 태그");
+{
+  const { page, state, context } = await openPage("/en/edit");
+  await settle();
+  await settle();
+  ok(state.md.startsWith("# Online Bookstore") && state.md.includes("{red}") && !state.md.includes("{빨강}"), "영어 화면의 예시는 영어 태그로 쓴 영어 문서다", JSON.stringify(state.md.slice(0, 40)));
+  const labels = await page.$$eval(".pane .tab", (els) => els.map((el) => el.textContent));
+  ok(JSON.stringify(labels) === JSON.stringify(["Document", "MD", "Preview", "PDF"]), "탭 이름이 영어다", JSON.stringify(labels));
+  ok((await page.$eval(".paper .pagemark", (el) => el.textContent.trim())) === "Page 2", "쪽 경계 표시가 영어다");
+  ok((await page.$eval(".top .state", (el) => el.textContent)) === "Not saved yet", "문서 탭으로 열기만 해서는 바뀌지 않는다(태그 언어가 서버와 같다)", await page.$eval(".top .state", (el) => el.textContent));
+
+  // 문서 탭에서 고쳐도 영어 태그 그대로
+  await caret(page, "rose 9% on the previous quarter");
+  await page.keyboard.type(" (sharply)");
+  await settle();
+  ok(state.md.includes("{red}rose 9% on the previous quarter (sharply){/red}") && !state.md.includes("{빨강}"), "문서 탭에서 고친 글도 영어 태그로 쓴다", await drift(state.md));
+
+  // MD 탭: 태그가 없는 문서에서 서식 단추는 화면 언어(영어)의 태그를 쓴다 · 서버 오류 문구도 영어
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdedit textarea");
+  await setMd(page, "# T\n\n- word\n");
+  await page.evaluate(() => {
+    const ta = document.querySelector(".mdedit textarea");
+    ta.focus();
+    ta.setSelectionRange(ta.value.indexOf("word"), ta.value.indexOf("word") + 4);
+  });
+  await page.click('.mdpane .tool[title="Underline (Ctrl+U)"]');
+  await settle();
+  ok(state.md === "# T\n\n- {underline}word{/underline}\n", "태그가 없으면 화면 언어의 태그로 넣는다", JSON.stringify(state.md));
+  await setMd(page, "# T\n\n| a |\n| 1 |\n");
+  await page.waitForSelector(".mderror");
+  ok((await page.$eval(".mderror", (el) => el.textContent)).includes("The table has no separator row"), "서버 오류 문구가 영어다", await page.$eval(".mderror", (el) => el.textContent));
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+
+  // 한국어 화면에서 영어 태그 문서를 고쳐도 영어 태그 그대로(문서의 태그 언어를 따른다)
+  const md = "# 링크 문서\n\n## 1. 내용\n\n- {red}빨강{/red} 글\n";
+  const hash = deflateRawSync(Buffer.from(md, "utf8")).toString("base64url");
+  const ko = await openPage(`/edit#md=${hash}`);
+  await caret(ko.page, "글");
+  await ko.page.keyboard.type("자");
+  await settle();
+  ok(ko.state.md === "# 링크 문서\n\n## 1. 내용\n\n- {red}빨강{/red} 글자\n", "한국어 화면에서도 영어 태그 문서는 영어 태그로 쓴다", JSON.stringify(ko.state.md));
+  await ko.context.close();
 }
 
 await browser.close();

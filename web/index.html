@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MDitor — 쪽 경계까지 PDF 와 같은 Markdown 문서 편집기</title>
-    <meta name="description" content="보고서를 보이는 모양 그대로 고치고, 원본은 Markdown 으로 남깁니다. 화면 미리보기의 쪽 경계는 PDF 를 실제로 그려 본 자리라 PDF 와 똑같습니다. 무료, 회원 가입 없음." />
+    <meta name="description" content="보고서를 보이는 모양 그대로 고치고, 원본은 Markdown 으로 남깁니다. 미리보기의 쪽 경계는 PDF 를 실제로 그려 본 자리라 PDF 와 똑같습니다. 무료, 회원 가입 없음." />
     <meta property="og:title" content="MDitor — 쪽 경계까지 PDF 와 같은 Markdown 문서 편집기" />
     <meta property="og:description" content="보이는 대로 고치고, 원본은 Markdown 으로. 미리보기의 쪽 경계가 PDF 와 같습니다." />
     <meta property="og:type" content="website" />
@@ -12,6 +12,9 @@
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="%PUBLIC_URL%/" />
+    <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/" />
+    <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/" />
+    <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/" />
     <!--mditor:head-->
   </head>
   <body class="site">
@@ -19,13 +22,14 @@
       <a class="brand" href="/">MD<i>itor</i></a>
       <a class="link hide-s" href="/syntax">문법</a>
       <a class="link hide-s" href="/developers">개발자</a>
+      <a class="lang" href="/en/" hreflang="en" lang="en">English</a>
       <a class="button small" href="/edit">편집기 열기</a>
     </header>
 
     <main>
       <section class="wrap hero">
-        <div>
-          <h1>화면에서 쪽이 넘어간 자리에서, PDF 도 넘어갑니다</h1>
+        <div class="hero-text">
+          <h1>미리보기에서 쪽이 넘어간 자리에서, PDF 도 넘어갑니다</h1>
           <p class="lede">
             MDitor 는 보고서를 쓰는 문서 편집기입니다. 보이는 모양 그대로 고치고, 원본은 Markdown 으로 남습니다.
             미리보기의 쪽 경계는 짐작한 것이 아니라 PDF 를 실제로 그려 본 자리입니다.
@@ -37,44 +41,50 @@
           <p class="fine">무료입니다. 가입하지 않아도 되고, 문서는 내 브라우저에만 보관됩니다.</p>
         </div>
 
-        <div class="demo" aria-hidden="true">
-          <pre class="demo-md"><b>###</b> 분기별 실적
-| 구분 | 2분기 | 3분기 |
-|:---|---:|---:|
-| 매출 | 1,643 | <b>**</b>1,840<b>**</b> |
-| 반품률 | 2.1% | <b>{빨강}</b>2.6%<b>{/빨강}</b> |
-<b>&gt;</b> 매출은 부가세를 뺀 금액이다.</pre>
-          <div class="demo-paper docstyle">
-            <h3>분기별 실적</h3>
-            <table>
-              <thead>
-                <tr><th style="text-align:left">구분</th><th style="text-align:right">2분기</th><th style="text-align:right">3분기</th></tr>
-              </thead>
-              <tbody>
-                <tr><td>매출</td><td style="text-align:right">1,643</td><td style="text-align:right"><strong>1,840</strong></td></tr>
-                <tr><td>반품률</td><td style="text-align:right">2.1%</td><td style="text-align:right"><span style="color:#c00000">2.6%</span></td></tr>
-              </tbody>
-            </table>
-            <div class="md-note">매출은 부가세를 뺀 금액이다.</div>
-            <div class="pagemark"><span>2쪽</span></div>
-            <h2 style="margin-top:0">3. 고객 응대</h2>
-            <h3 style="margin-top:0">문의 유형</h3>
-            <div class="md-list">
-              <div class="md-item">배송 지연·분실: 3,120건</div>
-              <div class="md-item" data-level="1">물류 센터 이전으로 9월 둘째 주에 몰렸다.</div>
-              <div class="md-item">결제·환불: 1,480건</div>
-            </div>
-          </div>
-        </div>
+        <figure class="hero-video">
+          <video autoplay muted loop playsinline preload="metadata" width="1920" height="1080" poster="/src/assets/hero/hero-ko.webp"
+            aria-label="문서 탭에서 글을 더 쓰자 미리보기의 쪽 경계(파란 점선)가 따라 움직이고, PDF 도 같은 자리에서 다음 쪽으로 넘어가는 모습">
+            <source src="/src/assets/hero/hero-ko.mp4" type="video/mp4" />
+          </video>
+        </figure>
       </section>
 
       <section class="band">
         <div class="wrap">
           <h2>같은 문서를 고치는 두 가지 방법, 확인하는 두 가지 방법</h2>
           <p class="intro">
-            왼쪽에서 고치고 오른쪽에서 확인합니다. 왼쪽은 ‘문서’ 와 ‘MD’, 오른쪽은 ‘화면’ 과 ‘PDF’ 로 바꿔 볼 수 있습니다.
+            왼쪽에서 고치고 오른쪽에서 확인합니다. 왼쪽은 ‘문서’ 와 ‘MD’, 오른쪽은 ‘미리보기’ 와 ‘PDF’ 로 바꿔 볼 수 있습니다.
             어느 쪽에서 고쳐도 원본은 하나의 Markdown 입니다.
           </p>
+          <!-- 그림은 e2e/landing-images.mjs 로 만든다(예시 문서의 같은 자리를 네 가지로 찍은 것) -->
+          <div class="views">
+            <div class="view-col">
+              <h3 class="view-head">고치기 <span>왼쪽 칸</span></h3>
+              <figure class="view">
+                <img src="/src/assets/landing/ko/edit-doc.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="문서 탭: 칸이 합쳐진 ‘분야별 매출’ 표와 ‘3. 고객 응대’ 가 워드처럼 보이고, 위에 굵게·밑줄·색·표 단추가 있다" />
+                <figcaption><b>문서</b> 워드처럼 보이는 모양 그대로 고칩니다.</figcaption>
+              </figure>
+              <figure class="view">
+                <img src="/src/assets/landing/ko/edit-md.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="MD 탭: 같은 표가 Markdown 으로 보인다. 합친 칸은 &lt; 와 ^, 음영은 {음영} 으로 적혀 있다" />
+                <figcaption><b>MD</b> 같은 자리를 Markdown 원본으로 고칩니다.</figcaption>
+              </figure>
+            </div>
+            <div class="view-col">
+              <h3 class="view-head">확인하기 <span>오른쪽 칸</span></h3>
+              <figure class="view">
+                <img src="/src/assets/landing/ko/view-preview.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="미리보기 탭: 표의 ‘합계’ 행 아래에 파란 점선과 ‘2쪽’ 표시가 있고, 그 아래에서 ‘3. 고객 응대’ 가 시작된다" />
+                <figcaption><b>미리보기</b> 파란 점선이 PDF 에서 쪽이 넘어가는 자리입니다.</figcaption>
+              </figure>
+              <figure class="view">
+                <img src="/src/assets/landing/ko/view-pdf.webp" width="600" height="520" loading="lazy" decoding="async"
+                  alt="PDF 탭: 1쪽이 ‘합계’ 행에서 끝나고, 2쪽이 ‘3. 고객 응대’ 로 시작한다" />
+                <figcaption><b>PDF</b> 내려받을 PDF 그대로. 같은 자리에서 2쪽이 시작됩니다.</figcaption>
+              </figure>
+            </div>
+          </div>
           <ul class="rows3">
             <li>
               <div>
@@ -124,7 +134,7 @@
                 <h3>쪽은 짐작하지 않습니다</h3>
                 <p>
                   화면 높이로 쪽을 계산하면 글꼴과 줄바꿈이 달라 PDF 와 어긋납니다. MDitor 는 고칠 때마다 서버가 PDF 를 실제로 그려 보고,
-                  블록과 표의 행이 몇 쪽에 놓였는지를 화면에 알려 줍니다. 파란 점선이 그 자리입니다.
+                  블록과 표의 행이 몇 쪽에 놓였는지를 미리보기에 알려 줍니다. 파란 점선이 그 자리입니다.
                 </p>
               </div>
               <div class="sample paperlike docstyle" aria-hidden="true">
@@ -182,7 +192,7 @@
             </div>
             <div>
               <dt>표가 한 쪽보다 길면 어떻게 되나요?</dt>
-              <dd>행 단위로 나뉘고 머리글이 다음 쪽에 다시 나옵니다. 어느 행에서 나뉘는지도 화면에 표시됩니다.</dd>
+              <dd>행 단위로 나뉘고 머리글이 다음 쪽에 다시 나옵니다. 어느 행에서 나뉘는지도 미리보기에 표시됩니다.</dd>
             </div>
             <div>
               <dt>한자나 기호도 PDF 에 나오나요?</dt>
@@ -205,6 +215,7 @@
         <a href="/developers">개발자</a>
         <a href="/privacy">개인정보처리방침</a>
         <a href="/terms">이용약관</a>
+        <a href="/en/" hreflang="en" lang="en">English</a>
       </div>
     </footer>
     <script type="module" src="/src/site.ts"></script>

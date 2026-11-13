@@ -4,7 +4,7 @@
 // 그 출력은 서버 doc_md 와 **바이트 단위로 같아야** 한다(convert.test.ts 가 공유 기준 파일로 확인한다).
 
 import type { JSONContent } from "@tiptap/core";
-import { cellShade, normalize, segments, SPACES, write, type Ctx, type Seg } from "../inline";
+import { cellShade, normalize, segments, SPACES, tag, write, type Ctx, type Dialect, type Seg } from "../inline";
 import { spans } from "../table";
 import type { Align, Doc, TableBlock } from "../types";
 
@@ -109,8 +109,8 @@ function segsOf(content: JSONContent[] | undefined): Seg[] {
   return out;
 }
 
-export function inlineToMd(content: JSONContent[] | undefined, ctx: Ctx = null): string {
-  return write(normalize(segsOf(content)), ctx);
+export function inlineToMd(content: JSONContent[] | undefined, ctx: Ctx = null, dialect: Dialect = "ko"): string {
+  return write(normalize(segsOf(content)), ctx, dialect);
 }
 
 const oneLine = (content: JSONContent[] | undefined): string =>
@@ -121,7 +121,8 @@ const oneLine = (content: JSONContent[] | undefined): string =>
     .trim();
 
 /** 표 노드 → MD 줄들. 합친 칸은 점유 격자를 만들고, 숨은 칸이 기준 칸과 같은 행이면 `<`, 아니면 `^`. */
-export function tableMd(t: JSONContent): string[] {
+export function tableMd(t: JSONContent, dialect: Dialect = "ko"): string[] {
+  const shade = tag("음영", dialect);
   const rows = t.content ?? [];
   const grid: (string | undefined)[][] = rows.map(() => []);
   const aligns: Align[][] = []; // 열마다 본문 기준 칸들의 정렬
@@ -140,10 +141,10 @@ export function tableMd(t: JSONContent): string[] {
         if (i) segs.push({ text: "\n" });
         segs.push(...segsOf(p.content));
       });
-      const text = write(normalize(segs), "cell");
+      const text = write(normalize(segs), "cell", dialect);
       for (let dr = 0; dr < rs && r + dr < rows.length; dr++) {
         for (let dc = 0; dc < cs; dc++) {
-          grid[r + dr][c + dc] = dr === 0 && dc === 0 ? (cell.attrs?.shade ? `{음영}${text}{/음영}` : text) : dr === 0 ? "<" : "^";
+          grid[r + dr][c + dc] = dr === 0 && dc === 0 ? (cell.attrs?.shade ? `{${shade}}${text}{/${shade}}` : text) : dr === 0 ? "<" : "^";
         }
       }
       if (!isHead[r] && cs === 1) (aligns[c] ??= []).push((cell.attrs?.align ?? null) as Align);
@@ -174,7 +175,7 @@ type Draft = { title: string | null; kind: string | null; lines: string[]; notes
  * 제목이 새 블록을 연다. 문단·목록·표·그림은 아직 본문이 없을 때만 지금 블록에 붙고(목록 항목은 같은 목록에 이어 붙는다),
  * 비고는 지금 블록에 붙는다. 빈 문단·빈 항목은 버린다.
  */
-export function fromPM(doc: JSONContent): string {
+export function fromPM(doc: JSONContent, dialect: Dialect = "ko"): string {
   let title = "";
   const sections: { title: string; blocks: string[] }[] = [];
   let secTitle = "";
@@ -214,11 +215,11 @@ export function fromPM(doc: JSONContent): string {
       flush();
       cur = { title: oneLine(n.content) || null, kind: null, lines: [], notes: [], levels: [] };
     } else if (n.type === "paragraph") {
-      const text = inlineToMd(n.content, "para");
+      const text = inlineToMd(n.content, "para", dialect);
       if (text) body("text").lines.push(text);
     } else if (n.type === "mdList") {
       for (const it of n.content ?? []) {
-        const text = inlineToMd(it.content, "item");
+        const text = inlineToMd(it.content, "item", dialect);
         if (!text) continue;
         const open: Draft | null = cur;
         const b: Draft = open && open.kind === "list" && !open.notes.length ? open : body("list");
@@ -228,12 +229,12 @@ export function fromPM(doc: JSONContent): string {
         b.lines.push(`${"  ".repeat(level)}- ${text}`);
       }
     } else if (n.type === "table") {
-      body("table").lines.push(...tableMd(n));
+      body("table").lines.push(...tableMd(n, dialect));
     } else if (n.type === "mdImage") {
       const caption = String(n.attrs?.caption ?? "").replace(SPACES, " ").trim();
       body("image").lines.push(`![${caption}](${String(n.attrs?.src ?? "").trim()})`);
     } else if (n.type === "mdNote") {
-      const text = inlineToMd(n.content);
+      const text = inlineToMd(n.content, null, dialect);
       if (text) {
         cur ??= { title: null, kind: null, lines: [], notes: [], levels: [] };
         (cur as Draft).notes.push(text);

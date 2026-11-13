@@ -25,12 +25,15 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import __version__, ai, core, mcp_server
+from . import __version__, ai, core, i18n, mcp_server
+from .i18n import t
 from .render import RenderError
 from .settings import Settings
 
 PAGES = {"": "index.html", "edit": "edit.html", "syntax": "syntax.html", "developers": "developers.html",
          "privacy": "privacy.html", "terms": "terms.html"}
+# 한국어 쪽은 뿌리(/), 다른 언어는 /<언어>/ 아래에 같은 이름으로 있다(web/en/*.html).
+PAGE_LANGS = tuple(lang for lang in i18n.LANGS if lang != i18n.DEFAULT)
 _TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
 
 
@@ -67,6 +70,20 @@ class _Limiter:
         return self._hits[(key, ip, slot)] <= limit
 
 
+class _Lang:
+    """요청의 ``Accept-Language`` 로 이 요청에서 만드는 문구의 언어를 정한다(ASGI)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        header = dict(scope.get("headers") or []).get(b"accept-language", b"").decode("latin-1")
+        with i18n.use(i18n.pick(header)):
+            await self.app(scope, receive, send)
+
+
 class _BodyLimit:
     """요청 본문 크기 제한(ASGI)."""
 
@@ -89,11 +106,11 @@ class _BodyLimit:
             if message["type"] == "http.request":
                 seen += len(message.get("body") or b"")
                 if seen > self.limit:
-                    raise HTTPException(413, "요청이 너무 큽니다.")
+                    raise HTTPException(413, t("요청이 너무 큽니다."))
             return message
 
         if declared > self.limit:
-            return await JSONResponse({"detail": "요청이 너무 큽니다."}, 413)(scope, receive, send)
+            return await JSONResponse({"detail": t("요청이 너무 큽니다.")}, 413)(scope, receive, send)
         await self.app(scope, limited, send)
 
 
@@ -122,6 +139,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="MDitor", version=__version__, lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
                   openapi_url="/api/openapi.json")
     app.add_middleware(_BodyLimit, limit=settings.max_body_bytes)
+    app.add_middleware(_Lang)  # 바깥쪽 — 본문 한도 문구도 요청 언어로
     app.router.routes.extend(mcp_app.routes)  # /mcp 를 그대로 붙인다(리다이렉트 없이)
 
     def client_ip(request: Request) -> str:
@@ -133,12 +151,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     def guard(request: Request) -> None:
         if not limiter.check("api", client_ip(request), settings.rate_per_minute, 60):
-            raise HTTPException(429, "요청이 너무 잦습니다. 잠시 뒤에 다시 해 주세요.")
+            raise HTTPException(429, t("요청이 너무 잦습니다. 잠시 뒤에 다시 해 주세요."))
 
     @app.middleware("http")
     async def headers(request: Request, call_next: Any) -> Any:
         if request.url.path == "/mcp" and not limiter.check("mcp", client_ip(request), settings.rate_per_minute, 60):
-            return JSONResponse({"detail": "요청이 너무 잦습니다."}, 429)
+            with i18n.use(i18n.pick(request.headers.get("accept-language"))):
+                return JSONResponse({"detail": t("요청이 너무 잦습니다. 잠시 뒤에 다시 해 주세요.")}, 429)
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -206,7 +225,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         guard(request)
         doc, result = _doc(body)
         if doc is None:
-            raise HTTPException(422, f"{result['error']['line']}번째 줄: {result['error']['message']}")
+            err = result["error"]
+            raise HTTPException(422, t("{line}번째 줄: {message}", line=err["line"], message=err["message"]))
         images = core.decode_images(body.images, settings.max_image_bytes)
         data, lay = core.pdf(doc, body.options, images, body.image_sizes)
         name = _safe_name(body.filename or doc.get("title"), "문서") + ".pdf"
@@ -233,9 +253,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """AI 수정안. 저장하지 않는다 — 화면이 검토 뒤 적용한다."""
         guard(request)
         if not settings.ai_enabled:
-            raise HTTPException(404, "AI 수정이 꺼져 있습니다.")
+            raise HTTPException(404, t("AI 수정이 꺼져 있습니다."))
         if not limiter.check("ai", client_ip(request), settings.ai_daily_limit, 86_400):
-            raise HTTPException(429, f"AI 수정은 하루 {settings.ai_daily_limit}번까지 쓸 수 있습니다.")
+            raise HTTPException(429, t("AI 수정은 하루 {n}번까지 쓸 수 있습니다.", n=settings.ai_daily_limit))
         return ai.revise(settings, core.clean(body.md, settings.max_md_chars), body.instruction, body.base)
 
     @app.get("/d/{token}/{name}", include_in_schema=False)
@@ -243,7 +263,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """MCP 가 만든 PDF 를 잠깐 내려받게 한다(시간이 지나면 지운다)."""
         path = settings.cache_dir / f"{token}.pdf"
         if not _TOKEN.match(token) or not path.is_file() or time.time() - path.stat().st_mtime > settings.download_ttl:
-            raise HTTPException(404, "링크가 만료되었습니다.")
+            raise HTTPException(404, t("링크가 만료되었습니다."))
         return FileResponse(path, media_type="application/pdf", filename=_safe_name(name.removesuffix(".pdf"), "문서") + ".pdf")
 
     # ───────────── 정적 사이트 ─────────────
@@ -290,9 +310,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             lines.append(f"Sitemap: {settings.public_url}/sitemap.xml")
         return PlainTextResponse("\n".join(lines) + "\n")
 
+    def page_file(key: str) -> str | None:
+        """주소(앞뒤 / 없이) → web 안의 HTML 파일. 쪽이 아니면 None."""
+        if key in PAGES:
+            return PAGES[key]
+        head, _, rest = key.partition("/")
+        if head in PAGE_LANGS and rest in PAGES:
+            return f"{head}/{PAGES[rest]}"
+        for prefix in ("", *(f"{lang}/" for lang in PAGE_LANGS)):  # /syntax.html · /en/syntax.html
+            if key.startswith(prefix) and key[len(prefix) :] in PAGES.values():
+                return key
+        return None
+
     @app.get("/sitemap.xml", include_in_schema=False)
     def sitemap() -> Response:
-        urls = "".join(f"<url><loc>{settings.public_url}/{p}</loc></url>" for p in PAGES)
+        paths = [*PAGES, *(f"{lang}/{p}" if p else f"{lang}/" for lang in PAGE_LANGS for p in PAGES)]
+        urls = "".join(f"<url><loc>{settings.public_url}/{p}</loc></url>" for p in paths)
         return Response(
             f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>',
             media_type="application/xml",
@@ -304,21 +337,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/{path:path}", include_in_schema=False)
     def site(path: str) -> Response:
         key = path.strip("/")
-        if key in PAGES:
-            return page(PAGES[key])
-        if key.endswith(".html") and key in PAGES.values():
-            return page(key)
+        file_name = page_file(key)
+        if file_name and (web / file_name).is_file():
+            return page(file_name)
         file = (web / key).resolve()
         if key and file.is_file() and web.resolve() in file.parents:
             return FileResponse(file)
-        html = render_page("404.html")
-        return HTMLResponse(html, 404) if html else PlainTextResponse("찾을 수 없습니다.", 404)
+        head = key.partition("/")[0]
+        lang = head if head in PAGE_LANGS else i18n.DEFAULT
+        html = render_page(f"{lang}/404.html" if lang != i18n.DEFAULT else "404.html") or render_page("404.html")
+        with i18n.use(lang):
+            return HTMLResponse(html, 404) if html else PlainTextResponse(t("찾을 수 없습니다."), 404)
 
     @app.middleware("http")
     async def cache_assets(request: Request, call_next: Any) -> Any:
         response = await call_next(request)
         if request.url.path.startswith("/assets/") and response.status_code == 200:
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            # s-maxage: 앞단 CDN(Vercel 등)도 담아 두게 한다 — 이름에 내용 해시가 붙어 있어 바뀌지 않는다
+            response.headers["Cache-Control"] = "public, max-age=31536000, s-maxage=31536000, immutable"
         return response
 
     return app

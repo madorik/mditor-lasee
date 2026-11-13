@@ -10,6 +10,9 @@ canon(s) = write(normalize(segments(s)))  — 저장하는 문자열은 언제�
 - ``**굵게**`` ``~~취소선~~`` : 여는 기호 **뒤**와 닫는 기호 **앞**이 공백이 아니어야 짝이 된다.
   짝 없는 기호는 글자 그대로 둔다(각주 ``1.31**``).
 - ``{빨강}…{/빨강}`` ``{파랑}`` ``{회색}`` ``{밑줄}`` ``{음영}`` : 종류별로 여닫는 짝을 센다. 짝 없는 태그는 글자.
+  영어 이름 ``{red}`` ``{blue}`` ``{gray}`` ``{underline}`` ``{shade}`` 도 같은 태그다(대소문자 무시, ``{grey}`` 도 회색).
+  안에서는 한국어 이름으로 다루고, 쓸 때만 문서의 태그 언어(dialect, ``ko`` | ``en``)로 쓴다.
+  문서의 태그 언어는 처음 나오는 짝 맞은 태그가 정한다(``dialect_of``). 태그가 없으면 부르는 쪽이 정한다.
 - ``<br>`` : 줄바꿈.
 - ``\\`` 뒤의 ``\\ * ~ { } < > ^ | # - + !`` 는 글자 그대로(이스케이프).
 """
@@ -23,10 +26,13 @@ from dataclasses import dataclass, replace
 COLORS = {"빨강": "#c00000", "파랑": "#1f4e9b", "회색": "#7f7f7f"}
 SHADE = "#d9d9d9"
 FLAGS = ("밑줄", "음영")
+DIALECTS = ("ko", "en")
+EN = {"빨강": "red", "파랑": "blue", "회색": "gray", "밑줄": "underline", "음영": "shade"}
+_ALIASES = {**{v: k for k, v in EN.items()}, "grey": "회색"}  # 영어 이름 → 안에서 쓰는 이름
 WS = " \t 　"
 ESCAPABLE = "\\*~{}<>^|#-+!"
 
-_TAG_NAMES = "|".join([*COLORS, *FLAGS])
+_TAG_NAMES = "|".join([*COLORS, *FLAGS, *_ALIASES])
 _TOKEN = re.compile(
     r"\\([\\*~{}<>^|#\-+!])"  # 1: 이스케이프
     r"|(\*\*)"  # 2
@@ -70,10 +76,11 @@ class _Tok:
     start: int
     end: int
     kind: str  # esc | bold | strike | open | close | br
-    value: str = ""  # esc: 글자, open/close: 태그 이름
+    value: str = ""  # esc: 글자, open/close: 태그 이름(안에서 쓰는 한국어 이름)
     paired: bool = False
     opens: bool = False  # bold/strike 가 짝일 때 여는 쪽인지
     partner: int = -1
+    raw: str = ""  # open/close: 글에 적힌 태그 이름 그대로
 
 
 def _scan(s: str) -> list[_Tok]:
@@ -86,7 +93,9 @@ def _scan(s: str) -> list[_Tok]:
         elif m.group(3):
             toks.append(_Tok(m.start(), m.end(), "strike"))
         elif m.group(5):
-            toks.append(_Tok(m.start(), m.end(), "close" if m.group(4) else "open", m.group(5)))
+            raw = m.group(5)
+            name = _ALIASES.get(raw.lower(), raw)
+            toks.append(_Tok(m.start(), m.end(), "close" if m.group(4) else "open", name, raw=raw))
         else:
             toks.append(_Tok(m.start(), m.end(), "br", "", True))
 
@@ -239,20 +248,41 @@ def normalize(segs: Iterable[Seg]) -> list[Seg]:
     return cur
 
 
-def _open(level: int, value: object) -> str:
-    return ("**", "~~", "{밑줄}", "{음영}", f"{{{value}}}")[level]
+def tag(name: str, dialect: str = "ko") -> str:
+    """태그 이름을 문서의 태그 언어로(``tag("음영", "en") == "shade"``)."""
+    return EN[name] if dialect == "en" else name
 
 
-def _close(level: int, value: object) -> str:
-    return ("**", "~~", "{/밑줄}", "{/음영}", f"{{/{value}}}")[level]
+def _open(level: int, value: object, dialect: str) -> str:
+    if level < 2:
+        return ("**", "~~")[level]
+    return "{" + tag(("밑줄", "음영", value)[level - 2], dialect) + "}"  # type: ignore[arg-type]
 
 
-def write(segs: Iterable[Seg], ctx: str | None = None) -> str:
+def _close(level: int, value: object, dialect: str) -> str:
+    if level < 2:
+        return ("**", "~~")[level]
+    return "{/" + tag(("밑줄", "음영", value)[level - 2], dialect) + "}"  # type: ignore[arg-type]
+
+
+def dialect_of(text: str) -> str | None:
+    """문서의 태그 언어 — 처음 나오는 짝 맞은 태그가 정한다. 태그가 없으면 None."""
+    for line in text.split("\n"):
+        if "{" not in line:
+            continue
+        for t in _scan(line):
+            if t.kind == "open" and t.paired:
+                return "en" if t.raw.lower() in _ALIASES else "ko"
+    return None
+
+
+def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> str:
     """조각 → 서식 문자열. ``segs`` 는 normalize 를 거친 것이어야 한다.
 
     ctx="cell": 칸 전체가 ``<`` · ``^`` 하나면 이스케이프(칸 합치기 기호와 구별).
     ctx="para": 문단이 블록 기호(#, >, -, |, 그림)로 시작하거나 가로줄(---)로 읽히면 이스케이프.
     ctx="item": 항목이 ``- `` 뒤에 붙어 가로줄로 읽히면 이스케이프.
+    dialect: 태그를 쓸 언어(``ko`` | ``en``).
     """
     pieces: list[tuple[bool, str]] = []  # (기호인지, 글자)
     cur: tuple = (False, False, False, False, None)
@@ -262,10 +292,10 @@ def write(segs: Iterable[Seg], ctx: str | None = None) -> str:
         if first is not None:
             for j in range(4, first - 1, -1):
                 if cur[j]:
-                    pieces.append((True, _close(j, cur[j])))
+                    pieces.append((True, _close(j, cur[j], dialect)))
             for j in range(first, 5):
                 if style[j]:
-                    pieces.append((True, _open(j, style[j])))
+                    pieces.append((True, _open(j, style[j], dialect)))
         if text:
             pieces.append((False, text))
         cur = style
@@ -328,9 +358,9 @@ def write(segs: Iterable[Seg], ctx: str | None = None) -> str:
     return result
 
 
-def canon(s: str, ctx: str | None = None) -> str:
+def canon(s: str, ctx: str | None = None, dialect: str = "ko") -> str:
     """서식 문자열을 표준 꼴로."""
-    return write(normalize(segments(s)), ctx)
+    return write(normalize(segments(s)), ctx, dialect)
 
 
 def plain(s: str) -> str:

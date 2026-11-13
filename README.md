@@ -3,7 +3,8 @@
 보고서 같은 정형 문서를 **보이는 모양 그대로 고치면서**, 원본은 **Markdown** 으로 남기고(AI 도 같은 MD 를 고친다),
 미리보기의 **쪽 경계가 PDF 와 같은** 문서 편집기.
 
-- **웹 서비스** — 왼쪽에서 고치고(문서 / MD), 오른쪽에서 확인한다(화면 / PDF). 가입 없음, 문서는 브라우저에만 보관.
+- **웹 서비스** — 왼쪽에서 고치고(문서 / MD), 오른쪽에서 확인한다(미리보기 / PDF). 가입 없음, 문서는 브라우저에만 보관.
+  한국어(`/`)와 영어(`/en/`)로 낸다.
 - **MCP 서버** — AI 에이전트가 같은 문법으로 문서를 쓰고, 검사하고, 쪽 배치를 보고, PDF 로 낸다.
 - **HTTP API** — 같은 기능을 직접 부른다.
 
@@ -39,10 +40,14 @@
 | `src/mditor/mcp_server.py` | MCP 서버(stdio · HTTP) |
 | `src/mditor/ai.py` | AI 수정(Claude) |
 | `src/mditor/data/syntax.md` | 문법 안내(MCP `syntax_guide` 와 AI 프롬프트가 쓴다) |
+| `src/mditor/data/example.md` `example.en.md` | 예시 문서(편집기 '예시 보기', 공유 기준 파일) |
+| `src/mditor/i18n.py` | 서버 문구의 언어(`Accept-Language`) — 한국어 원문이 열쇠, 영어 사전 |
 | `web/src/lib/inline.ts` `table.ts` | 서버와 **같은 규칙** — 고치면 둘 다 고친다 |
 | `web/src/lib/rich/` | TipTap 스키마 · 변환(toPM / fromPM) · 명령 |
 | `web/src/editor/` | 편집 화면 |
-| `web/*.html` | 첫 화면 · 문법 · 개발자 · 개인정보처리방침 · 이용약관 |
+| `web/src/lib/i18n.ts` `i18n/en.ts` | 편집 화면 문구의 언어 — 한국어 원문이 열쇠, 영어 사전 |
+| `web/*.html` `web/en/*.html` | 첫 화면 · 편집기 · 문법 · 개발자 · 개인정보처리방침 · 이용약관 (한국어 · 영어) |
+| `web/e2e/hero-video.mjs` `landing-images.mjs` | 첫 화면의 영상 · 그림 만들기(실제 편집기를 찍는다) |
 
 ## 돌려 보기
 
@@ -77,6 +82,31 @@ node web/e2e/editor.mjs       # 헤드리스 크롬으로 편집 화면 조작(�
   node web/e2e/editor.mjs http://127.0.0.1:8011
   ```
 
+## 언어
+
+한국어는 뿌리(`/`, `/edit`, `/syntax` …), 영어는 `/en/` 아래(`/en/`, `/en/edit` …)에 같은 이름으로 있다.
+쪽마다 `hreflang` 대안 주소와 다른 언어로 가는 링크가 있다. 문서는 브라우저에 있으므로 두 언어 편집기가 같은 문서를 본다.
+
+- **편집 화면** — `<html lang>` 으로 언어를 정한다(`web/en/edit.html`). 문구는 `t("한국어 원문")` 으로 쓰고 영어는 `web/src/lib/i18n/en.ts` 에 넣는다.
+  빠진 번역은 테스트(`i18n.test.ts`)가 잡는다.
+- **서버 문구** — 요청의 `Accept-Language`(편집기는 화면 언어를 보낸다)로 정한다. 문구는 `t("한국어 원문")`, 영어는 `src/mditor/i18n.py`.
+  빠진 번역은 `tests/test_i18n.py` 가 잡는다. MCP 는 한국어다.
+- **서식 태그** — `{빨강}` · `{red}` 처럼 한국어 이름과 영어 이름이 같은 태그다. 문서는 한 가지 이름으로 쓴다:
+  문서에 처음 나오는 짝 맞은 태그의 이름을 따르고(섞이면 그 이름으로 맞춘다), 태그가 없으면 요청 언어를 따른다.
+  서버(`inline.dialect_of`)와 화면(`dialectOf`)이 같은 규칙이고, 공유 기준 파일에 영어 태그 사례도 들어 있다.
+- **언어를 더하려면** — `i18n.py` 의 `LANGS` · 사전, `web/src/lib/i18n.ts` 의 `Lang` · 사전, `web/<언어>/*.html`,
+  `web/vite.config.ts` 의 `LANGS`, 예시 문서를 더한다. 서버의 `/<언어>/` 주소는 `i18n.LANGS` 를 따라 열린다.
+
+첫 화면의 영상과 그림은 실제 편집기를 찍어 만든다. 편집 화면이 바뀌면 두 언어 모두 다시 만든다(서버가 떠 있어야 하고, ffmpeg · cwebp 가 있어야 한다).
+
+```bash
+cd web
+node e2e/hero-video.mjs http://127.0.0.1:8000 ko src/assets/hero        # hero-ko.mp4 · hero-ko.webp(포스터)
+node e2e/hero-video.mjs http://127.0.0.1:8000 en src/assets/hero
+node e2e/landing-images.mjs http://127.0.0.1:8000 ko src/assets/landing  # landing/ko/*.webp
+node e2e/landing-images.mjs http://127.0.0.1:8000 en src/assets/landing
+```
+
 ## 배포
 
 컨테이너 하나다. 화면을 빌드해 API 서버에 담는다.
@@ -104,6 +134,25 @@ docker run -p 8000:8000 --env-file .env mditor
 서버는 문서를 저장하지 않으므로 디스크가 필요 없다(MCP 가 만든 PDF 만 `/tmp` 에 30분 둔다).
 그래서 여러 대로 늘릴 때는 MCP 의 PDF 링크가 만든 서버에서만 열린다는 점만 주의한다.
 
+### Vercel
+
+지금 서비스는 Vercel 프로젝트 `mditor` 에 올라가 있다 — https://mditor.watalabs.com (함수 리전 서울 `icn1`).
+Git 과 잇지 않았으므로 바뀐 것을 올릴 때는 이 폴더에서 직접 배포한다.
+
+```bash
+vercel deploy --prod
+```
+
+| 파일 | 하는 일 |
+|---|---|
+| `app.py` | Vercel 진입점. `src` 의 앱을 `app` 으로 내보내고, 함수 본문 한도(4.5MB)에 맞춰 그림 한도를 3MB 로 줄인다 |
+| `vercel.json` | 빌드 명령(화면 빌드 → `web/dist`), 리전, 함수 묶음에서 뺄 파일 |
+| `.vercelignore` | 올리지 않을 파일(`.venv`, `node_modules`, `web/dist` 등) |
+
+- Vercel 은 `uv sync --no-dev` 로 설치하고 엑스트라는 깔지 않는다. 그래서 서버 의존성을 `[server]` 엑스트라와 같은 기본 그룹 `server` 로도 둔다(둘이 같은지 `tests/test_packaging.py` 가 본다).
+- 환경변수는 Vercel 프로젝트에 둔다(`vercel env add 이름 production`). 지금은 `MDITOR_PUBLIC_URL` 하나다.
+- 함수가 여러 개 뜰 수 있다. 횟수 제한은 함수마다 따로 세고, MCP 가 만든 PDF 링크는 만든 함수가 아닌 곳으로 가면 만료로 나올 수 있다.
+
 ### 광고
 
 1. AdSense 에 사이트를 등록하고 `ADSENSE_CLIENT` 를 넣는다. 서버가 모든 쪽의 `<head>` 에 AdSense 코드를 넣고 `/ads.txt` 를 만들어 준다.
@@ -126,11 +175,11 @@ docker run -p 8000:8000 --env-file .env mditor
 ### 원격(서비스에 붙기)
 
 ```bash
-claude mcp add --transport http mditor https://<서비스 주소>/mcp
+claude mcp add --transport http mditor https://mditor.watalabs.com/mcp
 ```
 
 ```json
-{ "mcpServers": { "mditor": { "type": "http", "url": "https://<서비스 주소>/mcp" } } }
+{ "mcpServers": { "mditor": { "type": "http", "url": "https://mditor.watalabs.com/mcp" } } }
 ```
 
 ### 로컬(stdio)
@@ -147,7 +196,7 @@ uvx --from git+https://github.com/madorik/mditor mditor-mcp
     "mditor": {
       "command": "uvx",
       "args": ["--from", "git+https://github.com/madorik/mditor", "mditor-mcp"],
-      "env": { "MDITOR_PUBLIC_URL": "https://<서비스 주소>" }
+      "env": { "MDITOR_PUBLIC_URL": "https://mditor.watalabs.com" }
     }
   }
 }
@@ -178,7 +227,7 @@ uvx --from git+https://github.com/madorik/mditor mditor-mcp
 ## 1. 섹션
 
 ### 블록 제목
-- 항목 **굵게** {빨강}빨강{/빨강} {밑줄}밑줄{/밑줄}
+- 항목 **굵게** {빨강}빨강{/빨강} {밑줄}밑줄{/밑줄}   ← 영어 이름도 같다: {red} {underline}
   - 하위 항목<br>줄바꿈
 > 비고
 

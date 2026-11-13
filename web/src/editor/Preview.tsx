@@ -1,4 +1,5 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { t } from "../lib/i18n";
 import { cellShade, INLINE_COLORS, segments, SHADE } from "../lib/inline";
 import { pageBreaks, type BlockPages } from "../lib/pages";
 import type { StoredImage } from "../lib/store";
@@ -36,8 +37,8 @@ export function Inline({ s }: { s: string }) {
 
 function PageMark({ n }: { n: number }) {
   return (
-    <div className="pagemark" role="separator" aria-label={`여기부터 ${n}쪽`}>
-      <span>{n}쪽</span>
+    <div className="pagemark" role="separator" aria-label={t("여기부터 {n}쪽", { n })}>
+      <span>{t("{n}쪽", { n })}</span>
     </div>
   );
 }
@@ -109,7 +110,7 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
     const src = b.src.startsWith("data:") ? b.src : images[b.src]?.data;
     body = (
       <figure className="md-image">
-        {src ? <img src={src} alt={b.caption} /> : <div className="image-missing">그림 ‘{b.src}’ 이 이 문서에 없습니다</div>}
+        {src ? <img src={src} alt={b.caption} /> : <div className="image-missing">{t("그림 ‘{src}’ 이 이 문서에 없습니다", { src: b.src })}</div>}
         {b.caption && <figcaption>{b.caption}</figcaption>}
       </figure>
     );
@@ -171,10 +172,10 @@ export function Preview({ doc, layout, changes, images, options }: { doc: Doc; l
 
   return (
     <div className="desk" ref={desk}>
-      <article className="paper docstyle" style={style} aria-label="문서 미리보기">
-        {layout && layout.total > 1 && <span className="first-page">1쪽</span>}
+      <article className="paper docstyle" style={style} aria-label={t("문서 미리보기")}>
+        {layout && layout.total > 1 && <span className="first-page">{t("{n}쪽", { n: 1 })}</span>}
         {doc.title && <h1>{doc.title}</h1>}
-        {empty && <p style={{ color: "#9aa4ad" }}>왼쪽에 글을 쓰면 여기에 보입니다.</p>}
+        {empty && <p style={{ color: "#9aa4ad" }}>{t("왼쪽에 글을 쓰면 여기에 보입니다.")}</p>}
         {doc.sections.map((s) => (
           <section key={s.key}>
             {breaks.sections[s.key] && <PageMark n={breaks.sections[s.key]} />}
@@ -185,7 +186,7 @@ export function Preview({ doc, layout, changes, images, options }: { doc: Doc; l
           </section>
         ))}
       </article>
-      {layout && <p className="paper-foot">PDF 로 내면 {layout.total}쪽입니다. 쪽 경계는 PDF 를 실제로 그려 본 자리입니다.</p>}
+      {layout && <p className="paper-foot">{layout.total === 1 ? t("PDF 로 내면 1쪽입니다. 쪽 경계는 PDF 를 실제로 그려 본 자리입니다.") : t("PDF 로 내면 {n}쪽입니다. 쪽 경계는 PDF 를 실제로 그려 본 자리입니다.", { n: layout.total })}</p>}
     </div>
   );
 }

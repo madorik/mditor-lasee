@@ -13,3 +13,4 @@ dist/
 .DS_Store
 .mditor-cache/
 web/tsconfig.tsbuildinfo
+.vercel

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Developer guide (MCP · API) — MDitor</title>
+    <meta name="description" content="The MDitor MCP server and HTTP API. AI agents write documents in Markdown, check them, verify the page layout, and export PDFs." />
+    <meta name="theme-color" content="#e8ecef" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="%PUBLIC_URL%/en/developers" />
+    <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/developers" />
+    <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/developers" />
+    <link rel="alternate" hreflang="x-default" href="%PUBLIC_URL%/developers" />
+    <!--mditor:head-->
+  </head>
+  <body class="site">
+    <header class="wrap nav">
+      <a class="brand" href="/en/">MD<i>itor</i></a>
+      <a class="link hide-s" href="/en/syntax">Syntax</a>
+      <a class="link hide-s" href="/en/developers" aria-current="page">Developers</a>
+      <a class="lang" href="/developers" hreflang="ko" lang="ko">한국어</a>
+      <a class="button small" href="/en/edit">Open editor</a>
+    </header>
+    <main>
+      <article class="prose">
+        <h1>Developer guide</h1>
+        <p class="lede">MDitor offers an MCP server and an HTTP API. AI agents and your own programs can write documents in Markdown, check the syntax, verify the page layout, and export PDFs. They use the same parser and renderer as the web editor, so the results are identical.</p>
+
+        <h2>Connecting the MCP server</h2>
+        <p>Register a single URL. There’s no authentication.</p>
+        <div class="codebox"><pre data-fill>{origin}/mcp</pre></div>
+        <h3>Claude Code</h3>
+        <div class="codebox"><pre data-fill>claude mcp add --transport http mditor {origin}/mcp</pre></div>
+        <h3>Clients configured with a settings file (Claude Desktop, Cursor, etc.)</h3>
+        <div class="codebox"><pre data-fill>{
+  "mcpServers": {
+    "mditor": { "type": "http", "url": "{origin}/mcp" }
+  }
+}</pre></div>
+        <p>The transport is Streamable HTTP. The server is stateless, so there are no sessions to keep alive.</p>
+
+        <h2>Tools</h2>
+        <table class="ref">
+          <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>syntax_guide</code></td><td>Returns the full syntax. Read it once before writing a document.</td></tr>
+            <tr><td><code>check_markdown</code></td><td>Reads a document. If it’s valid, returns its structure (sections and blocks) and the canonical Markdown; if not, the line number and what to fix.</td></tr>
+            <tr><td><code>page_layout</code></td><td>Actually renders the PDF and returns the total page count, the page each section and block lands on, and where long tables and lists break.</td></tr>
+            <tr><td><code>render_pdf</code></td><td>Builds the PDF and returns a download link (deleted after 30 minutes). Paper size, orientation, margins and font size are configurable.</td></tr>
+            <tr><td><code>diff_markdown</code></td><td>Compares a document before and after a change, block by block, and lists any new numbers separately.</td></tr>
+            <tr><td><code>editor_link</code></td><td>Makes a link that opens the document in the web editor. The content travels after the # in the URL and is never stored on the server.</td></tr>
+          </tbody>
+        </table>
+        <p>Then just ask your agent:</p>
+        <div class="sample" style="margin-bottom:18px"><pre class="wrapcode">Write our Q3 operations report with MDitor. Read the syntax guide first. When you’re done, check the document, make sure no table gets cut awkwardly mid-page, and export it as a PDF.</pre></div>
+
+        <h2>HTTP API</h2>
+        <p>You can also call it directly, without MCP. Request bodies are JSON, and nothing is ever stored.</p>
+        <table class="ref">
+          <thead><tr><th>Call</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /api/md/preview</code></td><td>The parsed document (JSON) and its canonical Markdown. On an error, <code>{ok: false, error: {line, message}}</code></td></tr>
+            <tr><td><code>POST /api/md/preview-pages</code></td><td>Page layout: the page each section, block, list item and table row lands on, plus the total page count</td></tr>
+            <tr><td><code>POST /api/md/pdf</code></td><td>The PDF file. The page count is in the <code>X-Mditor-Pages</code> response header</td></tr>
+          </tbody>
+        </table>
+        <div class="codebox"><pre data-fill>curl -X POST {origin}/api/md/pdf \
+  -H "Content-Type: application/json" \
+  -H "Accept-Language: en" \
+  -d '{"md": "# Report\n\n## 1. Summary\n\n- First item\n", "options": {"page": "A4"}}' \
+  -o report.pdf</pre></div>
+        <p><code>options</code> accepts <code>page</code> (A4 or Letter), <code>landscape</code>, <code>margin_mm</code> (8–40), <code>font_size</code> (8–14), <code>section_break</code> and <code>page_numbers</code>. Send images in <code>images</code> as <code>{name: data URI}</code>.</p>
+        <p>Send <code>Accept-Language: en</code> or <code>ko</code> (the default) to set the language of error messages. It also sets the tag language (<code>{red}</code> or <code>{빨강}</code>) used for a document that has no tags yet.</p>
+        <div class="note-box">This is a public service, so request rates and document sizes are limited (400,000 characters per document, 8 MB of images in total). Requests over the limit get a 429 or 413 response. For heavy use, run your own server.</div>
+
+        <h2>Running it on your own machine</h2>
+        <p>The source is at <a href="https://github.com/madorik/mditor">github.com/madorik/mditor</a>. The local MCP server (stdio) writes PDFs straight to files and reads the image files a document refers to from disk. See the README in the repository for installation and usage.</p>
+      </article>
+      <div class="ad-slot" hidden></div>
+    </main>
+    <footer class="foot">
+      <div class="wrap">
+        <span>MDitor</span>
+        <span class="grow"></span>
+        <a href="/en/syntax">Syntax</a>
+        <a href="/en/developers">Developers</a>
+        <a href="/en/privacy">Privacy</a>
+        <a href="/en/terms">Terms</a>
+        <a href="/developers" hreflang="ko" lang="ko">한국어</a>
+      </div>
+    </footer>
+    <script type="module" src="/src/site.ts"></script>
+  </body>
+</html>

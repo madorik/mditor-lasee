@@ -32,6 +32,7 @@ from reportlab.platypus import BaseDocTemplate, Flowable, Frame, PageBreak, Page
 from reportlab.platypus.doctemplate import FrameBreak, LayoutError, NullActionFlowable
 
 from . import inline, table
+from .i18n import t
 
 FONT = "MDitor"
 FONT_BOLD = "MDitor-Bold"
@@ -506,7 +507,7 @@ def _build(
     try:
         pdf.build(story)
     except LayoutError as e:
-        raise RenderError("문서를 쪽에 배치하지 못했습니다. 한 쪽보다 큰 그림이나 표 머리글이 있는지 확인하세요.") from e
+        raise RenderError(t("문서를 쪽에 배치하지 못했습니다. 한 쪽보다 큰 그림이나 표 머리글이 있는지 확인하세요.")) from e
     layout = pdf.layout
     layout["total"] = max(1, pdf.page)
     for s in doc.get("sections") or []:  # 머리 없는 섹션은 첫 블록 쪽

@@ -1,11 +1,12 @@
 // 그림 붙이기 — 큰 그림은 줄여서 문서와 함께 브라우저에 둔다.
 
+import { t } from "./i18n";
 import type { StoredImage } from "./store";
 
 const MAX_SIDE = 1600;
 
 export async function readImage(file: File): Promise<StoredImage> {
-  if (!/^image\/(png|jpeg|gif|webp|bmp)$/.test(file.type)) throw new Error("PNG · JPEG · GIF · WebP 그림만 붙일 수 있습니다.");
+  if (!/^image\/(png|jpeg|gif|webp|bmp)$/.test(file.type)) throw new Error(t("PNG · JPEG · GIF · WebP 그림만 붙일 수 있습니다."));
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -18,12 +19,12 @@ export async function readImage(file: File): Promise<StoredImage> {
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("그림을 읽지 못했습니다.");
+    if (!ctx) throw new Error(t("그림을 읽지 못했습니다."));
     ctx.drawImage(img, 0, 0, w, h);
     const photo = file.type === "image/jpeg";
     return { data: canvas.toDataURL(photo ? "image/jpeg" : "image/png", 0.9), w, h };
-  } catch (e) {
-    throw e instanceof Error && e.message.includes("그림") ? e : new Error("그림을 읽지 못했습니다.");
+  } catch {
+    throw new Error(t("그림을 읽지 못했습니다.")); // 그림이 깨졌거나 그리지 못했다
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -32,7 +33,7 @@ export async function readImage(file: File): Promise<StoredImage> {
 /** 문서 안에서 겹치지 않는 그림 이름. */
 export function imageName(file: File, taken: Record<string, unknown>): string {
   const ext = file.type === "image/jpeg" ? "jpg" : "png";
-  const stem = file.name.replace(/\.[^.]*$/, "").replace(/[()[\]|\\\s]+/g, "-").replace(/^-+|-+$/g, "") || "그림";
+  const stem = file.name.replace(/\.[^.]*$/, "").replace(/[()[\]|\\\s]+/g, "-").replace(/^-+|-+$/g, "") || t("그림");
   let name = `${stem}.${ext}`;
   for (let n = 2; name in taken; n++) name = `${stem}-${n}.${ext}`;
   return name;
