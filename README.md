@@ -157,7 +157,7 @@ vercel deploy --prod
 | `.vercelignore` | 올리지 않을 파일(`.venv`, `node_modules`, `web/dist` 등) |
 
 - Vercel 은 `uv sync --no-dev` 로 설치하고 엑스트라는 깔지 않는다. 그래서 서버 의존성을 `[server]` 엑스트라와 같은 기본 그룹 `server` 로도 둔다(둘이 같은지 `tests/test_packaging.py` 가 본다).
-- 환경변수는 Vercel 프로젝트에 둔다(`vercel env add 이름 production`). `MDITOR_PUBLIC_URL` 과 그림 저장소(R2) 넷이다.
+- 환경변수는 Vercel 프로젝트에 둔다(`vercel env add 이름 production`). `MDITOR_PUBLIC_URL`, 그림 저장소(R2) 넷, 광고(`ADSENSE_CLIENT` · `ADSENSE_SLOT_CONTENT` · `ADSENSE_SLOT_EDITOR`) 셋이다.
 - 함수가 여러 개 뜰 수 있다. 횟수 제한은 함수마다 따로 세고, MCP 가 만든 PDF 링크는 만든 함수가 아닌 곳으로 가면 만료로 나올 수 있다.
 
 ### 광고
@@ -170,6 +170,16 @@ vercel deploy --prod
 4. `/privacy` 와 `/terms` 의 운영자 정보를 실제에 맞게 고친다(`web/privacy.html`, `web/terms.html`).
 
 광고 자리는 `?ads=demo` 를 붙이면 볼 수 있다(예: `/edit?ads=demo`).
+
+**쿠팡 파트너스 추천 칸** — 한국어 첫 화면·문법·개발자 쪽의 광고 자리 위에 카드 넷(맥북·맥미니·에어팟·키보드)을 낸다. 팝업이 아니고 편집기에는 내지 않는다.
+
+- 목록과 링크는 `web/src/lib/picks.ts`. 칸마다 `search`(찾을 말)를 파트너스의 상품 링크 검색
+  (`https://partners.coupang.com/#affiliate/ws/link/0/<search>`)에 넣고, 본체 가운데 많이 팔리는 상품을 골라 '링크 생성'으로 만든 단축 주소
+  (`https://link.coupang.com/a/…`)를 `url` 에 넣는다. 쿠팡 검색 화면 주소로 만든 링크는 일부 브라우저에서 '사용권한이 없습니다'로 막혀서 쓰지 않는다.
+  상품이 품절되거나 새 모델이 나오면 링크를 바꾼다.
+- `url` 이 비었거나 파트너스 주소가 아닌 칸은 그리지 않고, 하나도 없으면 칸 전체를 그리지 않는다(`lib/picks.test.ts` 가 본다).
+- 칸 가까이에 "광고" 표시와 파트너스 고지 문구가 있고, 링크는 `rel="sponsored nofollow noopener"` 로 연다. `/privacy` 에도 한 줄 있다.
+- 파트너스 사이트(partners.coupang.com)는 자동으로 띄운 브라우저를 막는다(Akamai `Access Denied`). 링크는 사람이 직접 만든다.
 
 ### 검색 · 답변 엔진(SEO · AEO · GEO)
 

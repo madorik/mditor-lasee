@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../analytics";
-import "../promo";
+// 숨김(2026-11-16, 맹고 소개 팝업) — 다시 띄우려면 이 줄을 푼다
+// import "../promo";
 import { App } from "./App";
 import "./editor.css";
 

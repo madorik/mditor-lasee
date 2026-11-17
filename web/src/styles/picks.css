@@ -1,0 +1,96 @@
+/* 쿠팡 파트너스 추천 칸(picks.ts) — 쪽 아래의 조용한 카드 줄 */
+
+.picks {
+  width: min(1120px, 100% - 48px);
+  margin: 0 auto;
+  padding: 28px 0 8px;
+}
+
+.picks-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.picks-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.picks-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--graphite);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.picks-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); /* 칸이 모자라도 한 칸이 줄 전체로 늘어나지 않게 */
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--paper);
+  color: inherit;
+  text-decoration: none;
+}
+
+.pick:hover,
+.pick:focus-visible {
+  border-color: var(--guide);
+}
+
+.pick svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--guide-ink);
+}
+
+.pick-text b {
+  display: block;
+  font-size: 14.5px;
+}
+
+.pick-text span {
+  display: block;
+  margin-top: 3px;
+  color: #3a4552;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pick-text em {
+  display: block;
+  margin-top: 6px;
+  color: var(--guide-ink);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.picks-note {
+  margin: 10px 0 0;
+  color: var(--graphite);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .picks {
+    width: calc(100% - 32px);
+  }
+}

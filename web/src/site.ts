@@ -1,7 +1,9 @@
-// 정적 쪽의 작은 스크립트 — 주소 채우기, 첫 화면 영상, 광고 자리, 맹고 소개 팝업.
+// 정적 쪽의 작은 스크립트 — 주소 채우기, 첫 화면 영상, 광고 자리, 쿠팡 파트너스 추천 칸.
 import "./analytics";
 import "./styles/site.css";
-import "./promo";
+import "./picks";
+// 숨김(2026-11-16, 맹고 소개 팝업은 내리고 쿠팡 파트너스로 바꾼다) — 다시 띄우려면 이 줄을 푼다
+// import "./promo";
 
 type Cfg = { publicUrl?: string; contact?: string; ads?: { client?: string; content?: string } };
 const cfg: Cfg = (window as unknown as { __MDITOR__?: Cfg }).__MDITOR__ ?? {};
