@@ -73,24 +73,17 @@
   color: var(--mg-ink);
 }
 
-/* ── 머리: 맹고색 바탕 + 휴대폰 그림 ── */
+/* ── 머리: 맹고색 바탕 + 맹고 앱 실제 화면 ── */
 .promo-hero {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr 172px;
-  gap: 24px;
-  align-items: end;
+  display: flex;
+  flex-direction: column;
   padding: 34px 36px 0;
   overflow: hidden;
   background:
     radial-gradient(circle at 92% 8%, rgba(255, 255, 255, 0.55) 0 60px, transparent 61px),
     radial-gradient(circle at 78% 110%, rgba(245, 174, 20, 0.35) 0 120px, transparent 121px),
     linear-gradient(160deg, #ffe08a 0%, var(--mg) 55%, #ffb21f 100%);
-}
-
-.promo-copy {
-  align-self: center;
-  padding-bottom: 30px;
 }
 
 .promo-brand {
@@ -135,103 +128,30 @@
   font-size: 16px;
 }
 
-/* 휴대폰 그림(장식) */
-.promo-phone {
-  align-self: end;
-  height: 218px; /* 위쪽 닫기 단추와 겹치지 않게 */
-  padding: 9px 9px 0;
-  border-radius: 30px 30px 0 0;
-  background: var(--mg-ink);
-  box-shadow: 0 -6px 30px rgba(31, 35, 64, 0.25);
-}
-
-.promo-screen {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  height: 100%;
-  padding: 18px 14px 0;
-  border-radius: 22px 22px 0 0;
-  background: #fffaf0;
-}
-
-.promo-time {
-  justify-self: center;
-  margin-bottom: 8px;
-  color: var(--mg-mute);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.promo-card-title {
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.promo-card-sub {
-  color: var(--mg-mute);
-  font-size: 11.5px;
-}
-
-.promo-wave {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 30px;
-  margin: 10px 0 4px;
-}
-
-.promo-wave i {
-  flex: 1;
-  border-radius: 2px;
-  background: #e6dfcd;
-}
-
-.promo-wave i.on {
-  background: var(--mg-deep);
-}
-
-.promo-player {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--mg-sub);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.promo-play {
+/* 맹고 앱 화면(src/assets/promo/maengo-screens.webp) — 아래쪽은 머리 끝에서 잘려
+   휴대폰 두 대가 아래에서 올라온 것처럼 보인다. 그림자가 잘리지 않게 자리 자체는 자르지 않는다(자르는 건 .promo-hero) */
+.promo-shot {
   position: relative;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--mg-ink);
+  height: 290px;
+  margin: 24px 0 0;
 }
 
-.promo-play::after {
-  content: "";
+.promo-shot img {
   position: absolute;
-  top: 8px;
-  left: 10px;
-  border-width: 5px 0 5px 8px;
-  border-style: solid;
-  border-color: transparent transparent transparent #fff;
+  top: 0;
+  left: 50%;
+  width: min(100%, 400px);
+  height: auto;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 12px 28px rgba(31, 35, 64, 0.3));
 }
 
-.promo-lines {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-}
-
-.promo-lines i {
-  height: 7px;
-  border-radius: 4px;
-  background: #efe8d6;
-}
-
-.promo-lines i.short {
-  width: 60%;
+/* 넓은 화면에서만 보이는 오른쪽 칸 머리말 */
+.promo .promo-side-title {
+  display: none;
+  margin: 0 48px 14px 0; /* 오른쪽 위 닫기 단추 자리 */
+  font-size: 17px;
+  font-weight: 800;
 }
 
 /* ── 기능 세 가지 ── */
@@ -367,8 +287,12 @@
 
 /* ── 아래 띠 ── */
 .promo-foot {
+  position: sticky; /* 작은 화면에서 창 안을 굴려도 '닫기'가 늘 보인다 */
+  bottom: 0;
+  z-index: 1;
   display: flex;
   border-top: 1px solid #e9eaf0;
+  background: #fff;
 }
 
 .promo-foot button {
@@ -404,24 +328,97 @@
   outline-offset: 2px;
 }
 
-/* ── 좁은 화면: 휴대폰 그림 · QR 을 빼고 한 줄로 ── */
+/* ── 넓은 화면: 왼쪽은 맹고색 머리 + 앱 화면, 오른쪽은 기능 · 앱 받기 ── */
+@media (min-width: 900px) {
+  .promo {
+    width: min(880px, calc(100% - 32px));
+  }
+
+  .promo-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "hero side"
+      "foot foot";
+  }
+
+  .promo-hero {
+    grid-area: hero;
+    padding: 32px 32px 0;
+  }
+
+  /* 오른쪽 칸 높이에 맞춰 앱 화면이 늘어난다 */
+  .promo-shot {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 270px;
+  }
+
+  .promo-side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 30px 32px 28px;
+  }
+
+  .promo .promo-side-title {
+    display: block;
+  }
+
+  .promo-points {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 0;
+  }
+
+  .promo-points li {
+    grid-template-columns: 40px 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .promo-get {
+    gap: 18px;
+    margin: 18px 0 0;
+    padding: 16px 18px;
+  }
+
+  .promo-cta {
+    padding: 0 22px;
+  }
+
+  .promo-foot {
+    grid-area: foot;
+  }
+
+  .promo-x {
+    background: #f1f2f6; /* 흰 바탕 위 */
+  }
+}
+
+/* ── 좁은 화면: QR 을 빼고 한 줄로, 앱 화면은 작게 ── */
 @media (max-width: 600px) {
   .promo {
     border-radius: 18px;
   }
 
   .promo-hero {
-    grid-template-columns: 1fr;
     padding: 26px 22px 0;
   }
 
-  .promo-phone,
-  .promo-qr {
-    display: none; /* 휴대폰에서는 단추를 바로 누른다 */
+  .promo-shot {
+    height: 230px;
+    margin-top: 18px;
   }
 
-  .promo-copy {
-    padding-bottom: 22px;
+  .promo-shot img {
+    width: min(100%, 330px);
+  }
+
+  .promo-qr {
+    display: none; /* 휴대폰에서는 단추를 바로 누른다 */
   }
 
   .promo-brand {
@@ -441,10 +438,16 @@
     font-size: 15px;
   }
 
+  /* 앱 화면이 들어간 만큼 길어져, 앱 받기 단추를 기능 소개보다 먼저 둔다(첫 화면 안에 보이게) */
+  .promo-side {
+    display: flex;
+    flex-direction: column;
+  }
+
   .promo-points {
     grid-template-columns: 1fr;
     gap: 8px;
-    padding: 16px 18px 0;
+    padding: 16px 18px 20px;
   }
 
   .promo-points li {
@@ -461,7 +464,8 @@
   }
 
   .promo-get {
-    margin: 16px 18px 20px;
+    order: -1;
+    margin: 16px 18px 0;
     padding: 16px;
   }
 

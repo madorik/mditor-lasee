@@ -3,6 +3,8 @@
 // 자동화 브라우저(e2e·첫 화면 영상·그림 찍기)에는 띄우지 않는다. 주소에 ?promo=show 를 붙이면 언제든 보인다.
 // 바깥 스크립트를 들이지 않는 자체 광고라, 편집기에 띄워도 문서가 밖으로 나가지 않는다.
 import iconUrl from "./assets/promo/maengo.svg";
+// 맹고 앱 실제 화면(맞춤 인사이트 · 출근길 브리핑 / 퇴근길 노선). 어두운 바탕을 빼서 휴대폰만 남긴 그림
+import shotUrl from "./assets/promo/maengo-screens.webp";
 // 앱 받기 QR — https://watalabs.com/maengo/go/app?from=lasee-qr (segno 로 만든 그림. 주소를 바꾸면 다시 만든다)
 import qrUrl from "./assets/promo/maengo-qr.svg";
 import "./styles/promo.css";
@@ -60,10 +62,6 @@ function build(): HTMLDialogElement {
   const dialog = document.createElement("dialog");
   dialog.className = "promo";
   dialog.setAttribute("aria-labelledby", "promo-title");
-  // 막대 높이(소리 파형 그림)
-  const wave = [6, 12, 18, 10, 22, 14, 8, 16, 24, 12, 6, 18, 10, 20, 8, 14, 22, 10, 16, 6]
-    .map((h, i) => `<i style="height:${h}px"${i < 9 ? ' class="on"' : ""}></i>`)
-    .join("");
   dialog.innerHTML = `
     <div class="promo-panel">
       <button type="button" class="promo-x" data-promo="close" aria-label="닫기">${icon("close", 20)}</button>
@@ -76,32 +74,29 @@ function build(): HTMLDialogElement {
           <h2 id="promo-title">출퇴근길,<br />오늘 소식은 귀로 들으세요</h2>
           <p>맹고는 내 관심 분야의 소식만 골라 AI 가 핵심만 요약하고 읽어 주는 앱입니다.</p>
         </div>
-        <div class="promo-phone" aria-hidden="true">
-          <div class="promo-screen">
-            <span class="promo-time">07:30</span>
-            <b class="promo-card-title">아침 브리핑</b>
-            <span class="promo-card-sub">관심 분야 소식 5건</span>
-            <div class="promo-wave">${wave}</div>
-            <div class="promo-player"><span class="promo-play"></span><span>02:14 / 04:30</span></div>
-            <div class="promo-lines"><i></i><i></i><i class="short"></i></div>
-          </div>
-        </div>
-      </section>
-      <ul class="promo-points">
-        <li>${icon("summary")}<span><b>핵심만 짧게</b>긴 기사도 짧게 요약하고, 요약마다 원문 링크를 붙입니다</span></li>
-        <li>${icon("listen")}<span><b>하루 두 번 브리핑</b>출근길 · 퇴근길, 화면을 꺼도 이어서 읽어 줍니다</span></li>
-        <li>${icon("world")}<span><b>해외 소식도 한국어로</b>해외 매체 소식도 한국어로 요약합니다</span></li>
-      </ul>
-      <div class="promo-get">
-        <figure class="promo-qr">
-          <img src="${qrUrl}" width="112" height="112" alt="맹고 앱 받기 QR 코드" />
-          <figcaption>휴대폰 카메라로 찍으세요</figcaption>
+        <figure class="promo-shot">
+          <img src="${shotUrl}" width="901" height="1001" decoding="async"
+            alt="맹고 앱 화면 — 자주 보는 분야로 엮은 오늘의 맞춤 인사이트와 출근길 브리핑, 퇴근길에 차례로 들려주는 소식 목록" />
         </figure>
-        <div class="promo-actions">
-          <p class="promo-get-title">지금 앱을 받아 보세요</p>
-          <a class="promo-cta" href="${APP_URL}" target="_blank" rel="noopener">무료로 앱 받기</a>
-          <a class="promo-more" href="${INTRO_URL}" target="_blank" rel="noopener">맹고 소개 보기 →</a>
-          <span class="promo-note">아이폰 · 안드로이드</span>
+      </section>
+      <div class="promo-side">
+        <p class="promo-side-title">맹고가 매일 챙겨 드려요</p>
+        <ul class="promo-points">
+          <li>${icon("summary")}<span><b>핵심만 짧게</b>긴 기사도 짧게 요약하고, 요약마다 원문 링크를 붙입니다</span></li>
+          <li>${icon("listen")}<span><b>하루 두 번 브리핑</b>출근길 · 퇴근길, 화면을 꺼도 이어서 읽어 줍니다</span></li>
+          <li>${icon("world")}<span><b>해외 소식도 한국어로</b>해외 매체 소식도 한국어로 요약합니다</span></li>
+        </ul>
+        <div class="promo-get">
+          <figure class="promo-qr">
+            <img src="${qrUrl}" width="112" height="112" alt="맹고 앱 받기 QR 코드" />
+            <figcaption>휴대폰 카메라로 찍으세요</figcaption>
+          </figure>
+          <div class="promo-actions">
+            <p class="promo-get-title">지금 앱을 받아 보세요</p>
+            <a class="promo-cta" href="${APP_URL}" target="_blank" rel="noopener">무료로 앱 받기</a>
+            <a class="promo-more" href="${INTRO_URL}" target="_blank" rel="noopener">맹고 소개 보기 →</a>
+            <span class="promo-note">아이폰 · 안드로이드</span>
+          </div>
         </div>
       </div>
       <div class="promo-foot">
@@ -134,6 +129,7 @@ function show(): void {
 
 function start(): void {
   if (!shouldShow() || typeof HTMLDialogElement !== "function") return;
+  new Image().src = shotUrl; // 띄우기 전에 앱 화면 그림을 미리 받아 둔다
   // 화면이 먼저 그려진 뒤에 띄운다(편집기는 문서를 여는 동안)
   window.setTimeout(show, 700);
 }
