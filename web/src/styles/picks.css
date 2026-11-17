@@ -55,6 +55,34 @@
   border-color: var(--guide);
 }
 
+/* 사진이 있는 카드 — 위는 상품 사진, 아래는 글 */
+.pick.has-img {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pick-img {
+  display: grid;
+  place-items: center;
+  height: 176px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.pick-img img {
+  width: auto;
+  height: 150px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.pick.has-img .pick-text {
+  padding: 12px 16px 14px;
+}
+
 .pick svg {
   flex: none;
   margin-top: 1px;

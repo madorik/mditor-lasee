@@ -2,6 +2,7 @@
 import "./analytics";
 import "./styles/site.css";
 import "./picks";
+import "./banners";
 // 숨김(2026-11-16, 맹고 소개 팝업은 내리고 쿠팡 파트너스로 바꾼다) — 다시 띄우려면 이 줄을 푼다
 // import "./promo";
 

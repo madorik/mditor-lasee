@@ -1,0 +1,79 @@
+/* 쿠팡 파트너스 다이나믹 배너(banners.ts) — 쪽 안의 가로 배너와 큰 화면의 옆 배너. 덮거나 따라다니는 배너는 없다 */
+
+.adframe {
+  display: block;
+  max-width: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.adframe.demo {
+  display: grid;
+  place-content: center;
+  color: #9aa4ad;
+  font-size: 12px;
+  background: repeating-linear-gradient(135deg, #f4f6f7 0 10px, #fafbfb 10px 20px);
+}
+
+.ad-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--graphite);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ad-note {
+  margin: 6px 0 0;
+  color: var(--graphite);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* 쪽 안의 가로 배너 */
+.adfit {
+  overflow: hidden;
+}
+
+/* 쿠팡 코드가 만든 배너(<ins>)가 들어오는 상자. 좁은 화면에서는 폭을 줄이는 대신 banners.ts 가 통째로 줄여서(scale) 맞춘다 */
+.adbox {
+  max-width: none;
+  overflow: hidden;
+}
+
+.adbox ins {
+  display: block;
+  text-decoration: none;
+}
+
+.adinline-middle {
+  padding-top: 8px;
+}
+
+/* 편집기 내보내기 안내 창 안(editor/ExportAd.tsx). 창 안의 `.modal p` 보다 앞서도록 한 단계 더 좁혀 쓴다 */
+.exportad {
+  margin-top: 6px;
+}
+
+.exportad .ad-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+}
+
+/* 옆 배너 — 본문(1120px) 오른쪽 옆, 쪽 위에서 96px. position: absolute 라 쪽과 같이 올라간다(따라다니지 않는다).
+   폭이 1500px 보다 좁으면 숨긴다(banners.ts 는 그때 틀도 만들지 않는다) */
+.adside {
+  position: absolute;
+  top: 96px;
+  left: calc(50% + 560px + 16px);
+  z-index: 5;
+  width: 160px;
+}
+
+@media (max-width: 1499px) {
+  .adside {
+    display: none;
+  }
+}
