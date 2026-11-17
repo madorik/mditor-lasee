@@ -11,6 +11,7 @@ import { isPersistent, putDoc, withVersion, type StoredDoc } from "../lib/store"
 import type { Doc, Preview as PreviewResult } from "../lib/types";
 import { AdSlot } from "./AdSlot";
 import { AiDialog, SettingsDialog, VersionsDialog } from "./Dialogs";
+import { ExportAdDialog, exportAdOn } from "./ExportAd";
 import { MdPane, type MdPaneHandle } from "./MdPane";
 import { PdfPreview } from "./PdfPreview";
 import { Preview } from "./Preview";
@@ -61,6 +62,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
   const [name, setName] = useState(stored.name);
   const [busy, setBusy] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null); // 내보내기 안내 창(쿠팡 배너)의 글. null 이면 닫힘
 
   // 문서 편집기: 서버가 되읽은 문서로 연다. key 를 올리면 새로 연다.
   const [rich, setRich] = useState<{ key: number; doc: Doc } | null>(null);
@@ -342,26 +344,36 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   }, []);
 
   // ── 내보내기
+  // 한국어 편집기에서 내보내면 안내 창(쿠팡 배너)을 띄운다. 사용자가 이미 닫은 창은 글을 바꿔도 다시 열지 않는다
+  const showExportAd = (m: string) => exportAdOn() && setExportMsg(m);
+  const updateExportAd = (m: string) => setExportMsg((cur) => (cur === null ? null : m));
   const exportPdf = async () => {
     setBusy(true);
+    showExportAd("PDF 를 만들고 있습니다. 잠시만 기다려 주세요.");
     try {
       const { blob } = await api.pdf(
         { md: text, base: docFor.current.get(text) ?? stored.base, options: stored.options, image_sizes: sizes, images: Object.fromEntries(Object.entries(stored.images).map(([k, v]) => [k, v.data])), filename: fileStem(name) },
         true,
       );
       download(blob, `${fileStem(name)}.pdf`);
+      updateExportAd("PDF 내려받기를 시작했습니다. 내려받은 파일을 확인하세요.");
     } catch (e) {
+      setExportMsg(null); // 실패하면 안내 창 대신 오류 알림만 보인다
       say(e instanceof Error ? e.message : t("PDF 를 만들지 못했습니다."), true);
     } finally {
       setBusy(false);
     }
   };
-  const exportMd = () => download(new Blob([text], { type: "text/markdown;charset=utf-8" }), `${fileStem(name)}.md`);
+  const exportMd = () => {
+    download(new Blob([text], { type: "text/markdown;charset=utf-8" }), `${fileStem(name)}.md`);
+    showExportAd("MD 파일을 내려받았습니다.");
+  };
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(await encodeLink(location.origin, text));
       // 브라우저에만 둔 그림(이름으로 넣은 것)은 링크에 실리지 않는다. 저장소에 올린 그림은 주소로 따라간다
       say(Object.keys(stored.images).length ? t("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다(그림은 빠집니다).") : t("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다."));
+      showExportAd("링크를 복사했습니다. 문서 내용이 링크 안에 들어 있습니다.");
     } catch {
       say(t("링크를 복사하지 못했습니다."), true);
     }
@@ -511,6 +523,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
       <AdSlot config={config} slot="editor" />
 
       <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={(e) => (void addImage(e.target.files?.[0]), (e.target.value = ""))} />
+      {exportMsg !== null && <ExportAdDialog message={exportMsg} onClose={() => setExportMsg(null)} />}
       {dialog === "settings" && <SettingsDialog options={stored.options} onChange={setOptions} onClose={() => setDialog(null)} />}
       {dialog === "versions" && (
         <VersionsDialog
