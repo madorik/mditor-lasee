@@ -44,6 +44,10 @@ UNLISTED = {"developers"}  # 주소로는 열리지만 sitemap 에 싣지 않는
 _FETCH_LIMIT = 40_000_000  # PDF 한 번에 저장소에서 꺼내는 그림 합계
 # 올린 그림 — 며칠 뒤 지워지므로 오래 담아 두지 않는다(지운 뒤에도 CDN · 브라우저에 오래 남지 않게)
 _IMAGE_CACHE = "public, max-age=21600, s-maxage=21600"
+# 화면(HTML) · robots · sitemap · llms · ads 와 정적 파일 — 한 배포 안에서는 요청마다 달라지는 값이 없다.
+# 파이썬 함수를 매번 깨우지 않도록 Vercel CDN 에만 담아 둔다(Vary · 브라우저에는 가지 않는다: 화면은 브라우저에서 계속 no-cache).
+# CDN 캐시 키에 배포 주소가 들어 있어 새 배포는 빈 캐시로 시작하므로, 옛 화면이 새 에셋 이름과 어긋나지 않는다
+_CDN_STATIC = {"Vercel-CDN-Cache-Control": "max-age=3600, stale-while-revalidate=86400"}
 # 검색 · AI 답변 엔진 — 모두 같은 규칙으로 허용한다(robots.txt 에 이름을 적어 둔다)
 CRAWLERS = (
     "Googlebot", "Bingbot", "Yeti", "Daumoa",  # 구글 · 빙 · 네이버 · 다음
@@ -382,14 +386,14 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
         html = render_page(file)
         if html is None:
             return PlainTextResponse("웹 화면이 빌드되지 않았습니다. web/ 에서 npm run build 를 실행하세요.", 503)
-        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache", **_CDN_STATIC})
 
     @app.get("/ads.txt", include_in_schema=False)
     def ads_txt() -> Response:
         if not settings.adsense_client:
             raise HTTPException(404)
         pub = settings.adsense_client.removeprefix("ca-")
-        return PlainTextResponse(f"google.com, {pub}, DIRECT, f08c47fec0942fa0\n")
+        return PlainTextResponse(f"google.com, {pub}, DIRECT, f08c47fec0942fa0\n", headers=_CDN_STATIC)
 
     @app.get("/robots.txt", include_in_schema=False)
     def robots() -> Response:
@@ -397,12 +401,12 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
         lines = ["User-agent: *", *rules, "", "# 검색 · AI 답변 엔진", *(f"User-agent: {c}" for c in CRAWLERS), *rules]
         if settings.public_url:
             lines += ["", f"Sitemap: {settings.public_url}/sitemap.xml"]
-        return PlainTextResponse("\n".join(lines) + "\n")
+        return PlainTextResponse("\n".join(lines) + "\n", headers=_CDN_STATIC)
 
     @app.get("/llms.txt", include_in_schema=False)
     def llms() -> Response:
         """AI 검색 · 답변 엔진이 읽는 사이트 안내(llmstxt.org)."""
-        return PlainTextResponse(llms_txt(settings.public_url), headers={"Cache-Control": "public, max-age=3600"})
+        return PlainTextResponse(llms_txt(settings.public_url), headers={"Cache-Control": "public, max-age=3600", **_CDN_STATIC})
 
     def page_file(key: str) -> str | None:
         """주소(앞뒤 / 없이) → web 안의 HTML 파일. 쪽이 아니면 None."""
@@ -442,6 +446,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
             + "".join(urls) + "</urlset>",
             media_type="application/xml",
+            headers=_CDN_STATIC,
         )
 
     if (web / "assets").is_dir():
@@ -455,7 +460,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             return page(file_name)
         file = (web / key).resolve()
         if key and file.is_file() and web.resolve() in file.parents:
-            return FileResponse(file)
+            return FileResponse(file, headers=_CDN_STATIC)
         head = key.partition("/")[0]
         lang = head if head in PAGE_LANGS else i18n.DEFAULT
         html = render_page(f"{lang}/404.html" if lang != i18n.DEFAULT else "404.html") or render_page("404.html")

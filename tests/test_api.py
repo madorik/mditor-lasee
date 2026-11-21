@@ -79,6 +79,18 @@ def test_site_pages(client):
     assert client.get("/../pyproject.toml").status_code == 404 and client.get("/없는쪽").status_code == 404
 
 
+def test_static_pages_are_cached_by_the_cdn_only(client):
+    """화면 · robots · sitemap 은 파이썬 함수를 매번 깨우지 않게 Vercel CDN 에만 담는다. 브라우저는 계속 다시 확인하고, API 는 담지 않는다."""
+    cdn = "Vercel-CDN-Cache-Control"
+    for path in ("/", "/edit", "/robots.txt", "/sitemap.xml", "/llms.txt", "/ads.txt"):
+        r = client.get(path)
+        assert r.status_code == 200 and r.headers[cdn].startswith("max-age="), path
+    assert client.get("/").headers["cache-control"] == "no-cache"  # 브라우저는 그대로 다시 확인
+    assert cdn not in client.get("/없는쪽").headers  # 없는 쪽(404)은 담지 않는다
+    assert cdn not in client.get("/api/config").headers
+    assert cdn not in client.post("/api/md/preview", json={"md": "# a"}).headers
+
+
 def test_download_link(client, tmp_path):
     token = core.store_download(tmp_path / "cache", 1800, b"%PDF-1.4 test")
     assert client.get(f"/d/{token}/report.pdf").content == b"%PDF-1.4 test"
