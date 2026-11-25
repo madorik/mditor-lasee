@@ -7,6 +7,10 @@
     <meta name="description" content="The MDitor LaSee document editor. Keep the source as Markdown and see page breaks exactly where the PDF puts them." />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="robots" content="max-image-preview:large" />
     <link rel="canonical" href="%PUBLIC_URL%/en/edit" />
     <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/edit" />
     <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/edit" />
@@ -26,8 +30,9 @@
     <!--mditor:head-->
   </head>
   <body>
+    <h1 class="sr-only">MDitor LaSee Markdown document editor</h1>
     <div id="root"></div>
-    <noscript>MDitor LaSee needs JavaScript turned on.</noscript>
+    <noscript><p class="noscript">MDitor LaSee needs JavaScript. It is a Markdown document editor for reports, plans and meeting minutes: format like a word processor, keep Markdown as the source, and see page breaks that match the PDF. <a href="/en/">About</a> · <a href="/en/syntax">Syntax guide</a></p></noscript>
     <script type="module" src="/src/editor/main.tsx"></script>
   </body>
 </html>

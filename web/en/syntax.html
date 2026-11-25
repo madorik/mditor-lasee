@@ -4,9 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Syntax guide — MDitor LaSee</title>
-    <meta name="description" content="Markdown syntax for MDitor LaSee documents: headings and blocks, text formatting such as bold, italic, underline and text color, merged and shaded table cells, images, and how pages break." />
+    <meta name="description" content="MDitor LaSee Markdown syntax: headings and blocks, bold, italic, underline and text color, merged and shaded table cells, images, and page breaks." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="robots" content="max-image-preview:large" />
     <link rel="canonical" href="%PUBLIC_URL%/en/syntax" />
     <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/syntax" />
     <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/syntax" />
@@ -14,7 +18,7 @@
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="MDitor LaSee" />
     <meta property="og:title" content="Syntax guide — MDitor LaSee" />
-    <meta property="og:description" content="Markdown syntax for MDitor LaSee documents: headings and blocks, text formatting such as bold, italic, underline and text color, merged and shaded table cells, images, and how pages break." />
+    <meta property="og:description" content="MDitor LaSee Markdown syntax: headings and blocks, bold, italic, underline and text color, merged and shaded table cells, images, and page breaks." />
     <meta property="og:url" content="%PUBLIC_URL%/en/syntax" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="ko_KR" />
@@ -23,7 +27,7 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="The MDitor LaSee editor — a formatted document on the left, and on the right a preview whose page breaks match the PDF" />
     <meta name="twitter:card" content="summary_large_image" />
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"]},{"@type":"TechArticle","@id":"%PUBLIC_URL%/en/syntax#article","headline":"Syntax guide","description":"Markdown syntax for MDitor LaSee documents: headings and blocks, text formatting such as bold, italic, underline and text color, merged and shaded table cells, images, and how pages break.","url":"%PUBLIC_URL%/en/syntax","inLanguage":"en-US","isPartOf":{"@id":"%PUBLIC_URL%/#website"},"about":{"@id":"%PUBLIC_URL%/#app"},"image":"%PUBLIC_URL%/og-en.png"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"%PUBLIC_URL%/en/"},{"@type":"ListItem","position":2,"name":"Syntax guide","item":"%PUBLIC_URL%/en/syntax"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"],"publisher":{"@id":"https://watalabs.com/#organization"}},{"@type":"TechArticle","@id":"%PUBLIC_URL%/en/syntax#article","headline":"Syntax guide","description":"MDitor LaSee Markdown syntax: headings and blocks, bold, italic, underline and text color, merged and shaded table cells, images, and page breaks.","url":"%PUBLIC_URL%/en/syntax","inLanguage":"en-US","isPartOf":{"@id":"%PUBLIC_URL%/#website"},"about":{"@id":"%PUBLIC_URL%/#app"},"image":"%PUBLIC_URL%/og-en.png","author":{"@id":"https://watalabs.com/#organization"},"publisher":{"@id":"https://watalabs.com/#organization"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"%PUBLIC_URL%/en/"},{"@type":"ListItem","position":2,"name":"Syntax guide","item":"%PUBLIC_URL%/en/syntax"}]}]}</script>
     <!--mditor:head-->
   </head>
   <body class="site">
@@ -52,7 +56,7 @@
 
 A body paragraph of the report.</pre></div></figure>
           <figure><figcaption>Result</figcaption><div class="sample paperlike docstyle">
-            <h1 style="font-size:1.5em">Q3 Operations Report</h1>
+            <p class="doc-title" style="font-size:1.5em">Q3 Operations Report</p>
             <h2>1. Summary</h2>
             <h3>At a glance</h3>
             <div class="md-list"><div class="md-item">Sales rose 12%.</div><div class="md-item" data-level="1">Mobile orders led the way.</div></div>

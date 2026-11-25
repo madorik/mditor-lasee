@@ -240,6 +240,16 @@ vercel deploy --prod
 - 방문 통계: Vercel Web Analytics(`@vercel/analytics`, `web/src/analytics.ts`). 모든 쪽이 불러오고, Vercel 에 배포한 곳(`VERCEL=1`, 또는
   `MDITOR_ANALYTICS=1`)에서만 켠다. 주소의 `#` 뒤(문서가 든 링크의 문서 내용)는 보내지 않는다. Vercel 프로젝트의 Analytics 를 켜 두어야 모인다.
 - 공유 이미지는 첫 화면 영상의 포스터(`hero-*.webp`)로 만든다. 편집 화면이 바뀌면 영상 · 그림과 함께 다시 만든다.
+- 2026-11-26 점검 · 보강(`tests/test_seo.py` 가 지킨다):
+  - 운영사: 첫 화면 JSON-LD 의 `Organization` 은 와타랩스 사이트와 같은 `@id`(`https://watalabs.com/#organization`)다. 와타랩스 사이트는 라씨를 `https://lasee.watalabs.com/#app` 으로 가리킨다 — 두 사이트가 한 회사 · 한 앱으로 이어진다.
+  - `WebApplication` 에 무료(`isAccessibleForFree` · `offers` 0원) · 도움말(`softwareHelp` → 문법 쪽), npm 패키지는 `SoftwareSourceCode`(GitHub 저장소 · MIT · `targetProduct` → 앱).
+  - FAQ 에 '무료인가요?' · '내 서비스에 이 편집기를 넣을 수 있나요?'(보이는 FAQ 와 JSON-LD 는 늘 같다). JSON-LD 글에는 `<` 를 두지 않는다.
+  - 쪽마다 h1 은 하나(문법 쪽 예시 문서 제목은 `.doc-title`, 편집 쪽은 화면에 안 보이는 `.sr-only` h1). 설명은 영어 160자 · 한국어 110자 안, og:description 과 같게.
+  - 색인하는 쪽은 `max-image-preview:large`. 아이콘은 `favicon.svg` 에서 만든 `favicon.ico`(16·32·48) · `apple-touch-icon.png`(180) · `icon-192/512.png`, 웹 앱 매니페스트 `site.webmanifest`(시작 `/edit`).
+  - `/llms-full.txt` = `llms.txt` + 문법 전체(`syntax.md`). AI 답변 엔진이 한 번에 읽는다.
+  - IndexNow: 키 파일 `web/public/<32자>.txt`. 배포한 뒤 `uv run python scripts/indexnow.py` 로 sitemap 의 주소를 Bing · 네이버 등에 알린다.
+  - 검색 콘솔(2026-11-26 처음 등록): 구글 서치 콘솔은 도메인 속성 `sc-domain:watalabs.com` 안에서 라씨 sitemap 을 제출했다(그 전엔 제출된 적이 없어 첫 화면이 구글에 알려지지 않은 상태였다).
+    네이버 서치어드바이저는 `https://lasee.watalabs.com` 을 새로 등록했다 — 소유 확인 파일 `web/public/naverae21bd7243895f25647722bba02b5212.html` 을 지우지 않는다. sitemap 제출 · 주요 쪽 수집 요청까지 했다.
 
 ### 그림 저장소
 

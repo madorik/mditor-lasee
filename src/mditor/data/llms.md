@@ -22,5 +22,6 @@
 
 ## Optional
 
+- [Everything in one file](%PUBLIC_URL%/llms-full.txt): this guide followed by the complete syntax reference (Korean)
 - [Privacy policy](%PUBLIC_URL%/en/privacy) ([Korean](%PUBLIC_URL%/privacy))
 - [Terms of use](%PUBLIC_URL%/en/terms) ([Korean](%PUBLIC_URL%/terms))

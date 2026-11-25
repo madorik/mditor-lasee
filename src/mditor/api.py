@@ -35,7 +35,7 @@ from starlette.concurrency import run_in_threadpool
 from . import __version__, ai, core, i18n, images, mcp_server
 from .i18n import t
 from .render import RenderError
-from .settings import Settings, llms_txt
+from .settings import Settings, llms_full_txt, llms_txt
 
 PAGES = {"": "index.html", "edit": "edit.html", "syntax": "syntax.html", "developers": "developers.html",
          "privacy": "privacy.html", "terms": "terms.html"}
@@ -527,6 +527,11 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
     def llms() -> Response:
         """AI 검색 · 답변 엔진이 읽는 사이트 안내(llmstxt.org)."""
         return PlainTextResponse(llms_txt(settings.public_url), headers={"Cache-Control": "public, max-age=3600", **_CDN_STATIC})
+
+    @app.get("/llms-full.txt", include_in_schema=False)
+    def llms_full() -> Response:
+        """사이트 안내 + 문법 전체(llmstxt.org 의 llms-full.txt)."""
+        return PlainTextResponse(llms_full_txt(settings.public_url), headers={"Cache-Control": "public, max-age=3600", **_CDN_STATIC})
 
     def page_file(key: str) -> str | None:
         """주소(앞뒤 / 없이) → web 안의 HTML 파일. 쪽이 아니면 None."""

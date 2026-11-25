@@ -103,5 +103,15 @@ def llms_txt(public_url: str) -> str:
     return (_DATA / "llms.md").read_text(encoding="utf-8").replace("%PUBLIC_URL%", public_url)
 
 
+def llms_full_txt(public_url: str) -> str:
+    """사이트 안내 + 문법 전체를 한 파일로(/llms-full.txt) — AI 답변 엔진이 쪽을 돌아다니지 않고 한 번에 읽는다."""
+    return (
+        llms_txt(public_url).rstrip()
+        + "\n\n---\n\n# Full syntax guide (Korean — the same reference the MCP tool `syntax_guide` returns)\n\n"
+        + syntax_guide().strip()
+        + "\n"
+    )
+
+
 def example_md() -> str:
     return (_DATA / "example.md").read_text(encoding="utf-8")

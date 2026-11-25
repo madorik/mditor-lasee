@@ -7,6 +7,10 @@
     <meta name="description" content="MDitor 라씨 문서의 마크다운(Markdown) 문법: 제목과 블록, 굵게 · 기울임 · 밑줄 · 글자 색 같은 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙." />
     <meta name="theme-color" content="#e8ecef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="robots" content="max-image-preview:large" />
     <link rel="canonical" href="%PUBLIC_URL%/syntax" />
     <link rel="alternate" hreflang="ko" href="%PUBLIC_URL%/syntax" />
     <link rel="alternate" hreflang="en" href="%PUBLIC_URL%/en/syntax" />
@@ -23,7 +27,7 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="MDitor 라씨 편집 화면 — 왼쪽은 서식을 입혀 쓰는 문서, 오른쪽은 쪽 경계가 PDF 와 같은 미리보기" />
     <meta name="twitter:card" content="summary_large_image" />
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"]},{"@type":"TechArticle","@id":"%PUBLIC_URL%/syntax#article","headline":"마크다운 문법 안내","description":"MDitor 라씨 문서의 마크다운(Markdown) 문법: 제목과 블록, 굵게 · 기울임 · 밑줄 · 글자 색 같은 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙.","url":"%PUBLIC_URL%/syntax","inLanguage":"ko-KR","isPartOf":{"@id":"%PUBLIC_URL%/#website"},"about":{"@id":"%PUBLIC_URL%/#app"},"image":"%PUBLIC_URL%/og-ko.png"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"첫 화면","item":"%PUBLIC_URL%/"},{"@type":"ListItem","position":2,"name":"마크다운 문법 안내","item":"%PUBLIC_URL%/syntax"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"%PUBLIC_URL%/#website","url":"%PUBLIC_URL%/","name":"MDitor 라씨","alternateName":["MDitor LaSee","라씨","LaSee"],"inLanguage":["ko-KR","en-US"],"publisher":{"@id":"https://watalabs.com/#organization"}},{"@type":"TechArticle","@id":"%PUBLIC_URL%/syntax#article","headline":"마크다운 문법 안내","description":"MDitor 라씨 문서의 마크다운(Markdown) 문법: 제목과 블록, 굵게 · 기울임 · 밑줄 · 글자 색 같은 글 서식, 표 칸 합치기와 음영, 그림, 쪽 나눔 규칙.","url":"%PUBLIC_URL%/syntax","inLanguage":"ko-KR","isPartOf":{"@id":"%PUBLIC_URL%/#website"},"about":{"@id":"%PUBLIC_URL%/#app"},"image":"%PUBLIC_URL%/og-ko.png","author":{"@id":"https://watalabs.com/#organization"},"publisher":{"@id":"https://watalabs.com/#organization"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"첫 화면","item":"%PUBLIC_URL%/"},{"@type":"ListItem","position":2,"name":"마크다운 문법 안내","item":"%PUBLIC_URL%/syntax"}]}]}</script>
     <!--mditor:head-->
   </head>
   <body class="site">
@@ -52,7 +56,7 @@
 
 정기 보고서의 본문 문단.</pre></div></figure>
           <figure><figcaption>결과</figcaption><div class="sample paperlike docstyle">
-            <h1 style="font-size:1.5em">3분기 운영 보고</h1>
+            <p class="doc-title" style="font-size:1.5em">3분기 운영 보고</p>
             <h2>1. 요약</h2>
             <h3>한눈에 보기</h3>
             <div class="md-list"><div class="md-item">매출이 12% 늘었다.</div><div class="md-item" data-level="1">모바일 주문이 이끌었다.</div></div>
