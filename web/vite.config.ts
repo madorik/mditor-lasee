@@ -29,6 +29,8 @@ function cleanUrls(): Plugin {
 
 export default defineConfig({
   plugins: [react(), cleanUrls()],
+  // 편집기 패키지(web/packages/editor)는 소스를 바로 쓴다 — npm 으로 낼 때는 그 폴더에서 따로 묶는다
+  resolve: { alias: { "@mditor/editor": resolve(import.meta.dirname, "packages/editor/src") } },
   build: {
     rollupOptions: { input: Object.fromEntries(entries.map((p) => [p, resolve(import.meta.dirname, `${p}.html`)])) },
   },
@@ -36,5 +38,5 @@ export default defineConfig({
     fs: { allow: [".."] }, // 예시 문서(src/mditor/data/example.md)를 서버와 같이 쓴다
     proxy: { "/api": "http://127.0.0.1:8000", "/mcp": "http://127.0.0.1:8000", "/d": "http://127.0.0.1:8000", "/i": "http://127.0.0.1:8000" },
   },
-  test: { environment: "node", include: ["src/**/*.test.ts"] },
+  test: { environment: "node", include: ["src/**/*.test.ts", "packages/*/src/**/*.test.ts"] },
 });

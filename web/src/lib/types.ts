@@ -1,18 +1,9 @@
-// 서버(src/mditor/md.py)의 문서 모양과 같다.
+// 서버 응답의 모양.
+import type { Doc } from "@mditor/editor/core";
 import type { FontKey } from "./fonts";
 
-export type Align = "left" | "center" | "right" | null;
-export type Item = { text: string; level: number };
-
-type BlockBase = { id: string; title: string | null; notes: string[] };
-export type TextBlock = BlockBase & { kind: "text"; text: string };
-export type ListBlock = BlockBase & { kind: "list"; items: Item[] };
-export type TableBlock = BlockBase & { kind: "table"; head: string[][]; rows: string[][]; align: Align[] };
-export type ImageBlock = BlockBase & { kind: "image"; src: string; caption: string };
-export type Block = TextBlock | ListBlock | TableBlock | ImageBlock;
-
-export type Section = { key: string; title: string; blocks: Block[] };
-export type Doc = { title: string; sections: Section[] };
+// 문서 모양(Doc · Block …)은 편집기 패키지에 있다 — 서버 md.py 와 같은 모양이다.
+export type { Align, Item, TextBlock, ListBlock, TableBlock, ImageBlock, CodeBlock, RuleBlock, PageBreakBlock, Block, Section, Doc } from "@mditor/editor/core";
 
 /** PDF 를 실제로 그려 본 쪽 배치. */
 export type PageLayout = {

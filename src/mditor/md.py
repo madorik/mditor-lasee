@@ -2,14 +2,18 @@
 
 원본은 구조 문서(JSON)이고 MD 는 편집 표현이다. MD 파서는 여기 하나뿐이다 —
 화면(TipTap)은 MD 를 직접 파싱하지 않고 ``apply_md`` 가 되읽은 문서를 받아 연다.
-화면의 직렬화(web/src/lib/rich/convert.ts ``fromPM``)는 ``doc_md`` 와 바이트 단위로 같아야 한다.
+쓰기 · 읽기 규칙은 화면 쪽 web/packages/editor/src/core/{parse,write}.ts 와 **같다**(화면 쪽이 기준 구현이다).
+고치면 둘 다 고친다(공유 기준 파일 tests/test_fixture.py 가 잡는다).
 
-문서 = {title, sections: [{key, title, blocks: [블록]}]}
+문서 = {title, sections: [{key, title, blocks: [블록]}], dialect}   dialect: 문서의 태그 언어("ko" | "en")
 블록 = {id, kind, title, notes, …}
-  kind "text"  : text (문단 하나. 제목만 있는 블록이면 "")
-  kind "list"  : items [{text, level}]
-  kind "table" : head [[칸]], rows [[칸]], align [None|"left"|"center"|"right"]
-  kind "image" : src, caption
+  kind "text"     : text (문단 하나. 제목만 있는 블록이면 ""), align (가운데 · 오른쪽 · 양쪽 — 왼쪽이면 없다)
+  kind "list"     : items [{text, level, ordered?, start?, checked?}]
+  kind "table"    : head [[칸]], rows [[칸]], align [None|"left"|"center"|"right"]
+  kind "image"    : src, caption
+  kind "code"     : lang, code
+  kind "rule"     : (가로줄)
+  kind "pagebreak": (쪽 나눔)
 """
 
 from __future__ import annotations
@@ -27,14 +31,20 @@ MAX_LEVEL = 3
 MAX_COLS = 40
 
 _HEAD = re.compile(r"^(#{1,6})(?:\s+(.*))?$")
-_BULLET = re.compile(r"^(\s*)[-*+]\s+(.*)$")
-_EMPTY_BULLET = re.compile(r"^\s*[-*+]\s*$")
-_RULE = re.compile(r"^[ \t]*([-*])(?:[ \t]*\1){2,}[ \t]*$")
+# 목록 항목: 들여쓰기, 글머리(- * +) 또는 번호(1. 1)), 글. 번호는 ASCII 숫자만(\d 는 유니코드 숫자까지 잡는다)
+_LIST_ITEM = re.compile(r"^(\s*)(?:([-*+])|([0-9]{1,9})([.)]))\s+(.*)$")
+_EMPTY_ITEM = re.compile(r"^\s*(?:[-*+]|[0-9]{1,9}[.)])\s*$")
+_TASK = re.compile(r"^\[([ xX])\](?:\s+(.*))?$")
+_RULE = re.compile(r"^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$")
 _IMAGE = re.compile(r"^!\[(.*)\]\((.*)\)$")
 _NOTE = re.compile(r"^>\s?(.*)$")
 _DELIM_CELL = re.compile(r"^:?-+:?$")
+_PAGEBREAK = re.compile(r"^<!--[ \t]*pagebreak[ \t]*-->\Z", re.IGNORECASE | re.ASCII)
+_FENCE_OPEN = re.compile(r"^( {0,3})(`{3,})([^`]*)\Z")
+_FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,})[ \t]*\Z")
 _NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _DELIM = {None: "---", "left": ":---", "center": ":---:", "right": "---:"}
+_ALIGN_TAG = {"center": "가운데", "right": "오른쪽", "justify": "양쪽"}
 
 Doc = dict[str, Any]
 Block = dict[str, Any]
@@ -63,17 +73,72 @@ def _row(cells: list[str]) -> str:
     return "| " + " | ".join(c.replace("|", "\\|") for c in cells) + " |"
 
 
-def block_md(b: Block) -> str:
+def _walk_items(items: list[dict[str, Any]]) -> list[tuple[dict[str, Any], int, str, int]]:
+    """목록 항목마다 (항목, 단계, 글머리 · 번호 글자, 들여쓰기). 번호는 구간마다 시작 번호(start, 없으면 1)부터 이어 센다.
+    들여쓰기는 부모 항목의 글 시작 칸에 맞춘다."""
+    out: list[tuple[dict[str, Any], int, str, int]] = []
+    cols: list[int] = []  # 단계마다 글 시작 칸
+    nums: list[int | None] = []  # 단계마다 지금 번호(번호 구간이 아니면 None)
+    for it in items:
+        level = max(0, min(int(it.get("level") or 0), len(cols)))
+        nums = nums[: level + 1]
+        while len(nums) < level + 1:
+            nums.append(None)
+        marker = "-"
+        if it.get("ordered"):
+            prev = nums[level]
+            start = it.get("start")
+            n = prev + 1 if prev is not None else (1 if start is None else int(start))
+            nums[level] = n
+            marker = f"{n}."
+        else:
+            nums[level] = None
+        indent = 0 if level == 0 else cols[level - 1]
+        del cols[level:]
+        cols.append(indent + len(marker) + 1)
+        out.append((it, level, marker, indent))
+    return out
+
+
+def item_lines(items: list[dict[str, Any]]) -> list[str]:
+    """목록 항목 → 줄들."""
+    lines: list[str] = []
+    for it, _level, marker, indent in _walk_items(items):
+        checked = it.get("checked")
+        box = "" if checked is None else "[x] " if checked else "[ ] "
+        lines.append(f"{' ' * indent}{marker} {box}{it['text']}")
+    return lines
+
+
+def item_markers(items: list[dict[str, Any]]) -> list[tuple[int, str | None]]:
+    """목록 항목마다 (단계, 번호 글자 — 번호 항목이 아니면 None). PDF 가 글머리 대신 그리는 번호가 MD 에 쓰는 번호와 같게 한다."""
+    return [(level, marker if it.get("ordered") else None) for it, level, marker, _ in _walk_items(items)]
+
+
+def code_fence(code: str) -> str:
+    """코드 블록의 울타리 — 코드 안의 가장 긴 백틱보다 하나 길게(3개 이상)."""
+    longest = max((len(m.group(0)) for m in re.finditer(r"`+", code)), default=0)
+    return "`" * max(3, longest + 1)
+
+
+def align_text(text: str, align: str | None, dialect: str) -> str:
+    """문단의 정렬을 태그로 감싼다(``{가운데}…{/가운데}``)."""
+    if not align or not text or align not in _ALIGN_TAG:
+        return text
+    name = inline.tag(_ALIGN_TAG[align], dialect)
+    return f"{{{name}}}{text}{{/{name}}}"
+
+
+def block_md(b: Block, dialect: str = "ko") -> str:
     lines: list[str] = []
     if b.get("title"):
         lines.append(f"### {_one_line(b['title'])}")
     kind = b["kind"]
     if kind == "text":
         if b.get("text"):
-            lines.append(b["text"])
+            lines.append(align_text(b["text"], b.get("align"), dialect))
     elif kind == "list":
-        for it in b["items"]:
-            lines.append(f"{'  ' * int(it.get('level') or 0)}- {it['text']}")
+        lines += item_lines(b["items"])
     elif kind == "table":
         lines += [_row(r) for r in b["head"]]
         width = len(b["head"][-1])
@@ -82,25 +147,37 @@ def block_md(b: Block) -> str:
         lines += [_row(r) for r in b["rows"]]
     elif kind == "image":
         lines.append(f"![{_one_line(b.get('caption'))}]({str(b.get('src') or '').strip()})")
+    elif kind == "code":
+        code = b.get("code") or ""
+        fence = code_fence(code)
+        lines.append(fence + (b.get("lang") or ""))
+        if code:
+            lines += code.split("\n")
+        lines.append(fence)
+    elif kind == "rule":
+        lines.append("---")
+    elif kind == "pagebreak":
+        lines.append("<!-- pagebreak -->")
     for n in b.get("notes") or []:
         if n:
             lines.append(f"> {n}")
     return "\n".join(lines)
 
 
-def section_md(s: dict[str, Any], *, heading: bool = True) -> str:
+def section_md(s: dict[str, Any], *, heading: bool = True, dialect: str = "ko") -> str:
     parts = [f"## {_one_line(s.get('title'))}".rstrip()] if heading else []
-    parts += [block_md(b) for b in s.get("blocks") or []]
+    parts += [block_md(b, dialect) for b in s.get("blocks") or []]
     return "\n\n".join(p for p in parts if p)
 
 
-def doc_md(doc: Doc) -> str:
-    """문서 → MD. 블록 사이는 빈 줄 하나, 끝은 줄바꿈 하나."""
+def doc_md(doc: Doc, dialect: str | None = None) -> str:
+    """문서 → MD. 블록 사이는 빈 줄 하나, 끝은 줄바꿈 하나. 정렬 태그는 문서의 태그 언어(``doc["dialect"]``)로 쓴다."""
+    dl = dialect or doc.get("dialect") or "ko"
     parts: list[str] = []
     if doc.get("title"):
         parts.append(f"# {_one_line(doc['title'])}")
     for i, s in enumerate(doc.get("sections") or []):
-        parts.append(section_md(s, heading=bool(s.get("title")) or i > 0))
+        parts.append(section_md(s, heading=bool(s.get("title")) or i > 0, dialect=dl))
     body = "\n\n".join(p for p in parts if p)
     return body + "\n" if body else ""
 
@@ -170,33 +247,81 @@ def _table(rows: list[tuple[int, list[str]]], dialect: str) -> Block:
     }
 
 
+def finish_items(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """목록 항목들의 단계를 다듬고(앞 항목보다 한 단계까지만 깊어진다), 번호 구간의 첫 항목에 시작 번호를 단다."""
+    items: list[dict[str, Any]] = []
+    ord_at: list[bool] = []  # 단계마다: 같은 부모 아래 바로 앞 항목이 번호 항목인가
+    for it in raw:
+        level = min(it["level"], items[-1]["level"] + 1) if items else 0
+        del ord_at[level + 1 :]
+        while len(ord_at) < level + 1:
+            ord_at.append(False)
+        out: dict[str, Any] = {"text": it["text"], "level": level}
+        if it["ordered"]:
+            out["ordered"] = True
+            if not ord_at[level] and it["num"] != 1:
+                out["start"] = it["num"]
+        if it["checked"] is not None:
+            out["checked"] = it["checked"]
+        ord_at[level] = it["ordered"]
+        items.append(out)
+    return items
+
+
 def _finish(b: Block) -> Block | None:
     """읽던 블록을 표준 꼴로 닫는다. 내용이 하나도 없으면 None."""
     kind = b.get("kind") or "text"
-    out: Block = {"kind": kind, "title": b.get("title") or None}
+    title = b.get("title") or None
+    notes = b.get("notes") or []
+    out: Block = {"kind": kind, "title": title}
     if kind == "text":
-        out["text"] = b.get("text") or ""
-    elif kind == "list":
-        items: list[dict[str, Any]] = []
-        for it in b["items"]:
-            level = min(it["level"], items[-1]["level"] + 1) if items else 0
-            items.append({"text": it["text"], "level": level})
-        out["items"] = items
+        text = b.get("text") or ""
+        if not title and not text and not notes:
+            return None
+        out["text"] = text
+        out["notes"] = notes
+        if text and b.get("align"):
+            out["align"] = b["align"]
+        return out
+    if kind == "list":
+        out["items"] = finish_items(b["items"])
     elif kind == "table":
         out.update(head=b["head"], rows=b["rows"], align=b["align"])
-    else:
+    elif kind == "image":
         out.update(src=b["src"], caption=b["caption"])
-    out["notes"] = b.get("notes") or []
-    if kind == "text" and not out["title"] and not out["text"] and not out["notes"]:
-        return None
+    elif kind == "code":
+        out.update(lang=b.get("lang") or "", code=b.get("code") or "")
+    out["notes"] = notes
     return out
+
+
+def open_fence(line: str) -> dict[str, Any] | None:
+    """코드 울타리(```)를 여는 줄이면 {indent: 들여쓰기, size: 백틱 수, lang: 언어}."""
+    m = _FENCE_OPEN.match(line)
+    if not m:
+        return None
+    info = m.group(3).strip().split()
+    return {"indent": len(m.group(1)), "size": len(m.group(2)), "lang": info[0] if info else ""}
+
+
+def _closes_fence(line: str, fence: dict[str, Any]) -> bool:
+    m = _FENCE_CLOSE.match(line)
+    return bool(m) and len(m.group(1)) >= fence["size"]
+
+
+def _dedent(line: str, n: int) -> str:
+    """줄 앞의 빈칸을 n 칸까지 뗀다(울타리를 들여 쓴 만큼)."""
+    k = 0
+    while k < n and k < len(line) and line[k] == " ":
+        k += 1
+    return line[k:]
 
 
 def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Block]:
     """(줄 번호, 줄) → id 없는 블록 목록. 섹션 머리(##)는 여기 오기 전에 걸러진다.
 
-    묶는 규칙: 제목(###)이 새 블록을 연다. 문단·목록·표·그림은 아직 본문이 없을 때만 지금 블록에 붙고,
-    아니면 제목 없는 새 블록을 연다(목록 항목은 같은 목록에 이어 붙는다). 비고(>)는 지금 블록에 붙는다.
+    묶는 규칙: 제목(###)이 새 블록을 연다. 본문(문단 · 목록 · 표 · 그림 · 코드 · 가로줄 · 쪽 나눔)은 아직 본문이 없을 때만
+    지금 블록에 붙고, 아니면 제목 없는 새 블록을 연다(목록 항목은 같은 목록에 이어 붙는다). 비고(>)는 지금 블록에 붙는다.
     """
     out: list[Block] = []
     cur: Block | None = None
@@ -223,7 +348,26 @@ def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Bloc
         ln, raw = lines[i]
         text = raw.strip()
         i += 1
-        if not text or _RULE.match(raw):
+        fence = open_fence(raw)
+        if fence:
+            code: list[str] = []
+            while i < len(lines):
+                line = lines[i][1]
+                i += 1
+                if _closes_fence(line, fence):
+                    break
+                code.append(_dedent(line, fence["indent"]))
+            while code and not code[-1].strip():
+                code.pop()
+            body("code").update(lang=fence["lang"], code="\n".join(code))
+            continue
+        if not text:
+            continue
+        if _PAGEBREAK.match(text):
+            body("pagebreak")
+            continue
+        if _RULE.match(raw):
+            body("rule")
             continue
         m = _HEAD.match(text)
         if m:
@@ -237,18 +381,42 @@ def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Bloc
                 i += 1
             body("table").update(_table(rows, dialect))
             continue
-        m = _BULLET.match(raw.replace("\t", "  "))
+        m = _LIST_ITEM.match(raw.replace("\t", "  "))
         if m:
-            item_text = inline.canon(m.group(2), "item", dialect)
+            rest = m.group(5)
+            checked: bool | None = None
+            task = _TASK.match(rest)
+            if task:
+                checked = task.group(1) != " "
+                rest = task.group(2) or ""
+            item_text = inline.canon(rest, "item", dialect)
             if not item_text:
                 continue
-            level = min(len(m.group(1)) // 2, MAX_LEVEL)
+            indent = len(m.group(1))
+            mark = m.group(2) if m.group(2) is not None else m.group(3) + m.group(4)
             if cur is not None and cur.get("kind") == "list" and not cur.get("notes"):
-                cur["items"].append({"text": item_text, "level": level})
+                lst = cur
             else:
-                body("list")["items"] = [{"text": item_text, "level": level}]
+                lst = body("list")
+                lst["items"], lst["cols"] = [], []
+            cols: list[int] = lst["cols"]
+            level = 0
+            while level < len(cols) and indent >= cols[level]:
+                level += 1
+            level = min(level, MAX_LEVEL)
+            del cols[level:]
+            cols.append(indent + len(mark) + 1)
+            lst["items"].append(
+                {
+                    "text": item_text,
+                    "level": level,
+                    "ordered": m.group(2) is None,
+                    "num": int(m.group(3)) if m.group(3) else 0,
+                    "checked": checked,
+                }
+            )
             continue
-        if _EMPTY_BULLET.match(raw):
+        if _EMPTY_ITEM.match(raw):
             continue
         m = _NOTE.match(text)
         if m:
@@ -262,9 +430,11 @@ def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Bloc
         if m:
             body("image").update(src=m.group(2).strip(), caption=_one_line(m.group(1)))
             continue
-        para = inline.canon(text, "para", dialect)
+        align, inner, _ = inline.block_align(text)
+        para = inline.canon(inner, "para", dialect)
         if para:
-            body("text")["text"] = para
+            blk = body("text")
+            blk["text"], blk["align"] = para, align
     flush()
     return out
 
@@ -273,7 +443,7 @@ def parse(text: str, dialect: str | None = None) -> Doc:
     """MD → id 없는 문서. 줄 번호가 든 MdError 를 낸다.
 
     글 서식 태그는 문서의 태그 언어로 쓴다 — 문서에 태그가 있으면 그것(``inline.dialect_of``),
-    없으면 ``dialect``(부르는 쪽의 언어), 그것도 없으면 한국어.
+    없으면 ``dialect``(부르는 쪽의 언어), 그것도 없으면 한국어. 정한 태그 언어는 문서의 ``dialect`` 에 남는다.
     """
     dialect = inline.dialect_of(text) or dialect or "ko"
     title = ""
@@ -281,6 +451,7 @@ def parse(text: str, dialect: str | None = None) -> Doc:
     cur: list[tuple[int, str]] = []
     cur_title = ""
     seen = False
+    fence: dict[str, Any] | None = None
 
     def close() -> None:
         blocks = parse_blocks(cur, dialect)
@@ -288,6 +459,17 @@ def parse(text: str, dialect: str | None = None) -> Doc:
             sections.append({"title": cur_title, "blocks": blocks})
 
     for n, line in enumerate(text.replace("\r\n", "\n").replace("\r", "\n").split("\n"), start=1):
+        if fence is not None:  # 코드 울타리 안은 섹션 머리가 아니다
+            cur.append((n, line))
+            if _closes_fence(line, fence):
+                fence = None
+            continue
+        opened = open_fence(line)
+        if opened:
+            fence = opened
+            cur.append((n, line))
+            seen = True
+            continue
         m = _HEAD.match(line.strip())
         level = len(m.group(1)) if m else 0
         if level == 1 and not seen:
@@ -302,12 +484,13 @@ def parse(text: str, dialect: str | None = None) -> Doc:
     close()
     if sections and not sections[0]["title"] and not sections[0]["blocks"]:
         sections.pop(0)
-    return {"title": title, "sections": sections}
+    return {"title": title, "sections": sections, "dialect": dialect}
 
 
 # ───────────────────────── id 잇기 ─────────────────────────
 
-_BODY = ("text", "items", "head", "rows", "align", "src", "caption")
+_BODY = ("text", "items", "head", "rows", "align", "src", "caption", "lang", "code")
+_KINDS = ("text", "list", "table", "image", "code", "rule", "pagebreak")
 
 
 def _sig(b: Block) -> str:
@@ -328,8 +511,12 @@ def _content(b: Block) -> str:
         body = "\n".join(it["text"] for it in b["items"])
     elif kind == "table":
         body = "\n".join(" ".join(r) for r in [*b["head"], *b["rows"]])
-    else:
+    elif kind == "image":
         body = f"{b.get('caption') or ''} {b.get('src') or ''}"
+    elif kind == "code":
+        body = b.get("code") or ""
+    else:  # rule · pagebreak — 내용이 없다
+        body = ""
     return f"{b.get('title') or ''}\n{body}"
 
 
@@ -350,7 +537,7 @@ def _base_sections(base: Any) -> list[dict[str, Any]]:
         for s in base.get("sections") or []:
             blocks = []
             for b in s.get("blocks") or []:
-                if isinstance(b.get("id"), str) and b.get("kind") in ("text", "list", "table", "image"):
+                if isinstance(b.get("id"), str) and b.get("kind") in _KINDS:
                     _sig(b), _content(b)  # 모양 검사
                     blocks.append(b)
             if isinstance(s.get("key"), str):
@@ -405,7 +592,7 @@ def attach_ids(doc: Doc, base: Any = None) -> Doc:
     # 블록 2~4: 같은 섹션 · 같은 종류 안에서
     for i, s in enumerate(doc["sections"]):
         o_blocks = orig[pairs[i]]["blocks"] if i in pairs else []
-        for kind in ("text", "list", "table", "image"):
+        for kind in _KINDS:
             new = [b for b in s["blocks"] if b["kind"] == kind]
             old = [b for b in o_blocks if b["kind"] == kind]
 
@@ -475,6 +662,13 @@ def apply_md(base: Any, text: str, dialect: str | None = None) -> Doc:
 
 def _label(b: Block) -> str:
     text = inline.plain(b.get("title") or "") or inline.plain(_content(b).strip().split("\n")[0])
+    if not text:  # 글자가 없는 블록은 종류 이름으로
+        if b["kind"] == "code":
+            text = t("코드 블록")
+        elif b["kind"] == "rule":
+            text = t("가로줄")
+        elif b["kind"] == "pagebreak":
+            text = t("쪽 나눔")
     return text if len(text) <= 40 else text[:39] + "…"
 
 
@@ -517,6 +711,10 @@ def outline(doc: Doc) -> list[dict[str, Any]]:
                 row["items"] = len(b["items"])
             elif b["kind"] == "table":
                 row["size"] = f"{len(b['head']) + len(b['rows'])}행 × {len(b['head'][-1])}열"
+            elif b["kind"] == "code":
+                row["lines"] = len((b.get("code") or "").split("\n")) if b.get("code") else 0
+                if b.get("lang"):
+                    row["lang"] = b["lang"]
             if b.get("notes"):
                 row["notes"] = len(b["notes"])
             blocks.append(row)
@@ -529,17 +727,21 @@ _PART = "<!-- mditor:sections -->"
 
 
 def _split_sections(text: str) -> tuple[list[str], list[tuple[str, list[str]]]]:
-    """MD → (첫 ## 앞의 줄들, [(섹션 머리 줄, 그 아래 줄들)])."""
+    """MD → (첫 ## 앞의 줄들, [(섹션 머리 줄, 그 아래 줄들)]). 코드 울타리 안의 ## 은 섹션 머리가 아니다."""
     lead: list[str] = []
     sections: list[tuple[str, list[str]]] = []
+    fence: dict[str, Any] | None = None
     for line in text.replace("\r\n", "\n").split("\n"):
-        m = _HEAD.match(line.strip())
-        if m and len(m.group(1)) == 2:
-            sections.append((line.strip(), []))
-        elif sections:
-            sections[-1][1].append(line)
-        else:
-            lead.append(line)
+        if fence is None:
+            fence = open_fence(line)
+            if fence is None:
+                m = _HEAD.match(line.strip())
+                if m and len(m.group(1)) == 2:
+                    sections.append((line.strip(), []))
+                    continue
+        elif _closes_fence(line, fence):
+            fence = None
+        (sections[-1][1] if sections else lead).append(line)
     return lead, sections
 
 

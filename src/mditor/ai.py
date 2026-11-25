@@ -44,7 +44,8 @@ block, so an untouched block must come back identical or it shows up as an edit 
 - Keep the document's language and tone. Formal Korean reports are usually written in terse noun-ending or \
 plain-form sentences; match what is already there.
 - Formatting tags have Korean and English names that mean the same thing ({{빨강}} = {{red}}, {{파랑}} = {{blue}}, \
-{{회색}} = {{gray}}, {{밑줄}} = {{underline}}, {{음영}} = {{shade}}). Use the names the document already uses.
+{{회색}} = {{gray}}, {{기울임}} = {{italic}}, {{밑줄}} = {{underline}}, {{음영}} = {{shade}}, and the paragraph alignment tags {{가운데}} = \
+{{center}}, {{오른쪽}} = {{right}}, {{양쪽}} = {{justify}}). Use the names the document already uses.
 - Every number, date and name must come from the document or the instruction. If the instruction asks for content \
 you have no data for, write the sentence with `[확인 필요]` (in an English document, `[TBC]`) where the missing fact \
 goes, so the person can fill it in.

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
 import { t } from "../lib/i18n";
 import { droppedImages } from "../lib/images";
-import { tag, type Dialect } from "../lib/inline";
-import { insertBreak, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
+import { tag, type Dialect } from "@mditor/editor/core";
+import { insertBlockLine, insertBreak, insertCodeBlock, insertLink, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
 import type { MdError, Options } from "../lib/types";
 import { FontPicker } from "./Dialogs";
 import { ColorMenu, ImageButton } from "./Tools";
@@ -85,6 +85,12 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
     } else if (mod && e.key.toLowerCase() === "i") {
       e.preventDefault();
       wrapTag("기울임")();
+    } else if (mod && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      apply(insertLink(...sel(), t("링크")));
+    } else if (mod && e.key.toLowerCase() === "e") {
+      e.preventDefault();
+      wrap("`", "`")();
     } else if (e.key === "Tab") {
       e.preventDefault();
       const el = e.currentTarget;
@@ -100,6 +106,8 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
         <button type="button" className="tool word" onClick={prefix("## ")} title={t("큰 제목(섹션)")}>{t("큰 제목")}</button>
         <button type="button" className="tool word" onClick={prefix("### ")} title={t("작은 제목(블록)")}>{t("작은 제목")}</button>
         <button type="button" className="tool word" onClick={prefix("- ")} title={t("목록")}>{t("목록")}</button>
+        <button type="button" className="tool word" onClick={prefix("1. ")} title={t("번호 목록")}>{t("번호")}</button>
+        <button type="button" className="tool word" onClick={prefix("- [ ] ")} title={t("할 일 목록")}>{t("할 일")}</button>
         <button type="button" className="tool word" onClick={prefix("> ")} title={t("비고")}>{t("비고")}</button>
         <span className="sep" />
         <button type="button" className="tool" onClick={wrap("**", "**")} title={t("굵게 (Ctrl+B)")}><b className="mark-glyph">B</b></button>
@@ -107,9 +115,15 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
         <button type="button" className="tool" onClick={wrapTag("밑줄")} title={t("밑줄 (Ctrl+U)")}><u className="mark-glyph">U</u></button>
         <button type="button" className="tool" onClick={wrap("~~", "~~")} title={t("취소선")}><s className="mark-glyph">S</s></button>
         <ColorMenu color={null} shade={false} canClear={false} onColor={(name) => name && wrapTag(name)()} onShade={wrapTag("음영")} />
+        <button type="button" className="tool word" onClick={wrap("==", "==")} title={t("형광펜 ==글==")}>{t("형광펜")}</button>
+        <button type="button" className="tool word" onClick={() => apply(insertLink(...sel(), t("링크")))} title={t("링크 [글](주소)")}>{t("링크")}</button>
+        <button type="button" className="tool word" onClick={wrap("`", "`")} title={t("인라인 코드 `글`")}>{t("코드")}</button>
         <span className="sep" />
         <button type="button" className="tool word" onClick={() => apply(insertBreak(sel()[1], sel()[2]))} title={t("줄바꿈 <br>")}>{t("줄바꿈")}</button>
         <button type="button" className="tool word" onClick={() => apply(insertTable(sel()[0], sel()[2]))} title={t("표 넣기")}>{t("표")}</button>
+        <button type="button" className="tool word" onClick={() => apply(insertCodeBlock(...sel()))} title={t("코드 블록 ```")}>{t("코드 블록")}</button>
+        <button type="button" className="tool word" onClick={() => apply(insertBlockLine(sel()[0], sel()[2], "---"))} title={t("가로줄 ---")}>{t("가로줄")}</button>
+        <button type="button" className="tool word" onClick={() => apply(insertBlockLine(sel()[0], sel()[2], "<!-- pagebreak -->"))} title={t("쪽 나눔 — PDF 에서 여기부터 새 쪽")}>{t("쪽 나눔")}</button>
         <ImageButton onClick={onPickImage} />
       </div>
       {error ? (

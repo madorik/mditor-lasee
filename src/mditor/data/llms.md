@@ -4,7 +4,7 @@
 
 - Documents are stored only in the user's browser (IndexedDB and localStorage). The server processes the text to build previews and PDFs and does not keep it.
 - Images added in the editor are uploaded to the service's image storage and deleted automatically after 3 days. Downloaded PDFs contain the images.
-- Formatting: bold, italic, underline, strikethrough, text color (red, blue, gray, or any `#rrggbb` color code) and shading; tables with merged, aligned and shaded cells; images; an option to start each section on a new page.
+- Formatting: bold, italic, underline, strikethrough, highlight, links, inline code, superscript and subscript, text color (red, blue, gray, or any `#rrggbb` color code) and shading; bulleted, numbered and task lists; code blocks; horizontal rules and page breaks; paragraph alignment; tables with merged, aligned and shaded cells; images; an option to start each section on a new page.
 - Page setup: A4 or Letter, portrait or landscape, margins, font size 8–14 pt, page numbers. Fonts: Pretendard, Nanum Myeongjo, Nanum Gothic, Nanum Pen Script.
 - Exports: PDF, Markdown (.md), and a link that carries the document in the URL fragment.
 - Content pasted from Word or Excel keeps only the formatting the document format supports.

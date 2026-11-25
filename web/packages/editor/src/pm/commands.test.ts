@@ -2,7 +2,7 @@ import { getSchema } from "@tiptap/core";
 import { EditorState, TextSelection, type Command } from "@tiptap/pm/state";
 import { CellSelection } from "@tiptap/pm/tables";
 import { describe, expect, it } from "vitest";
-import type { Doc } from "../types";
+import type { Doc } from "../core/types";
 import { addRowBelow, backspaceItem, headRows, mergeSafe, setBlockKind, setColumnAlign, shiftItem, splitItem, toggleCellShade } from "./commands";
 import { fromPM, toPM } from "./convert";
 import { richExtensions } from "./schema";

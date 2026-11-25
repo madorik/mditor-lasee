@@ -206,6 +206,129 @@ textarea {
   color: inherit;
 }
 
+/* 번호 목록 · 할 일 목록 — 번호는 data-num(편집기 · 미리보기가 MD 와 같은 규칙으로 센다) */
+.docstyle .md-list > [data-ordered]:not([data-checked]) {
+  padding-left: 1.9em;
+}
+
+.docstyle .md-list > [data-ordered]:not([data-checked])::before {
+  content: attr(data-num) ".";
+  left: 0;
+  width: 1.6em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.docstyle .md-list > [data-checked] {
+  padding-left: 1.5em;
+}
+
+.docstyle .md-list > [data-checked]::before {
+  content: none;
+}
+
+.docstyle .md-check {
+  position: absolute;
+  left: 0.1em;
+  top: 0.32em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.2px solid currentColor;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.docstyle [data-checked="true"] > .md-check {
+  background: currentColor;
+}
+
+.docstyle [data-checked="true"] > .md-check::after {
+  content: "";
+  position: absolute;
+  left: 0.27em;
+  top: 0.06em;
+  width: 0.28em;
+  height: 0.55em;
+  border: solid #fff;
+  border-width: 0 0.13em 0.13em 0;
+  transform: rotate(45deg);
+}
+
+.docstyle [data-checked="true"] > .md-item-body {
+  color: var(--graphite);
+  text-decoration: line-through;
+}
+
+.docstyle .md-mark {
+  background: #fff3a3;
+}
+
+.docstyle a {
+  color: #1f4e9b;
+  text-decoration: underline;
+}
+
+.docstyle code {
+  padding: 0.08em 0.3em;
+  border-radius: 3px;
+  background: #f1f3f5;
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+.docstyle pre {
+  margin: 0.75em 0 0;
+  padding: 0.7em 0.9em;
+  border: 1px solid #e3e7eb;
+  border-radius: 4px;
+  background: #f5f7f9;
+  font-family: var(--mono);
+  font-size: 0.88em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.docstyle h3 + pre {
+  margin-top: 0.35em;
+}
+
+.docstyle pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.docstyle hr {
+  height: 0;
+  margin: 1em 0 0.25em;
+  border: 0;
+  border-top: 0.8pt solid #9aa3ad;
+}
+
+.docstyle .md-pagebreak {
+  position: relative;
+  height: 0;
+  margin: 1.2em 0;
+  border-top: 1.5px dashed var(--guide);
+}
+
+.docstyle .md-pagebreak::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  top: -0.8em;
+  transform: translateX(-50%);
+  padding: 0 0.6em;
+  border-radius: 999px;
+  background: var(--guide);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
 /* ───────── 쪽 경계 — 이 서비스의 표식 ───────── */
 
 .pagemark {

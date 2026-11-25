@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import fixture from "./rich/fixture.json";
+import fixture from "../fixture.json";
 import { canon, cellShade, colorCss, dialectOf, isColor, normalize, segments, title, write, type Ctx, type Seg } from "./inline";
 import { canonical, spans } from "./table";
 

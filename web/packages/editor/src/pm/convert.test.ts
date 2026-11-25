@@ -1,9 +1,9 @@
 import { getSchema } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
-import type { Dialect } from "../inline";
-import type { Doc } from "../types";
+import type { Dialect } from "../core/inline";
+import type { Doc } from "../core/types";
 import { fromPM, inlineToMd, inlineToPM, tableMd, toPM } from "./convert";
-import fixture from "./fixture.json";
+import fixture from "../fixture.json";
 import { richExtensions } from "./schema";
 
 const schema = getSchema(richExtensions());

@@ -66,13 +66,18 @@ A body paragraph of the report.</pre></div></figure>
             <tr><td><code># Title</code></td><td>Document title. Write it once, on the very first line (optional).</td></tr>
             <tr><td><code>##&nbsp;Heading</code></td><td>Section heading. Divides the document into sections.</td></tr>
             <tr><td><code>###&nbsp;Heading</code></td><td>Block heading. Forms a single unit (a block) with the one body element right below it.</td></tr>
-            <tr><td><code>- Item</code></td><td>List. Each two spaces of indent moves an item one level down (up to three levels).</td></tr>
+            <tr><td><code>- Item</code></td><td>List. Indent an item to where the text of the item above starts (two spaces after <code>- </code>) to move it one level down (up to three levels).</td></tr>
+            <tr><td><code>1. Item</code></td><td>Numbered list. Numbers count on from the first item’s number. Indent sub-items by three spaces.</td></tr>
+            <tr><td><code>- [ ] To do</code> <code>- [x] Done</code></td><td>To-do list. Click the box in the editor to tick it.</td></tr>
             <tr><td><code>&gt; Note</code></td><td>Note: a remark in small type attached to the bottom of a block. One per line.</td></tr>
             <tr><td>A plain line</td><td>Paragraph. Each line is one paragraph.</td></tr>
+            <tr><td><code>```language</code> … <code>```</code></td><td>Code block. The text inside stays as is (spaces and line breaks too), in a monospaced font, without formatting.</td></tr>
+            <tr><td><code>---</code></td><td>Horizontal line.</td></tr>
+            <tr><td><code>&lt;!-- pagebreak --&gt;</code></td><td>Page break. The PDF starts a new page here (plain Markdown viewers don’t show it).</td></tr>
           </tbody>
         </table>
-        <p>A <strong>block</strong> is a heading (<code>###</code>) + one body element (a paragraph, list, table or image) + notes (<code>&gt;</code>). In the PDF, when a page break falls inside a block, the whole block moves to the next page. Body content without a heading is a block too. Separate blocks with one blank line.</p>
-        <div class="note-box">Headings of level <code>####</code> and below are read as block headings. There are no numbered lists (<code>1.</code>), code blocks or links. Just type numbers as text.</div>
+        <p>A <strong>block</strong> is a heading (<code>###</code>) + one body element (a paragraph, list, table, image, code block, horizontal line or page break) + notes (<code>&gt;</code>). In the PDF, when a page break falls inside a block, the whole block moves to the next page. Body content without a heading is a block too. Separate blocks with one blank line.</p>
+        <div class="note-box">Headings of level <code>####</code> and below are read as block headings. To keep a paragraph that looks numbered (<code>1. Overview</code>) as text rather than a list, put <code>\</code> before the dot: <code>1\. Overview</code>.</div>
 
         <h2>Text formatting</h2>
         <table class="ref">
@@ -85,16 +90,22 @@ A body paragraph of the report.</pre></div></figure>
             <tr><td><code>{shade}shade{/shade}</code></td><td><mark style="background:#d9d9d9">shade</mark></td></tr>
             <tr><td><code>{red}red{/red}</code> <code>{blue}…</code> <code>{gray}…</code></td><td><span style="color:#c00000">red</span> <span style="color:#1f4e9b">blue</span> <span style="color:#7f7f7f">gray</span></td></tr>
             <tr><td><code>{#1f8a5c}green{/#1f8a5c}</code> — any color, as a color code (# and six hex digits)</td><td><span style="color:#1f8a5c">green</span> <span style="color:#e36c09">orange</span> <span style="color:#7030a0">purple</span></td></tr>
+            <tr><td><code>==highlight==</code></td><td><mark style="background:#fff3a3">highlight</mark></td></tr>
+            <tr><td><code>[link](https://lasee.watalabs.com/en/)</code></td><td><a href="https://lasee.watalabs.com/en/">link</a></td></tr>
+            <tr><td><code>`code`</code></td><td><code>code</code></td></tr>
+            <tr><td><code>H&lt;sub&gt;2&lt;/sub&gt;O</code> <code>x&lt;sup&gt;2&lt;/sup&gt;</code></td><td>H<sub>2</sub>O x<sup>2</sup></td></tr>
+            <tr><td><code>{center}paragraph{/center}</code> <code>{right}…</code> <code>{justify}…</code> — wrap a whole paragraph line</td><td><span style="display:block;text-align:center">aligned paragraph</span></td></tr>
             <tr><td><code>first line&lt;br&gt;second line</code></td><td>first line<br />second line</td></tr>
           </tbody>
         </table>
         <ul>
-          <li><code>**</code> and <code>~~</code> only pair up when the character right <strong>after</strong> the opening marker and right <strong>before</strong> the closing marker aren’t spaces. <code>** text **</code> is not formatting.</li>
+          <li><code>**</code>, <code>~~</code> and <code>==</code> only pair up when the character right <strong>after</strong> the opening marker and right <strong>before</strong> the closing marker aren’t spaces. <code>** text **</code> is not formatting.</li>
           <li>Unpaired markers stay as plain text, so you can type a footnote mark like <code>1.31**</code> as is.</li>
-          <li>To write a marker as plain text, put <code>\</code> in front of it: <code>\*\*</code>, <code>\{red}</code>, <code>\&lt;br&gt;</code>.</li>
+          <li>To write a marker as plain text, put <code>\</code> in front of it: <code>\*\*</code>, <code>\{red}</code>, <code>\&lt;br&gt;</code>, <code>\[</code>, <code>\`</code>.</li>
+          <li>Link addresses can’t contain spaces (use <code>%20</code>). In the PDF, <code>http</code>, <code>https</code> and <code>mailto</code> links are clickable.</li>
           <li>Headings (<code>#</code> <code>##</code> <code>###</code>) take formatting too. A heading is one line, so <code>&lt;br&gt;</code> becomes a space. Image captions don’t take formatting.</li>
         </ul>
-        <div class="note-box">Korean tag names work too and mean the same thing: <code>{빨강}</code> = <code>{red}</code>, <code>{파랑}</code> = <code>{blue}</code>, <code>{회색}</code> = <code>{gray}</code>, <code>{기울임}</code> = <code>{italic}</code>, <code>{밑줄}</code> = <code>{underline}</code>, <code>{음영}</code> = <code>{shade}</code>. A document sticks to one tag language: the first tag in the document decides it, and in a document with no tags yet, the editor’s language decides.</div>
+        <div class="note-box">Korean tag names work too and mean the same thing: <code>{빨강}</code> = <code>{red}</code>, <code>{파랑}</code> = <code>{blue}</code>, <code>{회색}</code> = <code>{gray}</code>, <code>{기울임}</code> = <code>{italic}</code>, <code>{밑줄}</code> = <code>{underline}</code>, <code>{음영}</code> = <code>{shade}</code>, and for alignment <code>{가운데}</code> <code>{오른쪽}</code> <code>{양쪽}</code> = <code>{center}</code> <code>{right}</code> <code>{justify}</code>. A document sticks to one tag language: the first tag in the document decides it, and in a document with no tags yet, the editor’s language decides.</div>
 
         <h2>Tables</h2>
         <div class="pair">
@@ -134,6 +145,7 @@ A body paragraph of the report.</pre></div></figure>
         <ul>
           <li>Page breaks come from actually rendering the PDF. The blue dashed line in the preview (‘Page 2’) is exactly where the PDF turns the page.</li>
           <li>A block that doesn’t fit in the space left on a page moves to the next page as a whole. A table taller than a page splits between rows and repeats its header.</li>
+          <li>To turn the page at a spot of your choosing, write a <code>&lt;!-- pagebreak --&gt;</code> line (the editor’s Page break button).</li>
           <li>In Document → Page setup you can change the paper size, orientation, margins and font size, and start every section on a new page.</li>
         </ul>
         <p><a class="button" href="/en/edit" style="color:#fff">Try it in the editor</a></p>

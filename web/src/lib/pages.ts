@@ -1,6 +1,7 @@
 // 쪽 경계 — 화면은 쪽을 짐작하지 않는다. 서버가 PDF 를 그려 본 결과(PageLayout)에서
 // 쪽 번호가 바뀌는 자리를 찾아 그 앞에 'n쪽' 경계를 그린다.
 
+import type { PageMarks } from "@mditor/editor";
 import type { Doc, PageLayout } from "./types";
 
 export type BlockPages = {
@@ -53,5 +54,25 @@ export function pageBreaks(doc: Doc, layout: PageLayout | null): PageBreaks {
       out.blocks[b.id] = entry;
     }
   }
+  return out;
+}
+
+/**
+ * 편집기에 그릴 쪽 경계(자동 쪽 나눔) — 미리보기와 같은 경계를 문서의 순번(섹션 순번 · 블록 순번)으로 옮긴다.
+ * 편집기는 같은 문서를 같은 규칙으로 블록으로 묶으므로 순번이 맞는다.
+ */
+export function editorMarks(doc: Doc, layout: PageLayout | null): PageMarks | null {
+  if (!layout) return null;
+  const breaks = pageBreaks(doc, layout);
+  const out: Required<PageMarks> = { total: layout.total, sections: {}, blocks: {} };
+  let ordinal = 0;
+  doc.sections.forEach((s, i) => {
+    if (breaks.sections[s.key]) out.sections[i] = breaks.sections[s.key];
+    for (const b of s.blocks) {
+      const p = breaks.blocks[b.id];
+      if (p && (p.before || Object.keys(p.items).length || Object.keys(p.rows).length)) out.blocks[ordinal] = { before: p.before, items: p.items, rows: p.rows };
+      ordinal++;
+    }
+  });
   return out;
 }

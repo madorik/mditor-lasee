@@ -28,6 +28,9 @@ EN: dict[str, str] = {
     "표는 {max}칸까지 쓸 수 있습니다(지금 {width}칸).": "A table can have up to {max} columns (this one has {width}).",
     "이 줄은 {cells}칸인데 머리글은 {width}칸입니다.": "This row has {cells} cells but the header has {width}.",
     "(문서 전체)": "(whole document)",
+    "코드 블록": "Code block",
+    "가로줄": "Horizontal rule",
+    "쪽 나눔": "Page break",
     # 입력 한도
     "markdown 은 문자열이어야 합니다.": "markdown must be a string.",
     "문서가 너무 깁니다({length}자). {limit}자까지 다룰 수 있습니다.": (

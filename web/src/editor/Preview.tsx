@@ -1,10 +1,9 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { t } from "../lib/i18n";
 import { hostedName, imageSrc } from "../lib/images";
-import { cellShade, colorCss, segments, SHADE } from "../lib/inline";
+import { cellShade, colorCss, itemNumbers, MARK, safeHref, segments, SHADE, spans } from "@mditor/editor/core";
 import { pageBreaks, type BlockPages } from "../lib/pages";
 import type { StoredImage } from "../lib/store";
-import { spans } from "../lib/table";
 import type { Block, Changes, Doc, Options, PageLayout, TableBlock } from "../lib/types";
 
 const MM = 96 / 25.4;
@@ -25,12 +24,20 @@ export function Inline({ s }: { s: string }) {
             {line}
           </Fragment>
         ));
+        if (seg.code) node = <code>{node}</code>;
+        if (seg.script === "sup") node = <sup>{node}</sup>;
+        if (seg.script === "sub") node = <sub>{node}</sub>;
         if (seg.color) node = <span style={{ color: colorCss(seg.color) }}>{node}</span>;
+        if (seg.mark) node = <mark className="md-mark" style={{ background: MARK }}>{node}</mark>;
         if (seg.shade) node = <mark className="md-shade">{node}</mark>;
         if (seg.underline) node = <u>{node}</u>;
         if (seg.italic) node = <em>{node}</em>;
         if (seg.strike) node = <s>{node}</s>;
         if (seg.bold) node = <strong>{node}</strong>;
+        if (seg.link) {
+          const href = safeHref(seg.link);
+          if (href) node = <a href={href} target="_blank" rel="noopener noreferrer nofollow">{node}</a>;
+        }
         return <Fragment key={i}>{node}</Fragment>;
       })}
     </>
@@ -105,18 +112,22 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
   let body: ReactNode = null;
   if (b.kind === "text") {
     body = b.text ? (
-      <p>
+      <p style={b.align ? { textAlign: b.align } : undefined}>
         <Inline s={b.text} />
       </p>
     ) : null;
   } else if (b.kind === "list") {
+    const nums = itemNumbers(b.items);
     body = (
       <div className="md-list">
         {b.items.map((it, i) => (
           <Fragment key={i}>
             {pages?.items[i] && <PageMark n={pages.items[i]} />}
-            <div className="md-item" data-level={it.level}>
-              <Inline s={it.text} />
+            <div className="md-item" data-level={it.level} data-ordered={nums[i] !== null ? "true" : undefined} data-num={nums[i] ?? undefined} data-checked={it.checked === undefined ? undefined : String(it.checked)}>
+              {it.checked !== undefined && <span className="md-check" aria-hidden="true" />}
+              <div className="md-item-body">
+                <Inline s={it.text} />
+              </div>
             </div>
           </Fragment>
         ))}
@@ -124,13 +135,23 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
     );
   } else if (b.kind === "table") {
     body = <TableView b={b} pages={pages} />;
-  } else {
+  } else if (b.kind === "image") {
     body = <FigureView src={b.src} caption={b.caption} images={images} />;
+  } else if (b.kind === "code") {
+    body = (
+      <pre className="md-code" data-lang={b.lang || undefined}>
+        <code>{b.code}</code>
+      </pre>
+    );
+  } else if (b.kind === "rule") {
+    body = <hr className="md-rule" />;
+  } else {
+    body = <div className="md-pagebreak" data-label={t("쪽 나눔")} role="separator" />;
   }
   return (
     <>
       {pages?.before && <PageMark n={pages.before} />}
-      <div className={`blk ${b.title ? "titled" : ""}`} data-change={change}>
+      <div className={`blk ${b.title ? "titled" : ""}`} data-change={change} data-kind={b.kind}>
         {b.title && (
           <h3>
             <Inline s={b.title} />

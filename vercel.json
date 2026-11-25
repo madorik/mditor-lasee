@@ -5,7 +5,7 @@
   "regions": ["icn1"],
   "functions": {
     "app.py": {
-      "excludeFiles": "{web/node_modules/**,web/src/**,web/e2e/**,web/public/**,tests/**}"
+      "excludeFiles": "{web/node_modules/**,web/src/**,web/e2e/**,web/public/**,web/packages/**,tests/**}"
     }
   },
   "redirects": [

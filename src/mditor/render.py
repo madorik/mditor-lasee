@@ -6,8 +6,10 @@
 쪽 나눔 규칙(여기에만 있다 — 화면은 결과를 따라간다)
 - 블록(섹션 머리 + 제목 + 본문 + 비고)은 남은 자리에 안 들어가면 통째로 다음 쪽으로 넘긴다(KeepBlock).
 - 한 쪽보다 큰 블록은 남은 자리가 쪽의 1/4 이상이면 그 자리에서 나눈다. 표는 행 단위로 나누고 머리글을 반복한다.
-- 문단은 한 쪽보다 길 때만 나눈다(WholeParagraph).
+- 문단 · 코드 블록은 한 쪽보다 길 때만 나눈다(WholeParagraph · CodeFlow). 코드 블록은 줄 단위로 나눈다.
 - ``section_break`` 를 켜면 섹션마다 새 쪽에서 시작한다.
+- 쪽 나눔 블록(``<!-- pagebreak -->``)은 그 자리에서 다음 쪽으로 넘긴다. 이미 쪽 맨 위면(빈 쪽을 만들지 않는다) 아무 일도 없고,
+  문서 맨 끝의 쪽 나눔도 쪽을 더하지 않는다. 쪽 나눔 블록 자신은 나누기 전 쪽에 있는 것으로 적는다.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.fonts import addMapping
 from reportlab.lib.pagesizes import A4, LETTER, landscape
 from reportlab.lib.styles import ParagraphStyle
@@ -28,10 +30,20 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import BaseDocTemplate, Flowable, Frame, PageBreak, PageTemplate, Paragraph, Table, TableStyle
+from reportlab.platypus import (
+    BaseDocTemplate,
+    CondPageBreak,
+    Flowable,
+    Frame,
+    HRFlowable,
+    PageTemplate,
+    Paragraph,
+    Table,
+    TableStyle,
+)
 from reportlab.platypus.doctemplate import FrameBreak, LayoutError, NullActionFlowable
 
-from . import inline, table
+from . import inline, md, table
 from .i18n import t
 
 FONT = "MDitor"  # 기본 글꼴(Pretendard JP) — 그림 자리 표시 등
@@ -56,7 +68,11 @@ MUTED = colors.HexColor("#5b6672")
 LINE = colors.HexColor("#9aa3ad")
 HEAD_BG = colors.HexColor("#eef1f4")
 SHADE_BG = colors.HexColor(inline.SHADE)
+CODE_BG = colors.HexColor(inline.CODE_BG)
+CODE_LINE = colors.HexColor("#d3d9e0")
 BULLETS = ("•", "–", "·", "·")
+TASK_BOX = ("□", "■")  # 할 일 칸: 비어 있음 · 끝냄(모든 글꼴에 있는 모양)
+ALIGNS = {"center": TA_CENTER, "right": TA_RIGHT, "justify": TA_JUSTIFY}
 MAX_IMAGE_PIXELS = 40_000_000
 PX = 0.75  # 화면 1px = 0.75pt (96dpi)
 
@@ -235,6 +251,114 @@ class Figure(Flowable):
         c.restoreState()
 
 
+class CodeFlow(Flowable):
+    """코드 블록 — 빈칸 · 줄바꿈을 그대로 그리고(영문은 Courier, 그 밖의 글자는 ``fallback`` 글꼴), 긴 줄은 칸 끝에서 꺾는다.
+    한 쪽에 들어가면 나누지 않고 통째로 다음 쪽으로 간다. 한 쪽보다 길 때만 줄 단위로 나눈다(조각마다 배경을 따로 그린다)."""
+
+    MONO_FIRST, MONO_LAST = 0x20, 0x7E  # Courier 에 있는 글자
+
+    def __init__(self, code: str, size: float, fallback: str, max_h: float, vis: list[list[tuple[str, str]]] | None = None) -> None:
+        super().__init__()
+        self.code, self.size, self.fallback, self._max_h = code, size, fallback, max_h
+        self.leading = size * 1.45
+        self.pad_x, self.pad_y = size * 0.7, size * 0.55
+        self.spaceBefore = self.spaceAfter = 0.0
+        self._vis = vis  # 꺾은 줄들: 줄마다 [(글자, 글꼴)]
+        self._fixed = vis is not None  # 나뉜 조각은 이미 꺾은 줄을 쓴다
+        self._w = 0.0
+
+    def _font(self, ch: str) -> str:
+        return inline.MONO if self.MONO_FIRST <= ord(ch) <= self.MONO_LAST else self.fallback
+
+    def _break(self, width: float) -> list[list[tuple[str, str]]]:
+        """코드를 칸 너비에 맞춰 꺾는다. 칸마다 글자 폭을 재서 칸 끝에서 끊는다(글자 단위)."""
+        avail = max(width - 2 * self.pad_x, self.size)
+        lines: list[list[tuple[str, str]]] = []
+        widths: dict[str, float] = {}
+        for src in self.code.split("\n"):
+            runs: list[list[str]] = []  # [글꼴, 글자]
+            x = 0.0
+            for ch in src.expandtabs(4):
+                if ord(ch) < 0x20 or ord(ch) == 0x7F:
+                    continue
+                font = self._font(ch)
+                if ch not in widths:
+                    widths[ch] = pdfmetrics.stringWidth(ch, font, self.size)
+                w = widths[ch]
+                if runs and x + w > avail:
+                    lines.append([(t_, f) for f, t_ in runs])
+                    runs, x = [], 0.0
+                if runs and runs[-1][0] == font:
+                    runs[-1][1] += ch
+                else:
+                    runs.append([font, ch])
+                x += w
+            lines.append([(t_, f) for f, t_ in runs])
+        return lines
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
+        if not self._fixed and (self._vis is None or self._w != availWidth):
+            self._vis = self._break(availWidth)
+        self._w = availWidth
+        self.width = availWidth
+        self.height = len(self._vis) * self.leading + 2 * self.pad_y
+        return availWidth, self.height
+
+    def lead_height(self) -> float:
+        """나눠 그릴 때 첫 쪽에 꼭 들어가야 하는 높이(몇 줄)."""
+        return 3 * self.leading + 2 * self.pad_y
+
+    def _piece(self, vis: list[list[tuple[str, str]]]) -> CodeFlow:
+        return CodeFlow(self.code, self.size, self.fallback, self._max_h, vis)
+
+    def split(self, availWidth: float, availHeight: float) -> list[Any]:
+        _, total = self.wrap(availWidth, 0xFFFFFF)
+        assert self._vis is not None
+        if self._max_h and total <= self._max_h:
+            return []
+        fit = int((availHeight - 2 * self.pad_y) // self.leading)
+        if fit < 1 or fit >= len(self._vis):
+            return []
+        first, rest = self._piece(self._vis[:fit]), self._piece(self._vis[fit:])
+        first.spaceBefore, first.spaceAfter = self.spaceBefore, 0
+        rest.spaceBefore, rest.spaceAfter = 0, self.spaceAfter
+        if getattr(self, "layout_tags", None):
+            first.layout_tags = self.layout_tags  # type: ignore[attr-defined]
+        return [first, rest]
+
+    def draw(self) -> None:
+        c = self.canv
+        assert self._vis is not None
+        c.saveState()
+        c.setFillColor(CODE_BG)
+        c.setStrokeColor(CODE_LINE)
+        c.setLineWidth(0.5)
+        c.roundRect(0, 0, self.width, self.height, 2.5, stroke=1, fill=1)
+        c.setFillColor(INK)
+        for i, line in enumerate(self._vis):
+            x = self.pad_x
+            y = self.height - self.pad_y - self.leading * (i + 0.5) - self.size * 0.32
+            for text, font in line:
+                c.setFont(font, self.size)
+                c.drawString(x, y, text)
+                x += pdfmetrics.stringWidth(text, font, self.size)
+        c.restoreState()
+
+
+class NewPage(CondPageBreak):
+    """쪽 나눔 — 지금 쪽에 뭔가 놓여 있으면 다음 쪽으로 넘긴다(맨 위면 아무 일도 없다 — 빈 쪽을 만들지 않는다)."""
+
+
+class BreakMark(Flowable):
+    """쪽 나눔 블록이 놓인 자리에 꼬리표(layout_tags)만 다는 높이 0 의 표지."""
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
+        return 0, 0
+
+    def draw(self) -> None:
+        pass
+
+
 class KeepBlock(Flowable):
     """블록 하나를 통째로 다룬다(reportlab KeepTogether 대신 쓴다 — 겹쳐 넣지 않는다)."""
 
@@ -259,8 +383,8 @@ class KeepBlock(Flowable):
                 repeat = f.repeatRows if isinstance(f.repeatRows, int) else 0
                 lead += before + sum(f._rowHeights[: repeat + 1])
                 break
-            if isinstance(f, Paragraph) and h > self._max_h:  # 한 쪽보다 긴 문단은 몇 줄만
-                lead += before + 3 * f.style.leading
+            if isinstance(f, (Paragraph, CodeFlow)) and h > self._max_h:  # 한 쪽보다 긴 문단 · 코드는 몇 줄만
+                lead += before + (f.lead_height() if isinstance(f, CodeFlow) else 3 * f.style.leading)
                 break
             lead += before + h + (f.getSpaceAfter() if i < last else 0.0)
             if getattr(f, "_is_body", False):
@@ -346,6 +470,17 @@ def _styles(size: float, font: str = FONT, bold: str = FONT_BOLD) -> dict[str, A
     small = size * 0.9
 
     bold_font = bold
+    item_styles: dict[tuple[float, float, str], ParagraphStyle] = {}
+
+    def item_style(bullet_indent: float, left: float, bullet_font: str) -> ParagraphStyle:
+        """목록 항목 문단 모양 — 글머리 자리(bullet_indent)와 글 시작 칸(left)마다 하나."""
+        key = (round(bullet_indent, 3), round(left, 3), bullet_font)
+        if key not in item_styles:
+            item_styles[key] = ParagraphStyle(
+                f"item{len(item_styles)}", parent=base, leftIndent=left, bulletIndent=bullet_indent,
+                bulletFontName=bullet_font, bulletFontSize=size, spaceAfter=size * 0.15,
+            )
+        return item_styles[key]
 
     def cell(name: str, align: int, strong: bool = False) -> ParagraphStyle:
         return ParagraphStyle(
@@ -364,13 +499,13 @@ def _styles(size: float, font: str = FONT, bold: str = FONT_BOLD) -> dict[str, A
         "h3": ParagraphStyle(
             "h3", parent=base, fontName=bold_font, fontSize=size * 1.1, leading=size * 1.7, spaceBefore=size, spaceAfter=size * 0.25
         ),
-        "items": [
-            ParagraphStyle(
-                f"item{lv}", parent=base, leftIndent=size * (1.3 + 1.3 * lv), bulletIndent=size * (0.3 + 1.3 * lv),
-                bulletFontName=font if _has(font, "".join(BULLETS)) else FONT, bulletFontSize=size, spaceAfter=size * 0.15,
-            )
-            for lv in range(4)
-        ],
+        "aligned": {
+            name: ParagraphStyle(f"body-{name}", parent=base, alignment=al) for name, al in ALIGNS.items()
+        },
+        "item": item_style,
+        "bullet_font": font if _has(font, "".join(BULLETS)) else FONT,
+        "digit_font": font if _has(font, "0123456789.") else FONT,
+        "box_font": font if _has(font, "".join(TASK_BOX)) else FONT,
         "note": ParagraphStyle(
             "note", parent=base, fontSize=small, leading=small * 1.5, textColor=MUTED, spaceBefore=size * 0.3
         ),
@@ -459,6 +594,40 @@ def _table(b: dict[str, Any], st: dict[str, Any], avail: float) -> TagTable:
     return t
 
 
+def _items(b: dict[str, Any], st: dict[str, Any], whole: Any, size: float) -> list[Any]:
+    """목록 블록 → 항목 문단들. 글머리는 •(단계마다 모양이 다르다) · 번호(MD 에 쓰는 번호와 같다) · 할 일 칸(□ ■).
+    번호나 칸이 있으면 글머리 자리를 그 폭에 맞춰 넓히고, 아래 단계는 부모 항목의 글 시작 칸에 맞춘다."""
+    items = b["items"]
+    bullets: list[tuple[str, str]] = []  # (글머리, 글꼴)
+    levels: list[int] = []
+    for it, (level, num) in zip(items, md.item_markers(items)):
+        lv = min(level, 3)
+        levels.append(lv)
+        checked = it.get("checked")
+        if num is not None and checked is None:
+            bullets.append((num, st["digit_font"]))
+        elif num is not None:
+            bullets.append((f"{num} {TASK_BOX[bool(checked)]}", st["box_font"]))
+        elif checked is not None:
+            bullets.append((TASK_BOX[bool(checked)], st["box_font"]))
+        else:
+            bullets.append((BULLETS[lv], st["bullet_font"]))
+    special = any(it.get("ordered") or it.get("checked") is not None for it in items)
+    width = size  # 글머리 칸 폭 — 번호 · 칸이 있으면 가장 넓은 글머리에 맞춘다
+    if special:
+        width = max(size, max(pdfmetrics.stringWidth(t_, f, size) for t_, f in bullets) + 0.6 * size)
+    out: list[Any] = []
+    lefts: list[float] = []  # 단계마다 마지막 항목의 글 시작 칸
+    for idx, (it, lv, (text, font)) in enumerate(zip(items, levels, bullets)):
+        bullet_at = size * 0.3 + (lefts[lv - 1] if 0 < lv <= len(lefts) else size * 1.3 * lv)
+        left = bullet_at + width
+        lefts[lv:] = [left]
+        p = whole(st["markup"](it["text"]), st["item"](bullet_at, left, font), bulletText=text)
+        p.layout_tags = [("i", b["id"], idx)]
+        out.append(p)
+    return out
+
+
 def _figure(b: dict[str, Any], images: dict[str, Any], sizes: dict[str, Any], avail_w: float, max_h: float) -> Figure:
     src = str(b.get("src") or "")
     data = decode_data_uri(src) if src.startswith("data:") else images.get(src)
@@ -505,7 +674,7 @@ def _build(
         story.append(whole(st["markup"](doc["title"]), st["title"]))
     for si, s in enumerate(doc.get("sections") or []):
         if opts.section_break and si > 0:
-            story.append(PageBreak())
+            story.append(NewPage(frame_h - 0.5))
         head: Any = None
         if s.get("title"):
             head = SectionHead(st["markup"](s["title"]), st["h2"])
@@ -519,19 +688,24 @@ def _build(
             body_at = len(flow)
             if kind == "text":
                 if b.get("text"):
-                    flow.append(whole(st["markup"](b["text"]), st["body"]))
+                    flow.append(whole(st["markup"](b["text"]), st["aligned"].get(b.get("align"), st["body"])))
             elif kind == "list":
-                for idx, it in enumerate(b["items"]):
-                    lv = min(int(it.get("level") or 0), 3)
-                    p = whole(st["markup"](it["text"]), st["items"][lv], bulletText=BULLETS[lv])
-                    p.layout_tags = [("i", b["id"], idx)]
-                    flow.append(p)
+                flow += _items(b, st, whole, opts.font_size)
             elif kind == "table":
                 flow.append(_table(b, st, frame_w))
             elif kind == "image":
                 flow.append(_figure(b, images, sizes, frame_w, max_h))
                 if b.get("caption"):
                     flow.append(whole(st["markup"](inline.write([inline.Seg(b["caption"])])), st["caption"]))
+            elif kind == "code":
+                flow.append(CodeFlow(str(b.get("code") or ""), max(7.0, opts.font_size - 1.2), FONT, max_h))
+            elif kind == "rule":
+                flow.append(HRFlowable(
+                    width="100%", thickness=0.8, lineCap="butt", color=LINE, hAlign="LEFT",
+                    spaceBefore=st["gap"] * 0.6, spaceAfter=st["gap"] * 0.6,
+                ))
+            elif kind == "pagebreak":
+                flow.append(BreakMark())
             for n in b.get("notes") or []:
                 flow.append(whole(st["markup"](n), st["note"]))
             if not flow:
@@ -547,9 +721,24 @@ def _build(
             if head is not None:
                 flow.insert(0, head)
                 head = None
-            story.append(KeepBlock(flow, max_h))
+            keep = KeepBlock(flow, max_h)
+            keep._marks_only = all(isinstance(f, BreakMark) for f in flow)  # type: ignore[attr-defined]
+            story.append(keep)
+            if kind == "pagebreak":
+                story.append(NewPage(frame_h - 0.5))
         if head is not None:  # 블록 없는 섹션
             story.append(head)
+    # 뒤에 놓을 내용이 없는 쪽 나눔은 쪽을 더하지 않는다(쪽 나눔 블록의 표지는 남겨 둔다)
+    after = False
+    trimmed: list[Any] = []
+    for f in reversed(story):
+        if isinstance(f, NewPage):
+            if not after:
+                continue
+        elif not getattr(f, "_marks_only", False):
+            after = True
+        trimmed.append(f)
+    story = trimmed[::-1]
 
     def on_page(canvas: Any, d: Any) -> None:
         if not opts.page_numbers:

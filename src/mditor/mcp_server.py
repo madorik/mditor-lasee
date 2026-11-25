@@ -81,10 +81,11 @@ def build(settings: Settings | None = None, *, remote: bool = False) -> MCPServe
 
     @server.tool(name="syntax_guide", title="MDitor syntax guide", annotations=_READ)
     def syntax_guide_tool() -> str:
-        """Return the reference for the MDitor Markdown dialect: document skeleton, inline formatting tags, table
-        cell merging and shading, images, and the page-break rules. Read it once before writing or editing an MDitor
-        document — the dialect is ordinary Markdown plus a few conventions (for example `<` / `^` cells merge table
-        cells, and `{빨강}…{/빨강}` colours text), and anything outside it is read as plain text."""
+        """Return the reference for the MDitor Markdown dialect: document skeleton, inline formatting tags, links and
+        code, numbered and task lists, code blocks, table cell merging and shading, images, and the page-break rules.
+        Read it once before writing or editing an MDitor document — the dialect is ordinary Markdown plus a few
+        conventions (for example `<` / `^` cells merge table cells, and `{빨강}…{/빨강}` colours text), and anything
+        outside it is read as plain text."""
         return syntax_guide()
 
     @server.tool(title="Check an MDitor document", annotations=_READ)

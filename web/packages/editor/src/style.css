@@ -1,0 +1,990 @@
+/* @mditor/editor — 편집기 모양. 모든 class 는 .mde 로 시작한다.
+   색 · 글꼴은 아래 변수로 바꾼다(.mde 나 그 바깥에서 다시 정하면 된다). */
+
+.mde {
+  --mde-font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+  --mde-mono: ui-monospace, "SF Mono", "D2Coding", Menlo, Consolas, monospace;
+  --mde-bg: #ffffff;
+  --mde-bar: #fbfcfc;
+  --mde-fg: #1b2430;
+  --mde-muted: #5b6672;
+  --mde-line: #cdd4da;
+  --mde-hover: #e8ecef;
+  --mde-accent: #1387c9;
+  --mde-accent-ink: #0a6396;
+  --mde-accent-tint: #e1f2fb;
+  --mde-danger: #c8341f;
+  --mde-shade: #d9d9d9;
+  --mde-mark: #fff3a3;
+  --mde-code-bg: #f3f5f7;
+  --mde-radius: 6px;
+  --mde-doc-width: 170mm;
+  --mde-min-height: 320px;
+
+  /* 세로로 쌓는다 — 숨긴 줄(찾기 · 오류)이 빠져도 편집 영역이 남은 높이를 다 쓴다 */
+  display: flex;
+  flex-direction: column;
+  min-height: var(--mde-min-height);
+  height: 100%;
+  border: 1px solid var(--mde-line);
+  border-radius: var(--mde-radius);
+  background: var(--mde-bg);
+  color: var(--mde-fg);
+  font-family: var(--mde-font);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+.mde *,
+.mde *::before,
+.mde *::after {
+  box-sizing: border-box;
+}
+
+.mde button,
+.mde input,
+.mde select,
+.mde textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.mde [hidden] {
+  display: none !important;
+}
+
+/* ───────── 도구 막대 ───────── */
+
+.mde-toolbar,
+.mde-bar,
+.mde-findbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--mde-line);
+  background: var(--mde-bar);
+}
+
+.mde-group,
+.mde-slot {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.mde-slot:empty {
+  display: none;
+}
+
+.mde-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--mde-line);
+}
+
+.mde-spacer {
+  flex: 1;
+}
+
+.mde-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mde-btn:hover:not(:disabled) {
+  background: var(--mde-hover);
+}
+
+.mde-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.mde-btn[aria-pressed="true"],
+.mde-btn[aria-expanded="true"] {
+  background: var(--mde-accent-tint);
+  color: var(--mde-accent-ink);
+}
+
+.mde-btn:focus-visible,
+.mde-select:focus-visible,
+.mde-input:focus-visible {
+  outline: 2px solid var(--mde-accent);
+  outline-offset: 1px;
+}
+
+.mde-btn.word {
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mde-btn.primary {
+  background: var(--mde-fg);
+  color: #fff;
+}
+
+.mde-btn.primary:hover:not(:disabled) {
+  background: #000;
+}
+
+.mde-btn.wide {
+  width: 100%;
+  justify-content: flex-start;
+  border: 1px dashed var(--mde-line);
+}
+
+.mde-glyph {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mde-glyph.mde-md {
+  font-family: var(--mde-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.mde-glyph sup,
+.mde-glyph sub {
+  font-size: 0.6em;
+}
+
+.mde-caret {
+  color: var(--mde-muted);
+  font-size: 9px;
+}
+
+.mde-select {
+  height: 30px;
+  padding: 0 2px 0 4px;
+  border: 1px solid var(--mde-line);
+  border-radius: 5px;
+  background: #fff;
+  font-size: 13.5px;
+}
+
+.mde-input {
+  height: 30px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--mde-line);
+  border-radius: 5px;
+  background: #fff;
+  font-size: 13.5px;
+}
+
+/* 팝업 */
+.mde-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.mde-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid var(--mde-line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(27, 36, 48, 0.16);
+  font-size: 14px;
+}
+
+.mde-pop.right {
+  left: auto;
+  right: 0;
+}
+
+.mde-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mde-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mde-menu-item:hover {
+  background: var(--mde-hover);
+}
+
+.mde-menu-sep {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--mde-line);
+}
+
+/* 색 */
+.mde-color-glyph {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1px 3px 0;
+  border-radius: 3px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.mde-color-glyph i {
+  display: block;
+  width: 15px;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 1px;
+}
+
+.mde-color-panel {
+  width: 222px;
+}
+
+.mde-palette {
+  display: grid;
+  grid-template-columns: repeat(7, 24px);
+  gap: 6px;
+  padding: 0 0 8px;
+}
+
+.mde-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(27, 36, 48, 0.14);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.mde-swatch.light,
+.mde-swatch.none {
+  border-color: var(--mde-line);
+}
+
+.mde-swatch.none {
+  background: #fff linear-gradient(to top right, transparent calc(50% - 1px), #c00000 calc(50% - 1px), #c00000 calc(50% + 1px), transparent calc(50% + 1px));
+}
+
+.mde-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--mde-fg);
+}
+
+.mde-swatch:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.mde-hex-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mde-hex-row input[type="color"] {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--mde-line);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.mde-hex-row input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.mde-hex-row input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.mde-hex {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--mde-line);
+  border-radius: 5px;
+  font: 13px var(--mde-mono);
+}
+
+.mde-swatch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.mde-square {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+/* 링크 · 그림 팝업 */
+.mde-link-panel,
+.mde-image-panel {
+  display: grid;
+  gap: 6px;
+  width: 300px;
+}
+
+.mde-field-error {
+  color: var(--mde-danger);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+/* 표 크기 */
+.mde-grid {
+  display: grid;
+  gap: 2px;
+}
+
+.mde-grid-cell {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--mde-line);
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.mde-grid-cell.on {
+  border-color: var(--mde-accent);
+  background: var(--mde-accent-tint);
+}
+
+.mde-grid-label {
+  margin-top: 6px;
+  color: var(--mde-muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* 특수 문자 */
+.mde-chars {
+  display: grid;
+  gap: 6px;
+  width: 292px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.mde-chars-group {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+}
+
+.mde-char {
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.mde-char:hover {
+  background: var(--mde-hover);
+}
+
+/* 정렬 */
+.mde-align-panel {
+  display: flex;
+  gap: 2px;
+}
+
+.mde-pop:has(.mde-align-panel) {
+  min-width: 0;
+  padding: 4px;
+}
+
+/* 찾아 바꾸기 · 표 · 코드 도구 */
+.mde-findbar .mde-input {
+  width: 180px;
+}
+
+.mde-find-count {
+  min-width: 56px;
+  color: var(--mde-muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mde-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  color: var(--mde-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.mde-bar {
+  background: var(--mde-accent-tint);
+  border-bottom-color: #c5e3f4;
+}
+
+.mde-bar-label {
+  margin-right: 6px;
+  color: var(--mde-accent-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mde-lang {
+  width: 130px;
+  font-family: var(--mde-mono);
+}
+
+.mde-error {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1c7c0;
+  background: #fbe9e6;
+  color: var(--mde-danger);
+  font-size: 13.5px;
+}
+
+/* ───────── 편집 · 미리보기 ───────── */
+
+.mde-toolbar,
+.mde-findbar,
+.mde-context,
+.mde-error,
+.mde-status {
+  flex: none;
+}
+
+.mde-main {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.mde[data-preview="on"] .mde-main {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.mde-pane {
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+}
+
+.mde-preview {
+  display: none;
+  border-left: 1px solid var(--mde-line);
+  background: #f6f8f9;
+}
+
+.mde[data-preview="on"] .mde-preview {
+  display: grid;
+}
+
+.mde-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 32px 64px;
+}
+
+.mde-mount {
+  height: 100%;
+}
+
+.mde .ProseMirror {
+  max-width: var(--mde-doc-width);
+  min-height: 100%;
+  margin: 0 auto;
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.mde .ProseMirror > :first-child,
+.mde-preview-doc > :first-child,
+.mde-preview-doc > section:first-child > :first-child {
+  margin-top: 0;
+}
+
+.mde-preview-doc {
+  max-width: var(--mde-doc-width);
+  margin: 0 auto;
+}
+
+.mde-source {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 18px 22px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: #fff;
+  font: 13.5px/1.7 var(--mde-mono);
+  tab-size: 2;
+}
+
+.mde-status {
+  padding: 3px 12px;
+  border-top: 1px solid var(--mde-line);
+  background: var(--mde-bar);
+  color: var(--mde-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mde-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+html.mde-noscroll,
+html.mde-noscroll body {
+  overflow: hidden;
+}
+
+/* 편집기 안에서만 보이는 것 */
+.mde .ProseMirror .selectedCell {
+  background-image: linear-gradient(rgba(19, 135, 201, 0.16), rgba(19, 135, 201, 0.16));
+}
+
+.mde .ProseMirror .tableWrapper {
+  margin-top: 0.75em;
+  overflow-x: auto;
+}
+
+.mde .ProseMirror .tableWrapper table {
+  margin-top: 0;
+}
+
+.mde .ProseMirror figure.md-image {
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--mde-radius);
+}
+
+.mde .ProseMirror figure.md-image.ProseMirror-selectednode,
+.mde .ProseMirror .md-pagebreak.ProseMirror-selectednode,
+.mde .ProseMirror hr.ProseMirror-selectednode {
+  outline: 2px solid var(--mde-accent);
+  outline-offset: 2px;
+}
+
+.mde .md-image-missing {
+  padding: 22px 12px;
+  border: 1px dashed var(--mde-line);
+  border-radius: var(--mde-radius);
+  color: var(--mde-muted);
+  font-size: 13px;
+}
+
+.mde .md-image-caption {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 0.9em;
+  color: var(--mde-muted);
+  text-align: center;
+}
+
+.mde .md-image-caption:hover,
+.mde .md-image-caption:focus {
+  border-color: var(--mde-line);
+  background: #fff;
+}
+
+.mde .ProseMirror .md-check {
+  cursor: pointer;
+}
+
+.mde .ProseMirror a {
+  cursor: text;
+}
+
+/* 자동 쪽 나눔 — 쪽이 넘어가는 자리(쓰는 쪽이 넘긴 쪽 배치) */
+.mde .mde-pagemark {
+  position: relative;
+  height: 0;
+  margin: 1.1em 0;
+  border-top: 1.5px dashed var(--mde-accent);
+  font-family: var(--mde-font);
+  user-select: none;
+  pointer-events: none;
+}
+
+.mde .mde-pagemark > span {
+  position: absolute;
+  right: 0;
+  top: -0.85em;
+  padding: 0 0.55em;
+  border-radius: 999px;
+  background: var(--mde-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.mde .md-list > .mde-pagemark {
+  margin: 0.7em 0;
+}
+
+.mde tr.mde-pagemark-row > td {
+  height: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+
+.mde tr.mde-pagemark-row .mde-pagemark {
+  margin: 0.6em 0;
+}
+
+.mde-find-hit {
+  background: rgba(255, 213, 0, 0.45);
+  border-radius: 2px;
+}
+
+.mde-find-hit.current {
+  background: rgba(255, 140, 0, 0.6);
+}
+
+.mde .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #a9b2ba;
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .mde[data-preview="on"] .mde-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mde-preview {
+    border-left: 0;
+    border-top: 1px solid var(--mde-line);
+  }
+
+  .mde-scroll {
+    padding: 16px 16px 48px;
+  }
+
+  .mde-findbar .mde-input {
+    width: 130px;
+  }
+}
+
+/* ───────── 문서 모양(.mde-doc) — contentClass 를 주지 않았을 때 ───────── */
+
+.mde-doc {
+  font-size: 10.5pt;
+  line-height: 1.6;
+  color: var(--mde-fg, #1b2430);
+}
+
+.mde-doc h1 {
+  margin: 0 0 0.5em;
+  font-size: 1.9em;
+  line-height: 1.32;
+}
+
+.mde-doc h2 {
+  margin: 1.1em 0 0.6em;
+  padding-bottom: 0.12em;
+  border-bottom: 0.8pt solid currentColor;
+  font-size: 1.33em;
+  line-height: 1.43;
+}
+
+.mde-doc h3 {
+  margin: 0.9em 0 0.2em;
+  font-size: 1.1em;
+  line-height: 1.55;
+}
+
+.mde-doc p {
+  margin: 0.75em 0 0;
+}
+
+.mde-doc h3 + p,
+.mde-doc h3 + ul,
+.mde-doc h3 + pre,
+.mde-doc h3 + .md-list {
+  margin-top: 0;
+}
+
+.mde-doc .md-list {
+  margin: 0.75em 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mde-doc .md-list > li {
+  position: relative;
+  margin: 0 0 0.15em;
+  padding-left: 1.3em;
+}
+
+.mde-doc .md-list > li::before {
+  content: "•";
+  position: absolute;
+  left: 0.3em;
+}
+
+.mde-doc .md-list > [data-level="1"] {
+  margin-left: 1.3em;
+}
+.mde-doc .md-list > [data-level="2"] {
+  margin-left: 2.6em;
+}
+.mde-doc .md-list > [data-level="3"] {
+  margin-left: 3.9em;
+}
+.mde-doc .md-list > li[data-level="1"]::before {
+  content: "–";
+}
+.mde-doc .md-list > li[data-level="2"]::before,
+.mde-doc .md-list > li[data-level="3"]::before {
+  content: "·";
+}
+
+.mde-doc .md-list > li[data-ordered]:not([data-checked]) {
+  padding-left: 1.9em;
+}
+
+.mde-doc .md-list > li[data-ordered]:not([data-checked])::before {
+  content: attr(data-num) ".";
+  left: 0;
+  width: 1.6em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mde-doc .md-list > li[data-checked]::before {
+  content: none;
+}
+
+.mde-doc .md-list > li[data-checked] {
+  padding-left: 1.5em;
+}
+
+.mde-doc .md-check {
+  position: absolute;
+  left: 0.1em;
+  top: 0.32em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.2px solid currentColor;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.mde-doc li[data-checked="true"] > .md-check {
+  background: currentColor;
+}
+
+.mde-doc li[data-checked="true"] > .md-check::after {
+  content: "";
+  position: absolute;
+  left: 0.27em;
+  top: 0.06em;
+  width: 0.28em;
+  height: 0.55em;
+  border: solid #fff;
+  border-width: 0 0.13em 0.13em 0;
+  transform: rotate(45deg);
+}
+
+.mde-doc li[data-checked="true"] > .md-item-body {
+  color: var(--mde-muted, #5b6672);
+  text-decoration: line-through;
+}
+
+.mde-doc table {
+  width: 100%;
+  margin: 0.75em 0 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+.mde-doc h3 + table,
+.mde-doc h3 + .tableWrapper > table {
+  margin-top: 0.35em;
+}
+
+.mde-doc th,
+.mde-doc td {
+  padding: 3.5pt 5pt;
+  border: 0.5pt solid #9aa3ad;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.mde-doc th {
+  background: #eef1f4;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mde-doc td p,
+.mde-doc th p {
+  margin: 0;
+}
+
+.mde-doc .md-note {
+  margin: 0.3em 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.9em;
+  line-height: 1.5;
+  color: var(--mde-muted, #5b6672);
+}
+
+.mde-doc figure.md-image {
+  margin: 0.75em 0 0;
+  text-align: center;
+}
+
+.mde-doc figure.md-image img {
+  max-width: 100%;
+  max-height: 110mm;
+  vertical-align: top;
+}
+
+.mde-doc figcaption {
+  margin-top: 0.35em;
+  font-size: 0.9em;
+  color: var(--mde-muted, #5b6672);
+}
+
+.mde-doc .md-shade {
+  background: var(--mde-shade, #d9d9d9);
+  color: inherit;
+}
+
+.mde-doc .md-mark {
+  background: var(--mde-mark, #fff3a3);
+  color: inherit;
+}
+
+.mde-doc a {
+  color: #1f4e9b;
+  text-decoration: underline;
+}
+
+.mde-doc code {
+  padding: 0.08em 0.3em;
+  border-radius: 3px;
+  background: var(--mde-code-bg, #f3f5f7);
+  font-family: var(--mde-mono, monospace);
+  font-size: 0.92em;
+}
+
+.mde-doc pre {
+  margin: 0.75em 0 0;
+  padding: 0.7em 0.9em;
+  border: 1px solid #e3e7eb;
+  border-radius: 4px;
+  background: var(--mde-code-bg, #f3f5f7);
+  font-family: var(--mde-mono, monospace);
+  font-size: 0.88em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.mde-doc pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.mde-doc hr {
+  height: 0;
+  margin: 1em 0 0.25em;
+  border: 0;
+  border-top: 0.8pt solid #9aa3ad;
+}
+
+.mde-doc .md-pagebreak {
+  position: relative;
+  height: 0;
+  margin: 1.2em 0;
+  border-top: 1.5px dashed var(--mde-accent, #1387c9);
+}
+
+.mde-doc .md-pagebreak::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  top: -0.8em;
+  transform: translateX(-50%);
+  padding: 0 0.6em;
+  border-radius: 999px;
+  background: var(--mde-accent, #1387c9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.mde-doc .md-pagebreak:not([data-label])::after {
+  content: "⋯";
+}

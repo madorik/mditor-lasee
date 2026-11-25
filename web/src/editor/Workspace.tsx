@@ -5,7 +5,8 @@ import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
 import { DEFAULT_MAX_FILE_BYTES, droppedImages, imageName, imageSrc, preload, prepareImage, readImage } from "../lib/images";
 import { FONT_CSS } from "../lib/fonts";
-import { dialectOf, type Dialect } from "../lib/inline";
+import { dialectOf, type Dialect } from "@mditor/editor/core";
+import { editorMarks } from "../lib/pages";
 import { encodeLink } from "../lib/share";
 import { isPersistent, putDoc, withVersion, type StoredDoc } from "../lib/store";
 import type { Doc, Preview as PreviewResult } from "../lib/types";
@@ -36,6 +37,25 @@ function download(blob: Blob, name: string) {
 
 const fileStem = (name: string) => name.replace(/[\\/:*?"<>|]+/g, " ").trim() || t("문서");
 
+// 보기 설정(미리보기 창 · 편집기의 자동 쪽 나눔) — 이 브라우저에 기억한다(사생활 보호 창에서는 기억하지 못해도 된다)
+const PREVIEW_KEY = "mditor.preview";
+const MARKS_KEY = "mditor.pagemarks";
+function readFlag(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "on";
+  } catch {
+    return fallback;
+  }
+}
+function writeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? "on" : "off");
+  } catch {
+    // 보관하지 못하면 이번 창에서만 쓴다
+  }
+}
+
 /** 머리의 '파일' 메뉴가 부르는 것 — 문서를 바꿔 여는 일은 App 이 한다. */
 export type FileActions = { newDoc: () => void; openFile: () => void; myDocs: () => void; example: () => void };
 
@@ -58,6 +78,20 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const [leftTab, setLeftTab] = useState<"doc" | "md">("doc");
   const [rightTab, setRightTab] = useState<"screen" | "pdf">("screen");
   const [side, setSide] = useState<"edit" | "view">("edit");
+  const [previewOn, setPreviewOn] = useState(() => readFlag(PREVIEW_KEY, true));
+  const togglePreview = () => {
+    const next = !previewOn;
+    setPreviewOn(next);
+    writeFlag(PREVIEW_KEY, next);
+    if (!next) setSide("edit");
+  };
+  // 자동 쪽 나눔 — 미리보기와 같은 쪽 경계(PDF 를 그려 본 결과)를 편집기 안에도 그린다
+  const [marksOn, setMarksOn] = useState(() => readFlag(MARKS_KEY, false));
+  const toggleMarks = () => {
+    const next = !marksOn;
+    setMarksOn(next);
+    writeFlag(MARKS_KEY, next);
+  };
   const [dialog, setDialog] = useState<null | "versions" | "settings" | "ai">(null);
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
   const [name, setName] = useState(stored.name);
@@ -121,7 +155,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const pagesQ = useQuery({
     queryKey: ["pages", stored.id, pText, stored.options, sizes],
     queryFn: ({ signal }) => api.pages({ md: pText, base: pDoc, options: stored.options, image_sizes: sizes }, signal),
-    enabled: !!pDoc,
+    enabled: !!pDoc && (previewOn || (marksOn && leftTab === "doc")), // 쪽 경계를 그릴 곳이 없으면 쪽 계산도 하지 않는다
     placeholderData: keepPreviousData,
     staleTime: Infinity,
     gcTime: 30_000,
@@ -138,7 +172,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
         false,
         signal,
       ),
-    enabled: rightTab === "pdf" && !!pDoc,
+    enabled: rightTab === "pdf" && !!pDoc && previewOn,
     placeholderData: keepPreviousData,
     staleTime: Infinity,
     gcTime: 15_000,
@@ -388,6 +422,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const changes = result?.ok ? result.changes : null;
   const changeCount = changes ? changes.added.length + changes.modified.length + changes.removed.length : 0;
   const viewDoc = shown.current;
+  const marks = useMemo(() => (marksOn ? editorMarks(viewDoc, layout) : null), [marksOn, viewDoc, layout]);
 
   return (
     <div className="app">
@@ -412,9 +447,11 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           </Menu>
           <input className="docname" value={name} aria-label={t("문서 이름")} onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()} />
           <span className="spacer" />
-          <div className="mobile-switch">
-            <Tabs label={t("화면 전환")} value={side} onChange={setSide} items={[["edit", t("편집")], ["view", t("미리보기")]]} />
-          </div>
+          {previewOn && (
+            <div className="mobile-switch">
+              <Tabs label={t("화면 전환")} value={side} onChange={setSide} items={[["edit", t("편집")], ["view", t("미리보기")]]} />
+            </div>
+          )}
           <span className={`state ${dirty ? "dirty" : ""}`}>{dirty ? t("저장 안 한 변경") : stored.versions.length ? t("판본 {n} 저장됨", { n: stored.versions[stored.versions.length - 1].n }) : t("저장 전")}</span>
           <button type="button" className="btn primary" disabled={busy || (!dirty && stored.versions.length > 0)} onClick={save} title={t("저장 (Ctrl+S)")}>
             {t("저장")}
@@ -472,17 +509,34 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
         )}
       </div>
 
-      <main className="work" data-side={side} data-font={stored.options.font} style={{ "--doc-font": FONT_CSS[stored.options.font] } as CSSProperties}>
+      <main className="work" data-side={side} data-preview={previewOn ? "on" : "off"} data-font={stored.options.font} style={{ "--doc-font": FONT_CSS[stored.options.font] } as CSSProperties}>
         <section className="pane left" aria-label={t("편집")}>
           <div className="pane-head">
             <Tabs label={t("편집 방식")} value={leftTab} onChange={switchLeft} items={[["doc", t("문서")], ["md", "MD"]]} />
+            {leftTab === "doc" && (
+              <button type="button" className="btn quiet view-toggle marks-toggle" aria-pressed={marksOn} onClick={toggleMarks} title={t("PDF 에서 쪽이 넘어가는 자리를 문서 탭에도 표시합니다")}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 10V4a1.5 1.5 0 0 1 1.5-1.5H15l4 4V10" />
+                  <path d="M5 17v3.5A1.5 1.5 0 0 0 6.5 22h11a1.5 1.5 0 0 0 1.5-1.5V17" />
+                  <path d={marksOn ? "M2 13.5h2M7 13.5h3M13 13.5h3M19 13.5h3" : "M2 13.5h20"} opacity={marksOn ? 1 : 0.35} />
+                </svg>
+                {marksOn ? t("자동 쪽 나눔 끄기") : t("자동 쪽 나눔 켜기")}
+              </button>
+            )}
+            <button type="button" className="btn quiet view-toggle preview-toggle" aria-pressed={previewOn} onClick={togglePreview} title={t("오른쪽 미리보기 창을 켜고 끕니다")}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                {previewOn ? <circle cx="12" cy="12" r="3" /> : <line x1="3" y1="3" x2="21" y2="21" />}
+              </svg>
+              {previewOn ? t("미리보기 끄기") : t("미리보기 켜기")}
+            </button>
           </div>
           <div className="pane-body">
             {leftTab === "md" ? (
               <MdPane value={text} dialect={dialect} onChange={setText} error={error} options={stored.options} onOptions={setOptions} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} handle={mdPane} />
             ) : rich ? (
               <Suspense fallback={<div className="hint">{t("편집기를 불러오는 중입니다")}</div>}>
-                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} register={registerImages} />
+                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} pageMarks={marks} showPageMarks={marksOn} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} register={registerImages} />
               </Suspense>
             ) : error ? (
               <div className="hint">
@@ -502,7 +556,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           </div>
         </section>
 
-        <section className="pane right" aria-label={t("미리보기")}>
+        <section className="pane right" aria-label={t("미리보기")} hidden={!previewOn}>
           <div className="pane-head">
             <Tabs label={t("미리보기 방식")} value={rightTab} onChange={setRightTab} items={[["screen", t("미리보기")], ["pdf", "PDF"]]} />
             <span className="pane-info" aria-live="polite">

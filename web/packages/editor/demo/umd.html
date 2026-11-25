@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@mditor/editor — script 태그로</title>
+    <link rel="icon" href="data:," />
+    <!-- npm run build 뒤에 연다. 배포본에서는 https://unpkg.com/@mditor/editor/dist/… -->
+    <link rel="stylesheet" href="../dist/style.css" />
+    <style>
+      body { margin: 0; padding: 16px; background: #e8ecef; }
+      #editor { height: 70vh; }
+    </style>
+  </head>
+  <body>
+    <div id="editor"></div>
+    <script src="../dist/mditor-editor.umd.js"></script>
+    <script>
+      const editor = MDitorEditor.createEditor({
+        element: document.getElementById("editor"),
+        markdown: "# script 태그로 쓰기\n\n- 프레임워크 없이\n- [ ] 할 일\n\n1. 번호\n2. 목록\n",
+        preview: true,
+        onChange: (md) => console.log(md),
+      });
+      window.editor = editor;
+    </script>
+  </body>
+</html>

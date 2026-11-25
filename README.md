@@ -3,10 +3,13 @@
 보고서 같은 정형 문서를 **보이는 모양 그대로 고치면서**, 원본은 **Markdown** 으로 남기고(AI 도 같은 MD 를 고친다),
 미리보기의 **쪽 경계가 PDF 와 같은** 문서 편집기.
 
-- **웹 서비스** — 왼쪽에서 고치고(문서 / MD), 오른쪽에서 확인한다(미리보기 / PDF). 가입 없음, 문서는 브라우저에만 보관.
+- **웹 서비스** — 왼쪽에서 고치고(문서 / MD), 오른쪽에서 확인한다(미리보기 / PDF). 오른쪽 미리보기는 끄고 켤 수 있고, 같은 쪽 경계를 문서 탭 안에도 그리는 ‘자동 쪽 나눔’ 을 켤 수 있다(둘 다 브라우저가 기억한다).
+  가입 없음, 문서는 브라우저에만 보관.
   한국어(`/`)와 영어(`/en/`)로 낸다.
 - **MCP 서버** — AI 에이전트가 같은 문법으로 문서를 쓰고, 검사하고, 쪽 배치를 보고, PDF 로 낸다.
 - **HTTP API** — 같은 기능을 직접 부른다.
+- **편집기 라이브러리** `@mditor/editor` (`web/packages/editor`) — 웹 서비스의 문서 편집기를 떼어 낸 것. 서버 없이 돌고,
+  npm(ESM) · `<script>`(UMD) · React 로 쓴다. 자세한 것은 [`web/packages/editor/README.md`](web/packages/editor/README.md).
 
 웹 서비스의 이름은 **MDitor LaSee**(한국어로는 **MDitor 라씨**)다. 문서 형식과 MCP 서버·패키지 이름은 `MDitor`/`mditor` 그대로 둔다.
 
@@ -29,8 +32,11 @@
 지키는 것:
 
 1. **원본은 구조 문서(JSON), MD 는 편집 표현.** 블록마다 안정된 id 가 있고, MD 를 되읽을 때 원래 블록과 id 를 잇는다.
-2. **MD 파서는 서버 하나뿐.** 화면은 MD 를 파싱하지 않고 서버가 되읽은 문서를 받아 연다. 화면에는 직렬화(편집기 → MD)만 있고, 그 출력은 서버와 **바이트 단위로 같다**.
+2. **MD 규칙은 둘이 같다.** 서버(`src/mditor/inline.py` `md.py`)와 편집기 패키지(`web/packages/editor/src/core/`)가 같은 규칙으로 MD 를 읽고 쓴다 —
+   읽은 문서도, 쓴 MD 도 **바이트 단위로 같다**(공유 기준 파일이 잡는다. 어긋나면 화면 쪽이 기준 구현이다).
+   웹 서비스는 여전히 서버가 되읽은 문서(id 를 이은 것)로 편집기를 열고, 화면의 파서는 라이브러리(서버 없이 쓸 때 · MD 붙여넣기 · 원문 모드)가 쓴다.
 3. **쪽은 화면에서 짐작하지 않는다.** 서버가 PDF 를 그리면서 블록·항목·표 행이 놓인 쪽을 적고, 화면은 쪽 번호가 바뀌는 자리에 경계를 그린다.
+   문서 탭의 자동 쪽 나눔도 같은 결과를 섹션·블록 순번으로 옮겨 그린다(`web/src/lib/pages.ts` `editorMarks` → 편집기 `setPageMarks`). 미리보기와 자동 쪽 나눔이 모두 꺼져 있으면 쪽 계산을 부르지 않는다.
 4. **서버는 상태를 두지 않는다.** 문서·판본·그림은 브라우저(IndexedDB)에 있다.
 
 | 경로 | 내용 |
@@ -44,9 +50,10 @@
 | `src/mditor/data/syntax.md` | 문법 안내(MCP `syntax_guide` 와 AI 프롬프트가 쓴다) |
 | `src/mditor/data/example.md` `example.en.md` | 예시 문서(편집기 '예시 보기', 공유 기준 파일) |
 | `src/mditor/i18n.py` | 서버 문구의 언어(`Accept-Language`) — 한국어 원문이 열쇠, 영어 사전 |
-| `web/src/lib/inline.ts` `table.ts` | 서버와 **같은 규칙** — 고치면 둘 다 고친다 |
-| `web/src/lib/rich/` | TipTap 스키마 · 변환(toPM / fromPM) · 명령 |
-| `web/src/editor/` | 편집 화면 |
+| `web/packages/editor/src/core/` (`inline.ts` `parse.ts` `write.ts` `table.ts`) | 서버와 **같은 규칙** — 고치면 둘 다 고친다(화면 쪽이 기준 구현) |
+| `web/packages/editor/src/pm/` | TipTap 스키마 · 변환(toPM / fromPM) · 명령 |
+| `web/packages/editor/src/ui/` `react.tsx` | 편집기 화면(도구 막대 · 찾아 바꾸기 · 표/코드 도구 · 원문 · 미리보기) · React 감싸개 |
+| `web/src/editor/` | 편집 화면(편집기 패키지를 감싼 `RichEditor.tsx`, MD 탭, 쪽 미리보기) |
 | `web/src/lib/i18n.ts` `i18n/en.ts` | 편집 화면 문구의 언어 — 한국어 원문이 열쇠, 영어 사전 |
 | `web/*.html` `web/en/*.html` | 첫 화면 · 편집기 · 문법 · 개발자 · 개인정보처리방침 · 이용약관 (한국어 · 영어) |
 | `web/e2e/hero-video.mjs` `landing-images.mjs` | 첫 화면의 영상 · 그림 만들기(실제 편집기를 찍는다) |
@@ -67,12 +74,12 @@ cd .. && uv run mditor-server              # http://localhost:8000
 
 ```bash
 uv run pytest                 # 서버: 문법 왕복, id 잇기, 쪽 배치 ↔ PDF, API, MCP
-cd web && npm test            # 화면: 서버와 같은 결과인지(공유 기준 파일), 편집기 명령
+cd web && npm test            # 화면 · 편집기 패키지: 서버와 같은 결과인지(공유 기준 파일), 편집기 명령, 무작위 왕복
 cd web && npm run typecheck
 node web/e2e/editor.mjs       # 헤드리스 크롬으로 편집 화면 조작(서버가 8011 에 떠 있어야 한다)
 ```
 
-- **공유 기준 파일** `web/src/lib/rich/fixture.json` 은 서버 테스트가 합성 문서(`tests/synthetic.py`)로 만든다.
+- **공유 기준 파일** `web/packages/editor/src/fixture.json` 은 서버 테스트가 합성 문서(`tests/synthetic.py`)로 만든다.
   화면 테스트는 `문서 → 편집기 → MD` 가 서버 MD 와 같은지 본다. 문법을 고쳤으면 다시 만든다:
   `MDITOR_WRITE_FIXTURE=1 uv run pytest tests/test_fixture.py`
 - `tests/test_render.py::test_layout_matches_the_pdf` 는 PDF 를 다시 읽어, 배치가 말한 쪽에 그 항목·표 행이 실제로 있는지 본다.
@@ -83,6 +90,22 @@ node web/e2e/editor.mjs       # 헤드리스 크롬으로 편집 화면 조작(�
   PORT=8011 MDITOR_RATE_PER_MINUTE=100000 MDITOR_IMAGE_DIR=/tmp/mditor-e2e-images uv run mditor-server &
   node web/e2e/editor.mjs http://127.0.0.1:8011
   ```
+
+## 편집기 패키지
+
+`web/packages/editor` 는 npm 으로 낼 수 있게 묶은 편집기다(이름 `@mditor/editor` 는 임시, `package.json` 의 `"private": true` 를 빼야 낼 수 있다).
+웹 서비스는 Vite 별칭(`web/vite.config.ts` · `tsconfig.json` 의 `@mditor/editor`)으로 소스를 바로 쓴다.
+
+```bash
+cd web/packages/editor
+npm run build   # dist/: index.js · core.js · react.js(ESM) · mditor-editor.umd.js · style.css · types/
+npm run dev     # demo/index.html(ESM) — 서버 없이. demo/umd.html 은 build 뒤 <script> 로 쓰는 예
+```
+
+- `@mditor/editor` — `createEditor({ element, markdown, onChange })`. 도구 막대 · 표 도구 · 찾아 바꾸기 · 특수 문자 · MD 원문 · 미리보기(켜고 끄기) · 전체 화면 · 글자 수.
+- `@mditor/editor/core` — 화면 없이 `parseMarkdown` · `docToMarkdown` · `renderHtml`(TipTap 을 싣지 않는다).
+- `@mditor/editor/react` — `<MarkdownEditorView value onChange … />`.
+- 웹 서비스는 원문 · 미리보기 · 전체 화면 단추를 빼고(탭과 오른쪽 창이 맡는다) 글꼴 칸을 끼워 쓴다(`web/src/editor/RichEditor.tsx`).
 
 ## 언어
 
@@ -302,8 +325,9 @@ uvx --from git+https://github.com/madorik/mditor-lasee mditor-mcp
 ## 알아 둘 것
 
 - 서버가 여러 프로세스면 요청 횟수 제한을 프로세스마다 따로 센다. 정확히 제한하려면 앞단(프록시·CDN)에서 한다.
-- 문서 편집기 안에는 쪽 경계를 그리지 않는다(오른쪽 미리보기에만 있다).
-- 번호 목록·코드 블록·링크 문법은 없다.
+- 문서 편집기 안의 쪽 경계(자동 쪽 나눔)는 기본으로 꺼져 있다. 켜면 미리보기와 같은 자리에 그리고, 서버가 쪽을 다시 계산하기 전까지는 글을 따라 움직인다.
+  MD 탭에는 그리지 않는다.
+- 목록은 글머리(`-`)와 번호(`1.`)·할 일(`- [ ]`), 블록은 코드(```` ``` ````)·가로줄(`---`)·쪽 나눔(`<!-- pagebreak -->`), 글 서식은 링크 `[글](주소)`·`` `코드` ``·`==형광펜==`·위/아래 첨자(`<sup>` `<sub>`)·문단 정렬(`{가운데}`)이 있다. 표·그림은 위와 같다. 전부 `src/mditor/data/syntax.md` 에 있다.
 - 문서 글꼴은 쪽 설정에서 고른다: Pretendard JP(기본) · 나눔명조 · 나눔고딕 · 나눔손글씨 펜. 모두 SIL OFL 1.1 이다(`src/mditor/fonts/OFL-*.txt`).
   화면은 같은 글꼴의 웹 글꼴(`@fontsource/*`), PDF 는 같은 글꼴 파일로 그린다. 고른 글꼴에 없는 글자(한자 · 기호)는 둘 다 Pretendard 로 채운다.
   이모지는 나오지 않는다.

@@ -58,6 +58,8 @@ def stats(doc: dict[str, Any]) -> dict[str, int]:
         "tables": sum(b["kind"] == "table" for b in blocks),
         "lists": sum(b["kind"] == "list" for b in blocks),
         "images": sum(b["kind"] == "image" for b in blocks),
+        "code_blocks": sum(b["kind"] == "code" for b in blocks),
+        "page_breaks": sum(b["kind"] == "pagebreak" for b in blocks),
     }
 
 

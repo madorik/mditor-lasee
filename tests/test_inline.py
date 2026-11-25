@@ -83,13 +83,22 @@ def test_canon_is_stable(s):
 
 def test_random_roundtrip():
     rnd = random.Random(20261113)
-    alphabet = ["가", "나", " ", " ", "*", "~", "{", "}", "\\", "<", "br>", "{빨강}", "{/밑줄}", "\n", "a", "|", "^", "-", "#"]
+    alphabet = [
+        "가", "나", " ", " ", "*", "~", "{", "}", "\\", "<", "br>", "{빨강}", "{/밑줄}", "\n", "a", "|", "^", "-", "#",
+        "`", "[", "]", "(", ")", "=", ".", "_", "<sup>", "{가운데}", "1", "2",
+        "](", "](a",
+    ]
     for _ in range(3000):
         raw = [
             Seg(
                 "".join(rnd.choice(alphabet) for _ in range(rnd.randint(1, 5))),
                 rnd.random() < 0.4, rnd.random() < 0.4, rnd.random() < 0.3, rnd.random() < 0.3,
                 rnd.choice([None, None, "빨강", "파랑"]),
+                rnd.random() < 0.3,
+                link=rnd.choice([None, None, None, None, "u", "https://x.y/(a)", "a b"]),
+                mark=rnd.random() < 0.2,
+                script=rnd.choice([None, None, None, None, None, "sup", "sub"]),
+                code=rnd.random() < 0.15,
             )
             for _ in range(rnd.randint(1, 5))
         ]
@@ -103,3 +112,127 @@ def test_random_roundtrip():
 def test_rl_markup():
     out = inline.rl_markup("**a<b** {빨강}c{/빨강}<br>d")
     assert out == '<b>a&lt;b</b> <font color="#c00000">c</font><br/>d'
+
+
+def test_links():
+    assert [x.to_json() for x in inline.segments("[a **b**](u) c")] == [
+        {"text": "a ", "link": "u"},
+        {"text": "b", "link": "u", "bold": True},
+        {"text": " c"},
+    ]
+    assert inline.canon("**a [b](u) c**") == "**a** [**b**](u) **c**"  # 링크가 가장 바깥이다
+    assert inline.canon("[a [b] c](u)") == "[a \\[b\\] c](u)"  # 링크 글 안의 대괄호는 언제나 이스케이프
+    assert inline.canon("[x](a b)") == "[x](a b)"  # 빈칸이 든 주소는 링크가 아니다
+    assert inline.canon("[x]()") == "[x]()" and inline.segments("[x]()") == [Seg("[x]()")]
+    assert inline.canon("\\[a](u)") == "\\[a](u)"
+    assert [(x.text, x.link) for x in inline.segments("[a [b](u) c](v)") if x.link] == [("b", "u")]  # 링크 안에 링크는 없다
+    assert [x.link for x in inline.segments("[a](http://x.y/((a)))")] == [None]  # 괄호는 한 겹까지만
+    assert [x.link for x in inline.segments("[a](http://x.y/a(b)c)")] == ["http://x.y/a(b)c"]
+    # 주소를 쓸 때: 공백 · 짝 안 맞는 괄호는 퍼센트 부호로, 안 그래도 되는 주소는 그대로
+    assert inline.write([Seg("x", link="a b(c")]) == "[x](a%20b%28c)"
+    assert inline.write([Seg("x", link="https://x.y/(a)")]) == "[x](https://x.y/(a))"
+    assert inline.link_href("가 나") == "가%20나"  # 글자는 그대로, 빈칸만 바꾼다
+    assert inline.link_href("a\u3000b") == "a%E3%80%80b"
+    # 쓰고 다시 읽어도 같다(normalize 가 주소를 쓸 꼴로 먼저 바꾼다)
+    for href in ("a b", "x(", "(", "https://x.y/(a)", " u "):
+        norm = inline.normalize([Seg("t", link=href)])
+        assert inline.normalize(inline.segments(inline.write(norm))) == norm
+    assert inline.normalize([Seg("t", link="   ")]) == [Seg("t")]  # 빈 주소는 링크가 아니다
+    # 글 속에 literal 로 쓴 [ 가 링크를 열려 하면 그 자리만 이스케이프한다
+    assert inline.write([Seg("[x](u)")]) == "\\[x](u)"
+    assert inline.write([Seg("[x] (u)")]) == "[x] (u)"
+    assert inline.write([Seg("a"), Seg("b", link="u")]) == "a[b](u)"
+
+
+def test_safe_href():
+    assert inline.safe_href("https://a.b") == "https://a.b" and inline.safe_href("#자리") == "#자리"
+    assert inline.safe_href("javascript:alert(1)") is None and inline.safe_href("JavaScript:x") is None
+    assert inline.safe_href("mailto:a@b.c") == "mailto:a@b.c" and inline.safe_href("  ") is None
+    assert inline.pdf_href("/relative") is None and inline.pdf_href("tel:+8212") == "tel:+8212"
+
+
+def test_code_spans():
+    assert [x.to_json() for x in inline.segments("a `b **c**` d")] == [{"text": "a "}, {"text": "b **c**", "code": True}, {"text": " d"}]
+    assert inline.canon("` `` `") == "` `` `"  # 안의 백틱 수와 다른 울타리
+    assert inline.write([Seg("a`b", code=True)]) == "``a`b``"
+    assert inline.write([Seg("`x", code=True)]) == "`` `x ``"  # 백틱으로 시작하거나 끝나면 빈칸을 덧댄다
+    assert inline.write([Seg(" x ", code=True)]) == "`  x  `" and inline.write([Seg(" ", code=True)]) == "` `"
+    assert inline.write([Seg("a`b")]) == "a\\`b"  # 글자 백틱은 언제나 이스케이프
+    assert inline.canon("`a") == "\\`a" and inline.canon("``a`") == "\\`\\`a\\`"  # 짝이 없으면 글자
+    assert inline.segments("`` a ``")[0].text == "a" and inline.segments("`  a  `")[0].text == " a "
+    assert inline.canon("**`x`**") == "**`x`**" and inline.canon(r"`\*`") == r"`\*`"  # 안은 그대로
+    assert inline.normalize([Seg("a\nb", code=True)])[0].text == "a b"  # 코드 안의 줄바꿈은 빈칸
+
+
+def test_mark_and_scripts():
+    assert [x.to_json() for x in inline.segments("==a== b")] == [{"text": "a", "mark": True}, {"text": " b"}]
+    assert inline.canon("== a ==") == "== a ==" and inline.canon("==a") == "==a"
+    assert inline.write(inline.normalize([Seg(" a ", mark=True)])) == "==a=="
+    assert inline.canon("a == b") == "a == b" and inline.canon("====") == ""
+    assert [x.to_json() for x in inline.segments("H<sub>2</sub>O")] == [{"text": "H"}, {"text": "2", "script": "sub"}, {"text": "O"}]
+    assert inline.segments("<SUP>a</Sub>") == [Seg("<SUP>a</Sub>")]  # 짝은 이름이 같아야 한다
+    assert [x.script for x in inline.segments("<sup>a<sub>b</sub>c</sup>")] == ["sup", "sub", "sup"]  # 가장 안쪽이 이긴다
+    assert inline.write([Seg("<sup>")]) == "\\<sup>" and inline.canon("\\<sup>x\\</sup>") == "\\<sup>x\\</sup>"
+    assert inline.canon("==a== ~~b~~ **c**") == "==a== ~~b~~ **c**"
+
+
+def test_alignment_tags_in_text_and_paragraphs():
+    assert inline.segments("a {가운데}b{/가운데} c") == [Seg("a b c")]  # 글 안에서는 버린다
+    assert inline.canon("{center}x{/center}") == "x"
+    assert inline.canon("\\{가운데}x") == "\\{가운데}x" and inline.write([Seg("{left}")]) == "\\{left}"
+    assert inline.block_align("{가운데}정렬{/가운데}") == ("center", "정렬", True)
+    assert inline.block_align("{right}**a**{/오른쪽}") == ("right", "**a**", True)
+    assert inline.block_align("{양쪽}x{/양쪽}") == ("justify", "x", True)
+    assert inline.block_align("{왼쪽}x{/왼쪽}") == (None, "x", True)
+    assert inline.block_align("a {가운데}b{/가운데}") == (None, "a {가운데}b{/가운데}", False)
+    assert inline.block_align("{가운데}a{/가운데}{가운데}b{/가운데}") == (None, "{가운데}a{/가운데}{가운데}b{/가운데}", False)
+    assert inline.block_align("{음영}x{/음영}") == (None, "{음영}x{/음영}", False)
+    assert inline.dialect_of("{center}a{/center}") == "en" and inline.dialect_of("{가운데}a{/가운데}") == "ko"
+
+
+def test_block_symbols_are_escaped_in_paragraphs_and_items():
+    assert inline.canon("1. 개요", "para") == "1\\. 개요" and inline.canon("2026) 연도", "para") == "2026\\) 연도"
+    assert inline.canon("1.31 배", "para") == "1.31 배" and inline.canon("1234567890. 열", "para") == "1234567890. 열"
+    assert inline.canon("\u0661. 아랍 숫자", "para") == "\u0661. 아랍 숫자"  # 번호는 ASCII 숫자만
+    assert inline.canon("<!-- pagebreak -->", "para") == "\\<!-- pagebreak -->" and inline.canon("___", "para") == "\\___"
+    assert inline.canon("[ ] 칸", "item") == "\\[ ] 칸" and inline.canon("[x]", "item") == "\\[x]" and inline.canon("[x]y", "item") == "[x]y"
+    assert inline.canon("[ ] 칸", "para") == "[ ] 칸"
+
+
+def test_tag_names_match_only_ascii_letters_case_insensitively():
+    assert inline.segments("<ſup>x</ſup>") == [Seg("<ſup>x</ſup>")]  # ſ 는 s 가 아니다(자바스크립트와 같다)
+    assert inline.segments("{RED}x{/Red}")[0].color == "빨강" and inline.segments("{ＲED}x{/ＲED}")[0].color is None
+
+
+def test_rl_markup_new_formats():
+    assert inline.rl_markup("==a==") == f'<font backColor="{inline.MARK}">a</font>'
+    assert inline.rl_markup("H<sub>2</sub>O x<sup>2</sup>") == "H<sub>2</sub>O x<super>2</super>"
+    link = inline.rl_markup("[**a** b](https://x.y/?a=1&b=2)")
+    assert link == f'<a href="https://x.y/?a=1&amp;b=2" color="{inline.LINK_COLOR}"><u><b>a</b> b</u></a>'  # 같은 링크는 하나로
+    assert inline.rl_markup("[x](javascript:alert(1)) [y](/rel)") == "x y"  # 열 수 없는 주소는 글자만
+    code = inline.rl_markup("`a<b  c`")
+    assert 'name="Courier"' in code and "a&lt;b" in code and "\u00a0" in code and inline.CODE_BG in code
+    assert inline.CODE_BG not in inline.rl_markup("==`a`==")  # 형광펜 안의 코드는 형광펜 바탕을 지키지 않는다
+    mixed = inline.rl_markup("`한글 abc`", lambda s: f"[{s}]")
+    assert "[한글]" in mixed and 'name="Courier"' in mixed  # 영문 · 기호가 아닌 글자는 본문 글꼴(wrap)로
+
+
+def test_stray_link_close_never_swallows_our_markup():
+    # 짝 없는 `](…)` 는 통째로 글자로 읽힌다 — 안에 우리가 쓴 서식 기호가 들면 `]` 를 이스케이프해 토큰을 깬다
+    cases = {
+        "](`)": "\\](\\`)",
+        r"](\*)": r"\](\\*)",
+        "x](a`b)": "x\\](a\\`b)",
+    }
+    for src, want in cases.items():
+        assert inline.canon(src) == want and inline.canon(want) == want
+    swallow = [Seg("](a", italic=True), Seg(")x", mark=True)]
+    out = inline.write(inline.normalize(swallow))
+    assert out == "{기울임}\\](a{/기울임}==)x=="
+    assert inline.normalize(inline.segments(out)) == inline.normalize(swallow)
+    both = [Seg("](a", italic=True), Seg("}}](a", mark=True)]
+    out = inline.write(inline.normalize(both))
+    assert inline.normalize(inline.segments(out)) == inline.normalize(both)
+    br = [Seg("](a\nb)")]  # <br> 은 우리가 넣는 기호다
+    out = inline.write(inline.normalize(br))
+    assert out == "\\](a<br>b)" and inline.normalize(inline.segments(out)) == inline.normalize(br)

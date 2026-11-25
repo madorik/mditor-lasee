@@ -1,0 +1,44 @@
+{
+  "name": "@mditor/editor",
+  "version": "0.1.0",
+  "description": "Markdown document editor — edit what you see, keep Markdown as the source. Toolbar, tables with merged cells, lists, code blocks, find & replace, source mode, preview.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "unpkg": "./dist/mditor-editor.umd.js",
+  "jsdelivr": "./dist/mditor-editor.umd.js",
+  "exports": {
+    ".": { "types": "./dist/types/index.d.ts", "import": "./dist/index.js" },
+    "./core": { "types": "./dist/types/core.d.ts", "import": "./dist/core.js" },
+    "./react": { "types": "./dist/types/react.d.ts", "import": "./dist/react.js" },
+    "./style.css": "./dist/style.css",
+    "./umd": "./dist/mditor-editor.umd.js"
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": ["*.css"],
+  "keywords": ["markdown", "editor", "wysiwyg", "tiptap", "prosemirror", "korean"],
+  "scripts": {
+    "build": "rm -rf dist && vite build && vite build --mode umd && cp src/style.css dist/style.css && tsc -p tsconfig.build.json",
+    "dev": "vite --open /demo/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tiptap/core": "3.32.1",
+    "@tiptap/extension-code": "3.32.1",
+    "@tiptap/extension-paragraph": "3.32.1",
+    "@tiptap/extension-table": "3.32.1",
+    "@tiptap/extensions": "3.32.1",
+    "@tiptap/pm": "3.32.1",
+    "@tiptap/starter-kit": "3.32.1"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  }
+}

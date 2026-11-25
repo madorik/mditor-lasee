@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@mditor/editor 데모</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body { margin: 0; padding: 16px; background: #e8ecef; font-family: system-ui, sans-serif; color: #1b2430; }
+      header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+      h1 { margin: 0 12px 0 0; font-size: 18px; }
+      #editor { height: calc(100dvh - 300px); min-height: 420px; }
+      pre { height: 180px; margin: 12px 0 0; padding: 10px; overflow: auto; border-radius: 6px; background: #1b2430; color: #e8ecef; font-size: 12px; }
+      button { padding: 4px 10px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>@mditor/editor</h1>
+      <button id="lang">English</button>
+      <button id="ro">읽기 전용</button>
+      <button id="dump">MD 다시 읽기</button>
+    </header>
+    <div id="editor"></div>
+    <pre id="out"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

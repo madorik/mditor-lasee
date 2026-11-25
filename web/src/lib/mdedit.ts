@@ -26,14 +26,16 @@ export function insertBreak(start: number, end: number): Edit {
   return { start, end, text: "<br>", selStart: start + 4, selEnd: start + 4 };
 }
 
-/** 커서가 있는 줄의 앞에 기호를 붙인다(목록 `- `, 비고 `> `, 제목 `## `). 이미 있으면 뗀다. */
+const LINE_MARK = /^(#{1,6}|[-*+](?:[ \t]+\[[ xX]\])?|\d{1,9}[.)](?:[ \t]+\[[ xX]\])?|>)[ \t]+/;
+
+/** 커서가 있는 줄의 앞에 기호를 붙인다(목록 `- `, 번호 `1. `, 할 일 `- [ ] `, 비고 `> `, 제목 `## `). 이미 있으면 뗀다. */
 export function prefixLines(text: string, start: number, end: number, prefix: string): Edit {
   const from = text.lastIndexOf("\n", start - 1) + 1;
   const stop = text.indexOf("\n", end);
   const to = stop < 0 ? text.length : stop;
   const lines = text.slice(from, to).split("\n");
   const all = lines.every((l) => !l.trim() || l.startsWith(prefix));
-  const out = lines.map((l) => (!l.trim() ? l : all ? l.slice(prefix.length) : prefix + l.replace(/^(#{1,6}|[-*+]|>)\s+/, ""))).join("\n");
+  const out = lines.map((l) => (!l.trim() ? l : all ? l.slice(prefix.length) : prefix + l.replace(LINE_MARK, ""))).join("\n");
   return { start: from, end: to, text: out, selStart: from, selEnd: from + out.length };
 }
 
@@ -55,4 +57,34 @@ export function lineRange(text: string, line: number): [number, number] {
   }
   const stop = text.indexOf("\n", from);
   return [from, stop < 0 ? text.length : stop];
+}
+
+/** 고른 글을 링크로 — `[글](https://)` 을 넣고 주소 자리를 골라 둔다. */
+export function insertLink(text: string, start: number, end: number, label: string): Edit {
+  const sel = text.slice(start, end).replace(/\n/g, " ") || label;
+  const out = `[${sel}](https://)`;
+  const at = start + sel.length + 3;
+  return { start, end, text: out, selStart: at, selEnd: at + 8 };
+}
+
+/** 고른 줄들을 코드 블록(```)으로 감싼다. 고른 것이 없으면 지금 줄 아래에 빈 코드 블록을 넣고 그 안에 커서를 둔다. */
+export function insertCodeBlock(text: string, start: number, end: number): Edit {
+  if (start === end) {
+    const stop = text.indexOf("\n", start);
+    const at = stop < 0 ? text.length : stop;
+    return { start: at, end: at, text: "\n\n```\n\n```", selStart: at + 6, selEnd: at + 6 };
+  }
+  const from = text.lastIndexOf("\n", start - 1) + 1;
+  const stop = text.indexOf("\n", end);
+  const to = stop < 0 ? text.length : stop;
+  const body = text.slice(from, to);
+  return { start: from, end: to, text: "```\n" + body + "\n```", selStart: from + 4, selEnd: from + 4 + body.length };
+}
+
+/** 커서가 있는 줄 아래에 블록 한 줄(가로줄 · 쪽 나눔)을 넣는다. */
+export function insertBlockLine(text: string, start: number, line: string): Edit {
+  const stop = text.indexOf("\n", start);
+  const at = stop < 0 ? text.length : stop;
+  const out = `\n\n${line}\n`;
+  return { start: at, end: at, text: out, selStart: at + out.length, selEnd: at + out.length };
 }

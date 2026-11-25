@@ -6,10 +6,12 @@ import { TextSelection, type Command, type EditorState, type Transaction } from 
 import { addRow, CellSelection, mergeCells, selectedRect, TableMap } from "@tiptap/pm/tables";
 
 export type CellAlign = "left" | "center" | "right";
-export type BlockKind = "paragraph" | "docTitle" | "sectionHead" | "blockTitle" | "mdNote" | "list";
+export type BlockKind = "paragraph" | "docTitle" | "sectionHead" | "blockTitle" | "mdNote" | "codeBlock" | "list";
+export type ListKind = "bullet" | "ordered" | "task";
+export type ParagraphAlign = "left" | "center" | "right" | "justify";
 
 const MAX_LEVEL = 3;
-const TEXTBLOCKS = ["paragraph", "docTitle", "sectionHead", "blockTitle", "mdNote"];
+const TEXTBLOCKS = ["paragraph", "docTitle", "sectionHead", "blockTitle", "mdNote", "codeBlock"];
 
 // ───────────── 표 ─────────────
 
@@ -100,39 +102,46 @@ export const toggleCellShade: Command = (state, dispatch) => {
   return true;
 };
 
-/** 아래에 행 넣기 — 머리글 마지막 행 아래에 넣은 행은 본문 칸으로 만들고, 열 정렬을 이어받는다. */
-export const addRowBelow: Command = (state, dispatch) => {
-  let rect;
-  try {
-    rect = selectedRect(state);
-  } catch {
-    return false;
-  }
-  if (dispatch) {
-    const heads = headRows(rect.table);
-    const index = rect.bottom;
-    const tr = addRow(state.tr, rect, index);
-    const table = tr.doc.nodeAt(rect.tableStart - 1);
-    if (table) {
-      const map = TableMap.get(table);
-      const cellType = state.schema.nodes.tableCell;
-      const from = Math.min(table.childCount - 1, index + (index + 1 < table.childCount ? 1 : -1)); // 정렬을 본뜰 본문 행
-      const seen = new Set<number>();
-      for (let col = 0; col < map.width; col++) {
-        const rel = map.map[index * map.width + col];
-        if (seen.has(rel)) continue;
-        seen.add(rel);
-        const node = table.nodeAt(rel);
-        if (!node || map.findCell(rel).top !== index) continue; // 위에서 내려온 합친 칸
-        const model = from >= heads && from !== index ? table.nodeAt(map.map[from * map.width + col]) : null;
-        const type = index >= heads ? cellType : node.type;
-        tr.setNodeMarkup(rect.tableStart + rel, type, { ...node.attrs, align: model?.attrs.align ?? node.attrs.align });
-      }
+/** 행 넣기(아래 · 위) — 머리글 마지막 행 아래에 넣은 행은 본문 칸으로 만들고, 열 정렬을 이어받는다. */
+function addRowAt(side: "above" | "below"): Command {
+  return (state, dispatch) => {
+    let rect;
+    try {
+      rect = selectedRect(state);
+    } catch {
+      return false;
     }
-    dispatch(tr);
-  }
-  return true;
-};
+    if (dispatch) {
+      const heads = headRows(rect.table);
+      const index = side === "below" ? rect.bottom : rect.top;
+      const tr = addRow(state.tr, rect, index);
+      const table = tr.doc.nodeAt(rect.tableStart - 1);
+      if (table) {
+        const map = TableMap.get(table);
+        const cellType = state.schema.nodes.tableCell;
+        const from = Math.min(table.childCount - 1, index + (index + 1 < table.childCount ? 1 : -1)); // 정렬을 본뜰 본문 행
+        const seen = new Set<number>();
+        for (let col = 0; col < map.width; col++) {
+          const rel = map.map[index * map.width + col];
+          if (seen.has(rel)) continue;
+          seen.add(rel);
+          const node = table.nodeAt(rel);
+          if (!node || map.findCell(rel).top !== index) continue; // 위에서 내려온 합친 칸
+          const model = from >= heads && from !== index ? table.nodeAt(map.map[from * map.width + col]) : null;
+          const type = index >= heads ? cellType : node.type;
+          tr.setNodeMarkup(rect.tableStart + rel, type, { ...node.attrs, align: model?.attrs.align ?? node.attrs.align });
+        }
+      }
+      dispatch(tr);
+    }
+    return true;
+  };
+}
+
+/** 아래에 행 넣기. */
+export const addRowBelow: Command = addRowAt("below");
+/** 위에 행 넣기. */
+export const addRowAbove: Command = addRowAt("above");
 
 // ───────────── 목록 ─────────────
 
@@ -166,7 +175,7 @@ export function liftItem(typeName = "paragraph"): Command {
     const nodes = [
       ...(before.length ? [c.list.type.create(null, before)] : []),
       block,
-      ...(after.length ? [c.list.type.create(null, after.map((n, i) => (i === 0 ? n.type.create({ level: 0 }, n.content) : n)))] : []),
+      ...(after.length ? [c.list.type.create(null, after.map((n, i) => (i === 0 ? n.type.create({ ...n.attrs, level: 0 }, n.content) : n)))] : []),
     ];
     if (dispatch) {
       const tr = state.tr.replaceWith(c.listPos, c.listPos + c.list.nodeSize, nodes);
@@ -213,7 +222,9 @@ export const splitItem: Command = (state, dispatch) => {
   if (dispatch) {
     const tr = state.tr;
     if (!empty) tr.deleteSelection();
-    tr.split(tr.mapping.map($from.pos), 1, [{ type: item.type, attrs: { level: item.attrs.level } }]);
+    // 새 항목은 같은 종류(번호 · 할 일)로 — 할 일은 아직 안 한 것으로
+    const attrs = { level: item.attrs.level, ordered: item.attrs.ordered, start: null, checked: item.attrs.checked == null ? null : false };
+    tr.split(tr.mapping.map($from.pos), 1, [{ type: item.type, attrs }]);
     dispatch(tr.scrollIntoView());
   }
   return true;
@@ -356,3 +367,117 @@ export function joinLists(tr: Transaction): void {
     tr.join(at);
   }
 }
+
+// ───────────── 목록 종류 · 문단 정렬 ─────────────
+
+const KIND_ATTRS: Record<ListKind, (a: Record<string, unknown>) => Record<string, unknown>> = {
+  bullet: (a) => ({ ...a, ordered: false, checked: null }),
+  ordered: (a) => ({ ...a, ordered: true, checked: null }),
+  task: (a) => ({ ...a, ordered: false, checked: a.checked ?? false }),
+};
+
+/** 항목의 목록 종류. */
+export function itemKind(node: PMNode): ListKind {
+  if (node.attrs.checked != null) return "task";
+  return node.attrs.ordered ? "ordered" : "bullet";
+}
+
+function itemsIn(doc: PMNode, from: number, to: number): { pos: number; node: PMNode }[] {
+  const out: { pos: number; node: PMNode }[] = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type.name === "mdItem") {
+      out.push({ pos, node });
+      return false;
+    }
+    return node.type.name === "mdList" || node.type.name === "doc";
+  });
+  return out;
+}
+
+/** 지금 커서가 있는 목록 항목의 종류(도구 막대 표시용). 목록 밖이면 null. */
+export function listKind(state: EditorState): ListKind | null {
+  const { $from } = state.selection;
+  return $from.parent.type.name === "mdItem" ? itemKind($from.parent) : null;
+}
+
+/**
+ * 글머리 · 번호 · 할 일 목록으로 만든다. 고른 것이 모두 이미 그 종류의 항목이면 문단으로 되돌린다.
+ * 항목이 아닌 글 블록은 항목으로 바꾼 뒤 종류를 건다.
+ */
+export function setListKind(kind: ListKind): Command {
+  return (state, dispatch) => {
+    const { from, to } = state.selection;
+    const items = itemsIn(state.doc, from, to);
+    let onlyItems = items.length > 0;
+    state.doc.nodesBetween(from, to, (node) => {
+      if (node.isTextblock && node.type.name !== "mdItem") onlyItems = false;
+      return !node.isTextblock && node.type.name !== "table";
+    });
+    if (onlyItems && items.every((i) => itemKind(i.node) === kind)) return setBlockKind("list")(state, dispatch); // 끄기 → 문단
+    if (onlyItems) {
+      if (dispatch) {
+        const tr = state.tr;
+        items.forEach((i) => tr.setNodeMarkup(i.pos, undefined, KIND_ATTRS[kind](i.node.attrs)));
+        dispatch(tr);
+      }
+      return true;
+    }
+    let tr: Transaction | null = null;
+    if (!setBlockKind("list")(state, (t) => (tr = t))) return false;
+    if (dispatch && tr) {
+      const t = tr as Transaction;
+      itemsIn(t.doc, t.selection.from, t.selection.to).forEach((i) => t.setNodeMarkup(i.pos, undefined, KIND_ATTRS[kind](i.node.attrs)));
+      dispatch(t);
+    }
+    return true;
+  };
+}
+
+function paragraphsIn(state: EditorState): { pos: number; node: PMNode }[] {
+  const out: { pos: number; node: PMNode }[] = [];
+  const { from, to } = state.selection;
+  state.doc.nodesBetween(from, to, (node, pos, parent) => {
+    if (node.type.name === "paragraph" && parent?.type.name === "doc") out.push({ pos, node });
+    return parent === null || node.type.name === "doc";
+  });
+  return out;
+}
+
+/** 고른 문단(최상위)의 정렬. 섞여 있으면 null. */
+export function paragraphAlign(state: EditorState): ParagraphAlign | null {
+  const ps = paragraphsIn(state);
+  if (!ps.length) return null;
+  const a = (ps[0].node.attrs.align as ParagraphAlign | null) ?? "left";
+  return ps.every((p) => ((p.node.attrs.align as ParagraphAlign | null) ?? "left") === a) ? a : null;
+}
+
+/** 문단 정렬 — 고른 최상위 문단에 건다(제목 · 목록 · 표는 건드리지 않는다). */
+export function setParagraphAlign(align: ParagraphAlign): Command {
+  return (state, dispatch) => {
+    const ps = paragraphsIn(state);
+    if (!ps.length) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      const value = align === "left" ? null : align;
+      ps.forEach((p) => tr.setNodeMarkup(p.pos, undefined, { ...p.node.attrs, align: value }));
+      dispatch(tr);
+    }
+    return true;
+  };
+}
+
+/** 쪽 나눔 넣기 — 커서가 있는 블록 뒤에. */
+export const insertPageBreak: Command = (state, dispatch) => {
+  const type = state.schema.nodes.pageBreak;
+  if (!type) return false;
+  const { $to } = state.selection;
+  const at = $to.depth ? $to.after(1) : $to.pos;
+  if (dispatch) {
+    const tr = state.tr.insert(at, type.create());
+    const after = at + 1;
+    if (after >= tr.doc.content.size || !tr.doc.nodeAt(after)?.isTextblock) tr.insert(after, state.schema.nodes.paragraph.create());
+    tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(after + 1, tr.doc.content.size))));
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};

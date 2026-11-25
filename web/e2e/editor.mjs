@@ -100,6 +100,8 @@ const caret = (page, needle, { after = true, select = false } = {}) =>
       ed.commands.focus();
       if (select) ed.commands.setTextSelection({ from: at, to: at + needle.length });
       else ed.commands.setTextSelection(at + (after ? needle.length : 0));
+      // 편집기의 focus() 는 한 프레임 뒤에 초점을 옮긴다 — 그 전에 누른 키는 다른 곳(방금 누른 단추 등)으로 간다
+      return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
     },
     needle,
     after,
@@ -235,7 +237,7 @@ console.log("문서 편집기");
   // 끌기를 마친 바로 그 순간에 누르면 가끔 합쳐지지 않았다(사람 손으로는 나오지 않는 빠르기) — 상태를 읽는 틈을 두고, 실패하면 그 상태를 보여 준다
   const dbg = () => page.evaluate(() => {
     const ed = document.querySelector(".ProseMirror").editor;
-    const btn = [...document.querySelectorAll(".table-tools .tool")].find((el) => el.textContent.trim() === "칸 합치기");
+    const btn = [...document.querySelectorAll(".mde-table-bar .mde-btn")].find((el) => el.textContent.trim() === "칸 합치기");
     const r = btn?.getBoundingClientRect();
     const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null;
     return `${ed.state.selection.toJSON().type} btn=${!!btn} disabled=${btn?.disabled} hit=${hit?.textContent?.trim().slice(0, 10)} y=${Math.round(r?.y ?? -1)}`;
@@ -244,7 +246,7 @@ console.log("문서 편집기");
   await sleep(200);
   const dbgBefore = await dbg();
   ok(dbgBefore.startsWith("cell "), "끌어 고른 칸이 그대로 남아 있다", dbgBefore);
-  await clickText(page, ".table-tools .tool", "칸 합치기");
+  await clickText(page, ".mde-table-bar .mde-btn", "칸 합치기");
   const dbgAfter = await dbg();
   await settle();
   const mergedDom = await page.evaluate(() => [...document.querySelectorAll(".ProseMirror td[colspan], .ProseMirror td[rowspan]")].map((e) => e.textContent.trim()).join(","));
@@ -268,14 +270,14 @@ console.log("문서 편집기");
   await page.mouse.up();
   const before = state.md;
   ok((await page.$$eval(".ProseMirror .selectedCell", (els) => els.length)) === 2, "머리글 칸과 본문 칸을 함께 고른다");
-  await clickText(page, ".table-tools .tool", "칸 합치기");
+  await clickText(page, ".mde-table-bar .mde-btn", "칸 합치기");
   await settle();
   ok(state.md === before, "머리글 칸과 본문 칸이 섞이면 합치기를 거부한다");
 
   // 열 정렬 · 칸 음영
   await caret(page, "달성");
-  await clickText(page, ".table-tools .tool", "오른쪽");
-  await clickText(page, ".table-tools .tool", "칸 음영");
+  await clickText(page, ".mde-table-bar .mde-btn", "오른쪽");
+  await clickText(page, ".mde-table-bar .mde-btn", "칸 음영");
   await settle();
   ok(state.md.includes("|:---|:---:|:---:|---:|") && state.md.includes("| {음영}달성{/음영} |"), "열 정렬과 칸 음영");
   ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
@@ -542,7 +544,7 @@ if (!(await (await fetch(`${base}/api/config`)).json()).images) {
 
   // 문서 탭: 그림 단추 → 파일 고르기 → 바로 보이고, 다 올리면 저장소 주소로 바뀐다
   await page.click(".ProseMirror li");
-  const [chooser] = await Promise.all([page.waitForFileChooser(), clickText(page, ".rich .tools .tool", "이미지")]);
+  const [chooser] = await Promise.all([page.waitForFileChooser(), page.click('.rich .mde-btn[data-name="image"]')]);
   const picked = Date.now();
   await chooser.accept([pic]);
   await page.waitForFunction(() => document.querySelector(".ProseMirror figure img")?.naturalWidth > 0, { timeout: 15000 });
@@ -624,39 +626,39 @@ console.log("제목 서식 · 기울임 · 문서 글꼴");
   await settle();
   // 제목 글자를 끌어 골라도 서식 단추가 켜지고, 제목에 서식이 들어간다
   await caret(page, "개요", { select: true });
-  const enabled = await page.$$eval(".rich .tools .tool[aria-pressed], .rich .tools .color-tool", (els) => els.filter((el) => !el.disabled).length);
-  ok(enabled === 5, "제목을 골라도 서식 단추(B · I · U · S · 색)가 켜진다", `켜진 단추 ${enabled}개`);
+  const enabled = await page.$$eval(".rich .mde-btn[data-name]", (els) => els.filter((el) => ["bold", "italic", "underline", "strike", "color", "highlight", "link", "code"].includes(el.dataset.name) && !el.disabled).length);
+  ok(enabled === 8, "제목을 골라도 서식 단추(B · I · U · S · 색 · 형광펜 · 링크 · 코드)가 켜진다", `켜진 단추 ${enabled}개`);
   // 글자 색은 색 메뉴 하나에서 고른다
-  await page.click(".rich .tools .color-tool");
-  await page.waitForSelector('.rich .tools .swatch-btn[data-color="#c00000"]');
-  ok((await page.$$eval(".rich .tools .swatch-btn", (els) => els.length)) === 35 && !!(await page.$('.rich .tools .menu-item[data-color="음영"]')), "색 메뉴에 팔레트 35칸과 음영이 있다");
-  await page.click('.rich .tools .swatch-btn[data-color="#c00000"]'); // 이름 붙은 색과 같은 칸은 {빨강} 으로 쓴다
+  await page.click('.rich .mde-btn[data-name="color"]');
+  await page.waitForSelector('.rich .mde-swatch[data-color="#c00000"]');
+  ok((await page.$$eval(".rich .mde-swatch", (els) => els.length)) === 35 && !!(await page.$('.rich .mde-menu-item[data-color="음영"]')), "색 메뉴에 팔레트 35칸과 음영이 있다");
+  await page.click('.rich .mde-swatch[data-color="#c00000"]'); // 이름 붙은 색과 같은 칸은 {빨강} 으로 쓴다
   await settle();
   ok(state.md.includes("## 1. {빨강}개요{/빨강}"), "섹션 제목의 고른 부분에만 서식이 들어간다", JSON.stringify(state.md));
   ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
   ok((await page.$eval(".paper h2", (el) => el.innerHTML)).includes("color"), "미리보기 제목에도 서식이 보인다");
   // 같은 메뉴의 ‘기본 색’ 으로 색을 지운다 → 다시 빨강
   await caret(page, "개요", { select: true });
-  await page.click(".rich .tools .color-tool");
-  await page.waitForSelector('.rich .tools .swatch-btn[data-color=""]');
-  await page.click('.rich .tools .swatch-btn[data-color=""]');
+  await page.click('.rich .mde-btn[data-name="color"]');
+  await page.waitForSelector('.rich .mde-swatch[data-color=""]');
+  await page.click('.rich .mde-swatch[data-color=""]');
   await settle();
   // (글이 처음과 같아져 미리보기 요청이 캐시에서 나오므로 state.md 대신 편집기를 본다)
   const cleared = await page.$eval(".ProseMirror h2", (el) => el.innerHTML);
   ok(!cleared.includes("data-color"), "색 메뉴의 ‘기본 색’ 으로 글자 색을 지운다", cleared);
   await caret(page, "개요", { select: true });
-  await page.click(".rich .tools .color-tool");
-  await page.waitForSelector('.rich .tools .swatch-btn[data-color="#c00000"]');
-  await page.click('.rich .tools .swatch-btn[data-color="#c00000"]');
+  await page.click('.rich .mde-btn[data-name="color"]');
+  await page.waitForSelector('.rich .mde-swatch[data-color="#c00000"]');
+  await page.click('.rich .mde-swatch[data-color="#c00000"]');
   await settle();
 
   // 색 코드를 직접 넣는다 → {#rrggbb} 태그(소문자)
   await caret(page, "제목 없는", { select: true });
-  await page.click(".rich .tools .color-tool");
-  await page.waitForSelector(".rich .tools .hex-input");
-  await page.click(".rich .tools .hex-input"); // 누르면 코드 전체가 골라진다
+  await page.click('.rich .mde-btn[data-name="color"]');
+  await page.waitForSelector(".rich .mde-hex");
+  await page.click(".rich .mde-hex"); // 누르면 코드 전체가 골라진다
   await page.keyboard.type("#1F8A5C");
-  await page.click(".rich .tools .hex-apply");
+  await page.click('.rich .mde-hex-row button[type="submit"]');
   await settle();
   ok(state.md.startsWith("# {#1f8a5c}제목 없는{/#1f8a5c} 문서\n"), "색 코드를 넣어 아무 글자 색이나 쓴다", JSON.stringify(state.md.slice(0, 60)));
   ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
@@ -664,7 +666,7 @@ console.log("제목 서식 · 기울임 · 문서 글꼴");
 
   // 기울임: 단추 · Ctrl+I
   await caret(page, "여기에 내용을", { select: true });
-  await page.click('.rich .tools .tool[title="기울임 (Ctrl+I)"]');
+  await page.click('.rich .mde-btn[data-name="italic"]');
   await settle();
   ok(state.md.includes("{기울임}여기에 내용을{/기울임}"), "기울임 단추", JSON.stringify(state.md));
   await caret(page, "적으세요", { select: true });
@@ -697,14 +699,14 @@ console.log("제목 서식 · 기울임 · 문서 글꼴");
   ok((await page.$eval(".paper", (el) => getComputedStyle(el).fontFamily)).startsWith('"Nanum Myeongjo"'), "글꼴은 문서와 함께 보관된다");
 
   // 도구 막대의 글꼴 · 글자 크기 — 쪽 설정과 같은 값이다
-  await page.waitForSelector(".rich .tools .font-pick");
-  ok((await page.$eval(".rich .tools .font-pick", (el) => el.value)) === "nanum-myeongjo", "도구 막대 글꼴 칸이 쪽 설정에서 고른 글꼴을 보인다");
+  await page.waitForSelector(".rich .mde-toolbar .font-pick");
+  ok((await page.$eval(".rich .mde-toolbar .font-pick", (el) => el.value)) === "nanum-myeongjo", "도구 막대 글꼴 칸이 쪽 설정에서 고른 글꼴을 보인다");
   let pdfSize = null;
   page.on("request", (r) => {
     if (r.method() === "POST" && r.url().endsWith("/api/md/preview-pages")) pdfSize = JSON.parse(r.postData()).options?.font_size ?? null;
   });
-  await page.select(".rich .tools .font-pick", "nanum-gothic");
-  await page.select(".rich .tools .size-pick", "12");
+  await page.select(".rich .mde-toolbar .font-pick", "nanum-gothic");
+  await page.select(".rich .mde-toolbar .size-pick", "12");
   await settle();
   await sleep(1500);
   const after = await page.evaluate(() => [getComputedStyle(document.querySelector(".paper")).fontFamily, getComputedStyle(document.querySelector(".ProseMirror")).fontFamily]);
@@ -730,7 +732,7 @@ console.log("제목 서식 · 기울임 · 문서 글꼴");
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     }, text);
   await page.evaluate(() => [...document.querySelectorAll(".ProseMirror td")].find((el) => el.textContent.trim() === "298").scrollIntoView({ block: "center" }));
-  ok(!(await page.$(".table-tools")), "  (끌기 전에는 표 도구가 없다)");
+  ok(!(await page.$(".mde-table-bar")), "  (끌기 전에는 표 도구가 없다)");
   const a = await pos("365");
   const b = await pos("88");
   await page.mouse.move(a.x, a.y);
@@ -788,6 +790,126 @@ console.log("영어 화면 · 영어 태그");
   await settle();
   ok(ko.state.md === "# 링크 문서\n\n## 1. 내용\n\n- {red}빨강{/red} 글자\n", "한국어 화면에서도 영어 태그 문서는 영어 태그로 쓴다", JSON.stringify(ko.state.md));
   await ko.context.close();
+}
+
+
+// ───────────────────────── 7. 새 문법 · 미리보기 끄기 ─────────────────────────
+console.log("새 문법 · 미리보기 끄기");
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  await settle();
+  // 문서 탭에서 입력 규칙 · 단추로 번호 목록 · 할 일 · 링크 · 코드 블록 · 쪽 나눔을 만든다 → 서버 표준 꼴과 같다
+  await caret(page, "적으세요.");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("1. 첫째");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("둘째");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("[ ] 할 일");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("링크 글");
+  await caret(page, "링크 글", { select: true });
+  await page.click('.rich .mde-btn[data-name="link"]');
+  await page.waitForSelector(".mde-link-panel input");
+  await page.type(".mde-link-panel input", "https://example.com");
+  await page.keyboard.press("Enter");
+  await caret(page, "링크 글");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("```py ");
+  await page.keyboard.type("print(1)");
+  await page.click('.rich .mde-btn[data-name="pageBreak"]');
+  await page.keyboard.type("다음 쪽 문단"); // 쪽 나눔 뒤에 새 문단이 생기고 커서가 거기로 간다
+  await settle();
+  ok(state.md.includes("- 여기에 내용을 적으세요.\n1. 첫째\n2. 둘째\n- [ ] 할 일"), "번호 목록 · 할 일 목록", JSON.stringify(state.md));
+  ok(state.md.includes("[링크 글](https://example.com)"), "링크", JSON.stringify(state.md));
+  ok(state.md.includes("```py\nprint(1)\n```") && state.md.endsWith("<!-- pagebreak -->\n\n다음 쪽 문단\n"), "코드 블록 · 쪽 나눔", JSON.stringify(state.md));
+  ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
+  await page.waitForFunction(() => document.querySelectorAll(".paper .md-item[data-num]").length === 2, { timeout: 10000 }).catch(() => {});
+  ok((await page.$$eval(".paper .md-item[data-num]", (els) => els.map((e) => e.dataset.num).join())) === "1,2", "미리보기에도 번호가 보인다");
+  ok(!!(await page.$(".paper pre.md-code")) && !!(await page.$(".paper a[href='https://example.com']")), "미리보기에 코드 블록 · 링크");
+  // 쪽 나눔 → PDF 쪽 수가 늘어난다
+  await page.waitForFunction(() => /2/.test(document.querySelector(".pane.right .pane-info b")?.textContent ?? ""), { timeout: 10000 }).catch(() => {});
+  ok((await page.$eval(".pane.right .pane-info b", (el) => el.textContent)).includes("2"), "쪽 나눔이 쪽 배치에 반영된다", await page.$eval(".pane.right .pane-info b", (el) => el.textContent));
+
+  // 미리보기 끄기 — 편집 창이 넓어지고, 다시 열어도 기억한다
+  await page.click(".preview-toggle");
+  ok(await page.$eval(".work", (el) => el.dataset.preview === "off"), "미리보기 끄기");
+  ok(await page.$eval(".pane.right", (el) => getComputedStyle(el).display === "none"), "  └ 오른쪽 창이 사라진다");
+  const wide = await page.$eval(".pane.left", (el) => el.getBoundingClientRect().width);
+  ok(wide > 1300, "  └ 편집 창이 화면을 다 쓴다", String(wide));
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForSelector(".ProseMirror");
+  ok(await page.$eval(".work", (el) => el.dataset.preview === "off"), "  └ 다시 열어도 꺼져 있다");
+  await page.click(".preview-toggle");
+  await page.waitForSelector(".paper");
+  ok(await page.$eval(".work", (el) => el.dataset.preview === "on"), "미리보기 다시 켜기");
+
+  // MD 탭의 새 단추 — 번호 · 링크 · 코드 블록
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdedit textarea");
+  await setMd(page, "# T\n\n가\n나\n");
+  await page.evaluate(() => {
+    const ta = document.querySelector(".mdedit textarea");
+    ta.focus();
+    ta.setSelectionRange(ta.value.indexOf("가"), ta.value.length - 1);
+  });
+  await clickText(page, ".mdpane .tool", "번호");
+  await settle();
+  ok(state.md === "# T\n\n1. 가\n1. 나\n", "MD 탭 번호 단추", JSON.stringify(state.md));
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
+// 자동 쪽 나눔 — 미리보기와 같은 쪽 경계를 문서 탭에도 그린다(켜고 끈다)
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  await settle();
+  const parts = ["# 긴 문서"];
+  for (let s = 1; s <= 3; s++) {
+    parts.push(`## ${s}. 섹션`, `### 목록 ${s}\n` + Array.from({ length: 30 }, (_, i) => `- 항목 ${s}-${i + 1}`).join("\n"));
+    parts.push(`### 표 ${s}\n| 번호 | 내용 |\n|---|---|\n` + Array.from({ length: 60 }, (_, i) => `| ${i + 1} | 내용 ${i + 1} |`).join("\n"));
+  }
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdedit textarea");
+  await setMd(page, parts.join("\n\n") + "\n");
+  await sleep(1500);
+  await clickText(page, ".pane.left .tab", "문서");
+  await page.waitForSelector(".ProseMirror");
+  await page.waitForFunction(() => document.querySelectorAll(".paper .pagemark").length > 3, { timeout: 15000 });
+  ok(!(await page.$(".ProseMirror .mde-pagemark")), "자동 쪽 나눔은 처음에 꺼져 있다");
+  await page.click(".marks-toggle");
+  await page.waitForFunction(() => document.querySelectorAll(".ProseMirror .mde-pagemark").length > 3, { timeout: 15000 });
+  const labels = (sel) => page.$$eval(sel, (els) => els.map((e) => e.textContent.trim()));
+  const inPreview = await labels(".paper .pagemark");
+  const inEditor = await labels(".ProseMirror .mde-pagemark");
+  ok(JSON.stringify(inEditor) === JSON.stringify(inPreview), "켜면 문서 탭에도 미리보기와 같은 쪽 경계가 그려진다", JSON.stringify([inEditor, inPreview]));
+  const order = await page.$$eval(".ProseMirror .mde-pagemark", (els) => els.map((e) => Number(e.dataset.page)));
+  ok(order.every((p, i) => p === i + 2), "  └ 2쪽부터 차례로", JSON.stringify(order));
+  ok((await page.$eval(".rich .mde-status", (el) => el.textContent)).includes(`전체 ${inPreview.length + 1}쪽`), "  └ 글자 수 줄에 전체 쪽 수");
+  const inTable = await page.$$eval(".ProseMirror tr.mde-pagemark-row", (els) => els.length);
+  const inList = await page.$$eval(".ProseMirror .md-list > .mde-pagemark", (els) => els.length);
+  const previewRows = await page.$$eval(".paper tr.pagemark-row", (els) => els.length);
+  ok(inTable === previewRows, "  └ 표 행 사이 경계도 같다", `${inTable} / ${previewRows} (목록 안 ${inList})`);
+  // 글을 고쳐도 커서 · 저장 글에 경계가 끼지 않는다
+  await caret(page, "항목 2-5");
+  await page.keyboard.type("!");
+  await settle();
+  ok(state.md.includes("- 항목 2-5!\n") && !/\d쪽/.test(state.md), "경계는 문서 글에 들어가지 않는다", JSON.stringify(state.md.split("\n").filter((l) => l.includes("2-5") || /\d쪽/.test(l)).slice(0, 4)));
+  ok(!(await drift(state.md)), "  └ 서버 표준 꼴과 같다", await drift(state.md));
+  // 미리보기를 꺼도 쪽 경계는 계속 계산해 그린다 · 다시 열어도 켜져 있다
+  await page.click(".preview-toggle");
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForFunction(() => document.querySelectorAll(".ProseMirror .mde-pagemark").length > 3, { timeout: 15000 });
+  ok(await page.$eval(".work", (el) => el.dataset.preview === "off"), "미리보기를 꺼도 문서 탭에 쪽 경계가 그려진다(다시 열어도 켜져 있다)");
+  await page.click(".marks-toggle");
+  await sleep(100);
+  ok(!(await page.$(".ProseMirror .mde-pagemark")), "끄면 쪽 경계가 사라진다");
+  await page.click(".preview-toggle");
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
 }
 
 await browser.close();
