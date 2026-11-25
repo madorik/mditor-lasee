@@ -15,6 +15,11 @@
 - [Home](%PUBLIC_URL%/en/): overview and FAQ ([Korean](%PUBLIC_URL%/))
 - [Syntax guide](%PUBLIC_URL%/en/syntax): the Markdown dialect — headings and blocks, inline tags such as `{red}…{/red}` or `{#1f8a5c}…{/#1f8a5c}`, merged table cells written with `<` and `^`, images, and page-break rules ([Korean](%PUBLIC_URL%/syntax))
 
+## Editor library and source
+
+- [npm package `@watalabs/lasee-mditor`](https://www.npmjs.com/package/@watalabs/lasee-mditor): the same document editor as a browser library (MIT). Use it with a bundler (ESM), React, or a single `<script>` tag; `@watalabs/lasee-mditor/core` parses and writes the Markdown dialect without a UI.
+- [Source code on GitHub](https://github.com/madorik/mditor-lasee): the web service, the PDF renderer, and the editor package.
+
 ## Optional
 
 - [Privacy policy](%PUBLIC_URL%/en/privacy) ([Korean](%PUBLIC_URL%/privacy))

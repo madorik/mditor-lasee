@@ -38,6 +38,7 @@ EN: dict[str, str] = {
     ),
     "그림이 너무 큽니다. 합쳐서 {mb}MB 까지 붙일 수 있습니다.": "The images are too large. You can attach up to {mb} MB in total.",
     "요청이 너무 큽니다.": "The request is too large.",
+    "요청 본문을 풀지 못했습니다.": "Couldn’t decompress the request body.",
     "요청이 너무 잦습니다. 잠시 뒤에 다시 해 주세요.": "Too many requests. Please try again in a moment.",
     "더 새 요청이 있어 건너뛰었습니다.": "Skipped because a newer request arrived.",
     "문서가 커서 쪽 계산을 잠시 쉽니다. 조금 뒤에 다시 계산합니다.": "The document is large, so page layout is paused for a moment. It will be recalculated shortly.",

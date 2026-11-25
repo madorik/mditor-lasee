@@ -6,7 +6,7 @@ import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } 
 import { CellSelection, tableEditingKey, TableMap } from "@tiptap/pm/tables";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { headRows } from "./commands";
-import { pmToDoc, type DocTrace } from "./convert";
+import { jsonOf, pmToDoc, type DocTrace } from "./convert";
 
 // ───────────── 번호 목록 ─────────────
 
@@ -207,7 +207,7 @@ export type PagePlace = { pos: number; page: number; kind: "block" | "item" | "r
 /** 쪽 경계 → 편집기 문서의 자리(그 노드 바로 앞). */
 export function pageMarkPlaces(doc: PMNode, marks: PageMarks): PagePlace[] {
   const trace: DocTrace = { sections: [], blocks: [] };
-  pmToDoc(doc.toJSON(), "ko", trace);
+  pmToDoc(jsonOf(doc), "ko", trace);
   const offsets: number[] = [];
   doc.forEach((_, off) => offsets.push(off));
   const childPos = (parent: number, index: number) => {

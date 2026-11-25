@@ -20,6 +20,7 @@ import os
 import re
 import threading
 import time
+import zlib
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -170,6 +171,53 @@ class _BodyLimit:
         await self.app(scope, limited, send)
 
 
+class _Gunzip:
+    """gzip 으로 줄여 보낸 요청 본문(Content-Encoding: gzip)을 푼다(ASGI).
+
+    큰 문서는 미리보기 요청 하나가 수 MB(글 + 기준 문서 JSON)라, 화면이 줄여 보낸다(보통 5~10배 작아진다).
+    풀린 크기도 본문 한도(limit)를 넘지 못한다 — 작게 줄인 폭탄으로 메모리를 채우지 못하게.
+    """
+
+    def __init__(self, app: Any, limit: int) -> None:
+        self.app, self.limit = app, limit
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        headers = scope.get("headers") or []
+        encoding = next((v for k, v in headers if k == b"content-encoding"), b"").strip().lower()
+        if encoding != b"gzip":
+            return await self.app(scope, receive, send)
+        scope = {**scope, "headers": [(k, v) for k, v in headers if k not in (b"content-encoding", b"content-length")]}
+        done = False
+
+        async def inflated() -> Any:
+            nonlocal done
+            if done:
+                return await receive()
+            chunks: list[bytes] = []
+            while True:
+                message = await receive()
+                if message["type"] != "http.request":
+                    return message
+                chunks.append(message.get("body") or b"")
+                if not message.get("more_body"):
+                    break
+            done = True
+            unzip = zlib.decompressobj(16 + zlib.MAX_WBITS)
+            try:
+                data = unzip.decompress(b"".join(chunks), self.limit + 1)
+            except zlib.error as e:
+                raise HTTPException(400, t("요청 본문을 풀지 못했습니다.")) from e
+            if len(data) > self.limit or unzip.unconsumed_tail:
+                raise HTTPException(413, t("요청이 너무 큽니다."))
+            if not unzip.eof:
+                raise HTTPException(400, t("요청 본문을 풀지 못했습니다."))
+            return {"type": "http.request", "body": data, "more_body": False}
+
+        await self.app(scope, inflated, send)
+
+
 def _safe_name(name: str | None, fallback: str) -> str:
     stem = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", (name or "").strip()).strip(" .")[:80]
     return stem or fallback
@@ -206,7 +254,8 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
 
     app = FastAPI(title="MDitor LaSee", version=__version__, lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
                   openapi_url="/api/openapi.json")
-    app.add_middleware(_BodyLimit, limit=settings.max_body_bytes)
+    app.add_middleware(_Gunzip, limit=settings.max_body_bytes)  # 안쪽 — 풀린 본문을 앱에 넘긴다
+    app.add_middleware(_BodyLimit, limit=settings.max_body_bytes)  # 줄인 채로 온 크기를 먼저 본다
     app.add_middleware(_Lang)  # 바깥쪽 — 본문 한도 문구도 요청 언어로
     app.router.routes.extend(mcp_app.routes)  # /mcp 를 그대로 붙인다(리다이렉트 없이)
 

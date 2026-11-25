@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import copy
+import hashlib
+import json
 import re
 import secrets
+import threading
 import time
 import zlib
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -63,8 +68,30 @@ def stats(doc: dict[str, Any]) -> dict[str, int]:
     }
 
 
+_LAYOUTS: OrderedDict[str, dict[str, Any]] = OrderedDict()  # 같은 문서 · 설정의 쪽 배치(미리보기를 껐다 켜기, 탭 오가기 …)
+_LAYOUTS_LOCK = threading.Lock()
+_LAYOUTS_MAX = 16
+
+
 def layout(doc: dict[str, Any], options: Any = None, images: Any = None, image_sizes: Any = None) -> dict[str, Any]:
-    return render.render(doc, _options(options), images, image_sizes)[1]
+    """쪽 배치만 — PDF 를 그리지 않고 놓을 자리만 계산한다. 같은 문서 · 설정이면 앞서 낸 결과를 돌려준다(그림 바이트가 없을 때)."""
+    opts = _options(options)
+    key = None
+    if not images:
+        raw = json.dumps([doc, opts.to_json(), image_sizes or {}], ensure_ascii=False, sort_keys=True, default=str)
+        key = hashlib.sha256(raw.encode()).hexdigest()
+        with _LAYOUTS_LOCK:
+            hit = _LAYOUTS.get(key)
+            if hit is not None:
+                _LAYOUTS.move_to_end(key)
+                return copy.deepcopy(hit)
+    lay = render.render(doc, opts, images, image_sizes, draw=False)[1]
+    if key is not None:
+        with _LAYOUTS_LOCK:
+            _LAYOUTS[key] = copy.deepcopy(lay)
+            while len(_LAYOUTS) > _LAYOUTS_MAX:
+                _LAYOUTS.popitem(last=False)
+    return lay
 
 
 def pdf(doc: dict[str, Any], options: Any = None, images: Any = None, image_sizes: Any = None) -> tuple[bytes, dict[str, Any]]:

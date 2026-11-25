@@ -9,20 +9,20 @@
     <link rel="stylesheet" href="../dist/style.css" />
     <style>
       body { margin: 0; padding: 16px; background: #e8ecef; }
-      #editor { height: 70vh; }
+      #mditor { height: 70vh; }
     </style>
   </head>
   <body>
-    <div id="editor"></div>
+    <div id="mditor"></div>
     <script src="../dist/lasee-mditor.umd.js"></script>
     <script>
-      const editor = LaSeeMDitor.createEditor({
-        element: document.getElementById("editor"),
+      const mditor = LaSeeMDitor.createMDitor({
+        element: document.getElementById("mditor"),
         markdown: "# script 태그로 쓰기\n\n- 프레임워크 없이\n- [ ] 할 일\n\n1. 번호\n2. 목록\n",
         preview: true,
         onChange: (md) => console.log(md),
       });
-      window.editor = editor;
+      window.mditor = mditor;
     </script>
   </body>
 </html>

@@ -22,15 +22,15 @@
     ],
     "paths": {
       "@watalabs/lasee-mditor": [
-        "./packages/editor/src/index.ts"
+        "./packages/lasee-mditor/src/index.ts"
       ],
       "@watalabs/lasee-mditor/*": [
-        "./packages/editor/src/*"
+        "./packages/lasee-mditor/src/*"
       ]
     }
   },
   "include": [
     "src",
-    "packages/editor/src"
+    "packages/lasee-mditor/src"
   ]
 }

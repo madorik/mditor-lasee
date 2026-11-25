@@ -66,13 +66,51 @@ const CLIENT = (() => {
 /** 서버가 '더 새 요청이 있어 건너뛰었다'(409) · '큰 문서라 잠시 쉰다'(429) 고 답했는가 — 화면은 다음 요청에서 다시 받는다. */
 export const isBusy = (e: unknown): boolean => e instanceof ApiError && (e.status === 409 || e.status === 429);
 
-async function post(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
-  let res: Response;
+/**
+ * 이보다 큰 요청은 gzip 으로 줄여 보낸다. 큰 문서의 미리보기 요청은 글에 기준 문서(JSON)까지 실려 수 MB 가 되는데,
+ * 줄이면 보통 5~10배 작아진다(느린 업로드에서 멈출 때마다 몇 초씩 걸리던 것, 호스팅의 본문 한도에 닿던 것).
+ */
+const GZIP_OVER = 64 * 1024;
+let gzipOk = typeof CompressionStream !== "undefined";
+
+async function gzip(text: string): Promise<ArrayBuffer> {
+  return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+}
+
+/** 줄여 보낸 본문을 서버까지 가는 길에서 풀지 못했는가 — 풀지 못한 본문(400), 압축을 모르는 곳(415), 압축 표시만 떼인 본문(JSON 이 깨져 검사 오류 목록이 온 422). */
+async function unzipFailed(res: Response): Promise<boolean> {
+  if (res.status === 400 || res.status === 415) return true;
+  if (res.status !== 422) return false;
   try {
-    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang, "X-Mditor-Client": CLIENT }, body: JSON.stringify(body), signal });
-  } catch (e) {
-    if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError(t("서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요."), 0);
+    return Array.isArray((await res.clone().json()).detail);
+  } catch {
+    return false;
+  }
+}
+
+async function post(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+  const json = JSON.stringify(body);
+  const headers: Record<string, string> = { "Content-Type": "application/json", "Accept-Language": lang, "X-Mditor-Client": CLIENT };
+  const send = async (payload: BodyInit, hs: Record<string, string>): Promise<Response> => {
+    try {
+      return await fetch(path, { method: "POST", headers: hs, body: payload, signal });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw e;
+      throw new ApiError(t("서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요."), 0);
+    }
+  };
+  let packed: ArrayBuffer | null = null;
+  if (gzipOk && json.length > GZIP_OVER) {
+    try {
+      packed = await gzip(json);
+    } catch {
+      gzipOk = false;
+    }
+  }
+  let res = packed ? await send(packed, { ...headers, "Content-Encoding": "gzip" }) : await send(json, headers);
+  if (packed && !res.ok && (await unzipFailed(res))) {
+    gzipOk = false; // 이 창에서는 더 줄이지 않는다
+    res = await send(json, headers);
   }
   return res.ok ? res : fail(res);
 }

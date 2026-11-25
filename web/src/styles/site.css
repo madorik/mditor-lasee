@@ -137,7 +137,8 @@ body.site {
   font-size: 18px;
 }
 
-.hero .actions {
+.hero .actions,
+.band .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;

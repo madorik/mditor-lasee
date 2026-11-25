@@ -123,3 +123,40 @@ describe("표", () => {
     expect(tableMd(t)).toEqual(["| 머리 |", "|---|", "| 위<br>아래 |"]);
   });
 });
+
+describe("고치지 않은 블록은 다시 변환하지 않는다(jsonOf)", () => {
+  // 실제 편집처럼 거래를 이어 가며, 기억을 쓴 결과가 매번 새로 변환한 결과와 같은지 본다
+  it("표 칸 · 항목 · 문단을 고쳐도 기억해 둔 변환과 새 변환이 같다", async () => {
+    const { EditorState, TextSelection } = await import("@tiptap/pm/state");
+    const { jsonOf } = await import("./convert");
+    let state = EditorState.create({ schema, doc: schema.nodeFromJSON(toPM(fixture.doc as Doc)) });
+    expect(jsonOf(state.doc)).toEqual(state.doc.toJSON());
+    expect(fromPM(jsonOf(state.doc))).toBe(fixture.md);
+
+    // 글이 있는 자리마다(표 칸 · 항목 · 문단 · 제목) 차례로 글자를 넣는다
+    const spots: number[] = [];
+    state.doc.descendants((n, pos) => {
+      if (n.isTextblock && n.textContent) spots.push(pos + 1 + Math.min(2, n.content.size));
+    });
+    expect(spots.length).toBeGreaterThan(20);
+    for (const [k, at] of spots.entries()) {
+      const before = jsonOf(state.doc);
+      const tr = state.tr.setSelection(TextSelection.create(state.doc, at + k)).insertText(k % 2 ? "가" : "*");
+      state = state.apply(tr);
+      const after = jsonOf(state.doc);
+      expect(fromPM(after)).toBe(fromPM(state.doc.toJSON())); // 기억을 쓴 변환 = 새 변환
+      expect(fromPM(after, "en")).toBe(fromPM(state.doc.toJSON(), "en"));
+      // 고치지 않은 최상위 블록은 같은 JSON 객체다
+      const same = after.content!.filter((c, i) => c === before.content![i]).length;
+      expect(same).toBeGreaterThanOrEqual(after.content!.length - 1);
+    }
+  });
+
+  it("쓰는 쪽이 넘긴 JSON 은 기억하지 않는다 — 고친 뒤 다시 넘기면 고친 대로 나온다", () => {
+    const json = toPM({ title: "", dialect: "ko", sections: [{ key: "s1", title: "", blocks: [{ id: "b1", kind: "text", title: null, text: "하나", notes: [] }] }] });
+    expect(fromPM(json)).toContain("하나");
+    const para = json.content!.find((n) => n.type === "paragraph")!;
+    para.content![0].text = "둘";
+    expect(fromPM(json)).toContain("둘");
+  });
+});

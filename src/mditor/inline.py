@@ -1,6 +1,6 @@
 """글 서식 규칙.
 
-web/packages/editor/src/core/inline.ts 와 **같은 규칙**이다(화면 쪽이 기준 구현이다). 고치면 둘 다 고친다
+web/packages/lasee-mditor/src/core/inline.ts 와 **같은 규칙**이다(화면 쪽이 기준 구현이다). 고치면 둘 다 고친다
 (공유 기준 파일 tests/test_fixture.py 가 잡는다).
 
 읽기  segments(s)  : 서식 문자열 → 조각(글자 + 링크·굵게·취소선·기울임·밑줄·음영·형광펜·색·첨자·코드)
@@ -28,6 +28,7 @@ canon(s) = write(normalize(segments(s)))  — 저장하는 문자열은 언제�
 
 from __future__ import annotations
 
+import functools
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
@@ -664,9 +665,21 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
     return result
 
 
+def _canon(s: str, ctx: str | None, dialect: str) -> str:
+    return write(normalize(segments(s)), ctx, dialect)
+
+
+# 고치는 동안 문서의 대부분 줄은 그대로다 — 줄마다의 결과를 기억해 두면 다음 되읽기는 바뀐 줄만 계산한다.
+# 큰 문서(40만 자 ≈ 3만 줄)가 통째로 들어가도록 넉넉히, 긴 줄은 담지 않아 메모리를 묶어 둔다(최악 수십 MB).
+_canon_cached = functools.lru_cache(maxsize=32768)(_canon)
+_CANON_CACHE_LEN = 400
+
+
 def canon(s: str, ctx: str | None = None, dialect: str = "ko") -> str:
     """서식 문자열을 표준 꼴로."""
-    return write(normalize(segments(s)), ctx, dialect)
+    if len(s) > _CANON_CACHE_LEN:
+        return _canon(s, ctx, dialect)
+    return _canon_cached(s, ctx, dialect)
 
 
 def _one_space(segs: Iterable[Seg]) -> list[Seg]:

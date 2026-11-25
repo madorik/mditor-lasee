@@ -1,6 +1,6 @@
 """합성 문서 — 문법의 모서리를 모두 담는다. 실데이터가 아니다.
 
-서버 테스트가 이 MD 로 공유 기준 파일(web/packages/editor/src/fixture.json)을 만들고,
+서버 테스트가 이 MD 로 공유 기준 파일(web/packages/lasee-mditor/src/fixture.json)을 만들고,
 화면 테스트(vitest)는 ``문서 → 편집기 → MD`` 가 같은 MD 인지 본다.
 """
 

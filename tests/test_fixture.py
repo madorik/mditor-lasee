@@ -15,7 +15,7 @@ from mditor.settings import example_md
 
 from .synthetic import INLINE, MD
 
-PATH = Path(__file__).resolve().parents[1] / "web" / "packages" / "editor" / "src" / "fixture.json"
+PATH = Path(__file__).resolve().parents[1] / "web" / "packages" / "lasee-mditor" / "src" / "fixture.json"
 CTX = (None, "cell", "para", "item")
 EXAMPLE_EN = Path(__file__).resolve().parents[1] / "src" / "mditor" / "data" / "example.en.md"
 

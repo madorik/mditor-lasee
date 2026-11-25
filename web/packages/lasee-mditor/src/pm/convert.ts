@@ -4,6 +4,7 @@
 // 그 출력은 서버 doc_md 와 **바이트 단위로 같아야** 한다(convert.test.ts 가 공유 기준 파일로 확인한다).
 
 import type { JSONContent } from "@tiptap/core";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import { cellShade, normalize, oneSpace, pyStrip, segments, SPACES, tag, write, type Ctx, type Dialect, type Seg, type TextAlign } from "../core/inline";
 import { finishItems, oneLine } from "../core/parse";
 import { spans } from "../core/table";
@@ -112,6 +113,50 @@ export function toPM(doc: Doc): JSONContent {
 
 // ───────────── 편집기 → 문서 → MD ─────────────
 
+// 고치지 않은 블록은 다시 변환하지 않는다. ProseMirror 는 고치지 않은 노드를 다음 판에서도 같은 객체로 쓴다 —
+// 노드마다 JSON 을 기억하면(jsonOf) 고치지 않은 문단 · 항목 · 표 칸은 같은 JSON 객체가 되고, 그 객체에 묶어 둔
+// 서식 변환 결과를 그대로 쓴다. 큰 문서에서 글자 하나 칠 때 문서 전체를 다시 변환하던 것을 바뀐 블록만으로 줄인다.
+// 기억은 jsonOf 가 만든 객체에만 묶는다 — 쓰는 쪽이 넘긴 JSON 은 나중에 고칠 수 있으므로 기억하지 않는다.
+const jsonCache = new WeakMap<PMNode, JSONContent>();
+const fromEditor = new WeakSet<object>();
+const memo = new WeakMap<object, Map<string, unknown>>();
+
+/** 편집기 노드 → JSON(node.toJSON() 과 같은 꼴). 같은 노드면 같은 객체다 — 돌려받은 JSON 은 고치지 않는다. */
+export function jsonOf(node: PMNode): JSONContent {
+  const hit = jsonCache.get(node);
+  if (hit) return hit;
+  let j: JSONContent;
+  if (node.isTextblock || node.isLeaf) {
+    j = node.toJSON() as JSONContent;
+  } else {
+    j = { type: node.type.name };
+    for (const _ in node.attrs) {
+      j.attrs = node.attrs;
+      break;
+    }
+    if (node.childCount) {
+      const content: JSONContent[] = [];
+      node.forEach((child) => content.push(jsonOf(child)));
+      j.content = content;
+    }
+    if (node.marks.length) j.marks = node.marks.map((m) => m.toJSON());
+  }
+  fromEditor.add(j);
+  if (j.content) fromEditor.add(j.content);
+  jsonCache.set(node, j);
+  return j;
+}
+
+function remember<T>(key: object | undefined, name: string, make: () => T): T {
+  if (!key || !fromEditor.has(key)) return make();
+  let m = memo.get(key);
+  if (!m) memo.set(key, (m = new Map()));
+  if (m.has(name)) return m.get(name) as T;
+  const value = make();
+  m.set(name, value);
+  return value;
+}
+
 function segsOf(content: JSONContent[] | undefined): Seg[] {
   const out: Seg[] = [];
   for (const n of content ?? []) {
@@ -137,16 +182,20 @@ function segsOf(content: JSONContent[] | undefined): Seg[] {
 }
 
 export function inlineToMd(content: JSONContent[] | undefined, ctx: Ctx = null, dialect: Dialect = "ko"): string {
-  return write(normalize(segsOf(content)), ctx, dialect);
+  return remember(content, `i${ctx}|${dialect}`, () => write(normalize(segsOf(content)), ctx, dialect));
 }
 
 /** 제목 노드 → 제목의 표준 꼴(서버 inline.title 과 같다). */
 export function titleToMd(content: JSONContent[] | undefined, dialect: Dialect = "ko"): string {
-  return write(normalize(oneSpace(segsOf(content))), null, dialect);
+  return remember(content, `t|${dialect}`, () => write(normalize(oneSpace(segsOf(content))), null, dialect));
 }
 
 /** 표 노드 → 문서의 표(머리글 · 본문 · 열 정렬). 합친 칸은 점유 격자를 만들고, 숨은 칸이 기준 칸과 같은 행이면 `<`, 아니면 `^`. */
 export function tableData(t: JSONContent, dialect: Dialect = "ko"): { head: string[][]; rows: string[][]; align: Align[] } {
+  return remember(t, `T|${dialect}`, () => tableDataNow(t, dialect));
+}
+
+function tableDataNow(t: JSONContent, dialect: Dialect): { head: string[][]; rows: string[][]; align: Align[] } {
   const shade = tag("음영", dialect);
   const rows = t.content ?? [];
   const grid: (string | undefined)[][] = rows.map(() => []);
@@ -161,12 +210,14 @@ export function tableData(t: JSONContent, dialect: Dialect = "ko"): { head: stri
       while (grid[r][c] !== undefined) c++;
       const cs = Math.max(1, Number(cell.attrs?.colspan ?? 1));
       const rs = Math.max(1, Number(cell.attrs?.rowspan ?? 1));
-      const segs: Seg[] = [];
-      (cell.content ?? []).forEach((p, i) => {
-        if (i) segs.push({ text: "\n" });
-        segs.push(...segsOf(p.content));
+      const text = remember(cell, `c|${dialect}`, () => {
+        const segs: Seg[] = [];
+        (cell.content ?? []).forEach((p, i) => {
+          if (i) segs.push({ text: "\n" });
+          segs.push(...segsOf(p.content));
+        });
+        return write(normalize(segs), "cell", dialect);
       });
-      const text = write(normalize(segs), "cell", dialect);
       for (let dr = 0; dr < rs && r + dr < rows.length; dr++) {
         for (let dc = 0; dc < cs; dc++) {
           grid[r + dr][c + dc] = dr === 0 && dc === 0 ? (cell.attrs?.shade ? `{${shade}}${text}{/${shade}}` : text) : dr === 0 ? "<" : "^";

@@ -161,3 +161,38 @@ def test_too_long_document_is_refused_before_any_work(tmp_path):
         for path in ("/api/md/preview", "/api/md/preview-pages", "/api/md/preview-pdf"):
             r = c.post(path, json={"md": "가" * 1001, "live": True})
             assert r.status_code == 413 and "1,000자까지" in r.json()["detail"], path
+
+
+def _gz(body: dict) -> bytes:
+    import gzip
+
+    return gzip.compress(json.dumps(body, ensure_ascii=False).encode())
+
+
+GZ = {"Content-Type": "application/json", "Content-Encoding": "gzip"}
+
+
+def test_gzip_request_body(client):
+    """화면은 큰 요청을 gzip 으로 줄여 보낸다 — 풀어서 그대로 처리한다."""
+    plain = client.post("/api/md/preview", json={"md": example_md()}).json()
+    packed = client.post("/api/md/preview", content=_gz({"md": example_md()}), headers=GZ)
+    assert packed.status_code == 200 and packed.json() == plain
+    pages = client.post("/api/md/preview-pages", content=_gz({"md": example_md(), "live": True}), headers=GZ).json()
+    assert pages["ok"] and pages["layout"]["total"] == 2
+    bad = client.post("/api/md/preview", content=b"not gzip", headers=GZ)
+    assert bad.status_code == 400
+    cut = client.post("/api/md/preview", content=_gz({"md": example_md()})[:-12], headers=GZ)  # 끝이 잘린 본문
+    assert cut.status_code == 400
+
+
+def test_gzip_bomb_is_rejected(tmp_path):
+    """작게 줄인 본문도 풀린 크기가 한도를 넘으면 받지 않는다."""
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "index.html").write_text("<html><head><!--mditor:head--></head><body></body></html>", encoding="utf-8")
+    settings = Settings(public_url="https://mditor.test", web_dir=web, cache_dir=tmp_path / "c", ai_enabled=False, max_body_bytes=200_000)
+    with TestClient(api.create_app(settings)) as c:
+        body = _gz({"md": "가" * 50_000 + "\n" + " " * 1_000_000})
+        assert len(body) < 20_000
+        r = c.post("/api/md/preview", content=body, headers=GZ)
+        assert r.status_code == 413

@@ -316,3 +316,67 @@ def test_list_page_report_covers_new_items():
     pages = pages_text(render.render(doc)[0])
     first_on_next = block["continues"][0]["item"]
     assert f"{first_on_next}.항목{first_on_next}번내용" in pages[1]
+
+
+# ───────── 쪽 계산(그리지 않고 배치만) ─────────
+
+_LAYOUT_DOCS = [
+    example_md(),
+    MD,
+    long_doc(),
+    "## 가\n\n"
+    + "\n\n".join(f"문단 {i}번 내용이 이어진다." for i in range(1, 25))
+    + "\n\n![설명](a.png)\n\n```py\n"
+    + "\n".join(f"print({i})  # 줄 {i}" for i in range(1, 90))
+    + "\n```\n\n<!-- pagebreak -->\n\n### 새 쪽\n1. 하나\n- [x] 끝\n\n---\n\n{가운데}가운데{/가운데}\n",
+]
+
+
+@pytest.mark.parametrize(
+    "opts",
+    [
+        Options(),
+        Options(font_size=13),
+        Options(landscape=True, page="Letter"),
+        Options(section_break=True, page_numbers=True, font="nanum-myeongjo", margin_mm=30),
+    ],
+)
+def test_layout_only_is_the_same_as_the_drawn_pdf(opts):
+    """쪽 계산은 그리지 않고 배치만 한다 — 그 결과가 실제로 그린 PDF 의 배치와 같아야 화면의 쪽 경계가 PDF 와 맞는다."""
+    sizes = {"a.png": [800, 500]}
+    for text in _LAYOUT_DOCS:
+        doc = md.apply_md(None, text)
+        drawn_pdf, drawn = render.render(doc, opts, image_sizes=sizes)
+        only_pdf, only = render.render(doc, opts, image_sizes=sizes, draw=False)
+        assert only == drawn and only_pdf == b""
+        assert drawn["total"] == len(PdfReader(io.BytesIO(drawn_pdf)).pages)
+
+
+def test_layout_only_leaves_drawing_intact():
+    """배치만 한 뒤에도(도중에 실패했더라도) PDF 는 그대로 그린다."""
+    from reportlab.platypus import Flowable
+
+    original = Flowable.drawOn
+    render.render(md.apply_md(None, long_doc()), draw=False)
+    assert Flowable.drawOn is original
+    with pytest.raises(RuntimeError):
+        with render._no_drawing():
+            assert Flowable.drawOn is not original
+            raise RuntimeError
+    assert Flowable.drawOn is original
+    pdf, _ = render.render(md.apply_md(None, MD))
+    assert "굵게굵고취소다시굵게" in "".join(pages_text(pdf))
+
+
+def test_core_layout_reuses_the_same_request():
+    from mditor import core
+
+    doc = md.apply_md(None, long_doc())
+    core._LAYOUTS.clear()
+    first = core.layout(doc, {"font_size": 11})
+    first["total"] = -1  # 돌려준 값을 고쳐도 기억해 둔 값은 그대로다
+    again = core.layout(doc, {"font_size": 11})
+    assert again == render.render(doc, Options(font_size=11))[1] and again["total"] > 0
+    assert len(core._LAYOUTS) == 1
+    core.layout(doc, {"font_size": 12})
+    assert len(core._LAYOUTS) == 2

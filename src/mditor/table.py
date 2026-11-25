@@ -1,6 +1,6 @@
 """표 칸 합치기.
 
-web/packages/editor/src/core/table.ts 와 **같은 규칙**이다. 고치면 둘 다 고친다.
+web/packages/lasee-mditor/src/core/table.ts 와 **같은 규칙**이다. 고치면 둘 다 고친다.
 
 칸에 ``<`` 만 있으면 왼쪽 칸과, ``^`` 만 있으면 위 칸과 합친다. 행마다 칸 수가 그대로라 일반 MD 표로도 읽힌다.
 - 머리글과 본문은 따로 합친다(이 함수는 한쪽 격자만 받는다).

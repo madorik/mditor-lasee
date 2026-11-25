@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { t } from "../lib/i18n";
 import { hostedName, imageSrc } from "../lib/images";
 import { cellShade, colorCss, itemNumbers, MARK, safeHref, segments, SHADE, spans } from "@watalabs/lasee-mditor/core";
@@ -172,7 +172,8 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
  * 화면 미리보기 — 문서(JSON)를 HTML 로 그리고, 서버가 PDF 를 그려 본 쪽 배치로 'n쪽' 경계를 넣는다.
  * 쪽은 여기서 계산하지 않는다.
  */
-export function Preview({ doc, layout, changes, images, options }: { doc: Doc; layout: PageLayout | null; changes: Changes | null; images: Record<string, StoredImage>; options: Options }) {
+/** 미리보기 — 받는 값(되읽은 문서 · 쪽 배치 …)이 그대로면 다시 그리지 않는다. 편집기에서 글자를 칠 때마다 큰 문서 전체를 다시 그리지 않게. */
+export const Preview = memo(function Preview({ doc, layout, changes, images, options }: { doc: Doc; layout: PageLayout | null; changes: Changes | null; images: Record<string, StoredImage>; options: Options }) {
   const desk = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [wmm, hmm] = paperSize(options);
@@ -234,4 +235,4 @@ export function Preview({ doc, layout, changes, images, options }: { doc: Doc; l
       {layout && <p className="paper-foot">{layout.total === 1 ? t("PDF 로 내면 1쪽입니다. 쪽 경계는 PDF 를 실제로 그려 본 자리입니다.") : t("PDF 로 내면 {n}쪽입니다. 쪽 경계는 PDF 를 실제로 그려 본 자리입니다.", { n: layout.total })}</p>}
     </div>
   );
-}
+});

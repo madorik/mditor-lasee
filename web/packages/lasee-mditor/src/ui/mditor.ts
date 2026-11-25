@@ -1,6 +1,6 @@
 // 편집기 화면 — 프레임워크 없이 쓰는 Markdown 편집기.
 //
-//   const editor = createEditor({ element, markdown, onChange: (md) => … });
+//   const mditor = createMDitor({ element, markdown, onChange: (md) => … });
 //
 // 도구 막대 · 찾아 바꾸기 · 표/코드 도구 · MD 원문 보기 · 미리보기(켜고 끄기) · 전체 화면 · 글자 수를 갖춘다.
 
@@ -31,7 +31,7 @@ import {
   type ListKind,
   type ParagraphAlign,
 } from "../pm/commands";
-import { fromPM, pmToDoc, toPM } from "../pm/convert";
+import { fromPM, jsonOf, pmToDoc, toPM } from "../pm/convert";
 import { FindReplace, findKey, PageMarksExtension, replaceAll, replaceOne, setFind, setPageMarksMeta, stepFind, type PageMarks } from "../pm/plugins";
 import { richExtensions } from "../pm/schema";
 import { h, popover, type PopoverHost } from "./dom";
@@ -39,10 +39,10 @@ import { icon } from "./icons";
 import { fill, messagesFor, type Locale, type Messages } from "./messages";
 import { ALIGNS, alignPanel, colorGlyph, colorPanel, imagePanel, linkPanel, specialCharsPanel, tableGrid } from "./panels";
 
-export type EditorMode = "wysiwyg" | "source";
+export type MDitorMode = "wysiwyg" | "source";
 
 /** 도구 막대 항목 — 이름(아래 DEFAULT_TOOLBAR 참고), "|"(구분선), 또는 직접 그리는 항목. */
-export type ToolbarItem = string | { name: string; render: (editor: MarkdownEditor) => HTMLElement };
+export type ToolbarItem = string | { name: string; render: (editor: MDitor) => HTMLElement };
 
 export const DEFAULT_TOOLBAR: ToolbarItem[] = [
   "undo", "redo", "|",
@@ -65,7 +65,7 @@ export type ImageOptions = {
   pick?: () => void;
 };
 
-export type MarkdownEditorOptions = {
+export type MDitorOptions = {
   /** 편집기를 넣을 요소. */
   element: HTMLElement;
   /** 처음 열 MD. */
@@ -88,7 +88,7 @@ export type MarkdownEditorOptions = {
    */
   pageMarks?: boolean;
   /** 처음 모드 — 문서(wysiwyg) 또는 MD 원문(source). */
-  mode?: EditorMode;
+  mode?: MDitorMode;
   /** 글자 수 줄(기본 true). */
   statusbar?: boolean;
   /** 고칠 수 있는가(기본 true). */
@@ -99,7 +99,7 @@ export type MarkdownEditorOptions = {
   contentClass?: string;
   image?: ImageOptions;
   /** 글이 바뀔 때마다(MD). */
-  onChange?: (markdown: string, editor: MarkdownEditor) => void;
+  onChange?: (markdown: string, editor: MDitor) => void;
   /**
    * 문서(MD) 길이 한도. 붙이면 이 길이를 넘는 붙여넣기는 받지 않는다(한 번에 큰 글을 붙여 서버 · 브라우저가 무거워지지 않게).
    * 손으로 치는 글은 막지 않는다.
@@ -113,9 +113,9 @@ export type MarkdownEditorOptions = {
   extensions?: AnyExtension[];
 };
 
-type Events = { change: (md: string) => void; mode: (mode: EditorMode) => void; preview: (on: boolean) => void; fullscreen: (on: boolean) => void; pagemarks: (on: boolean) => void };
+type Events = { change: (md: string) => void; mode: (mode: MDitorMode) => void; preview: (on: boolean) => void; fullscreen: (on: boolean) => void; pagemarks: (on: boolean) => void };
 
-export interface MarkdownEditor {
+export interface MDitor {
   /** 속의 TipTap 편집기. */
   readonly tiptap: Editor;
   readonly element: HTMLElement;
@@ -132,9 +132,9 @@ export interface MarkdownEditor {
   replaceImage(from: string, to: string | null): void;
   /** 그림 주소 풀이(resolve)가 바뀌었을 때 그림을 다시 그린다. */
   refreshImages(): void;
-  getMode(): EditorMode;
+  getMode(): MDitorMode;
   /** 모드를 바꾼다. MD 원문 → 문서가 실패하면(읽을 수 없는 MD) false. */
-  setMode(mode: EditorMode): boolean;
+  setMode(mode: MDitorMode): boolean;
   isPreview(): boolean;
   setPreview(on: boolean): void;
   /** 쪽 경계 자리를 넘긴다(null 이면 지운다). 새 경계가 오기 전까지는 글을 고쳐도 경계가 글을 따라 움직인다. */
@@ -169,14 +169,14 @@ function readDataUrl(file: File): Promise<string> {
   });
 }
 
-export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
+export function createMDitor(options: MDitorOptions): MDitor {
   const msg = messagesFor(options.locale ?? "ko", options.messages);
   const contentClass = options.contentClass ?? "mde-doc";
   const localeDialect: Dialect = options.locale === "en" ? "en" : "ko";
   const img = options.image ?? {};
   let dialect: Dialect = options.dialect ?? (options.doc?.dialect ?? (options.markdown ? dialectOf(options.markdown) : null) ?? localeDialect);
   const dialectFixed = !!options.dialect;
-  let mode: EditorMode = "wysiwyg";
+  let mode: MDitorMode = "wysiwyg";
   let previewOn = !!options.preview;
   let fullscreen = false;
   let marksVisible = !!options.pageMarks;
@@ -407,11 +407,11 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
   });
 
   // ───── MD · 미리보기 · 글자 수
-  let md = initialError ? (options.markdown ?? "") : fromPM(editor.getJSON(), dialect);
+  let md = initialError ? (options.markdown ?? "") : fromPM(jsonOf(editor.state.doc), dialect);
   let previewTimer = 0;
 
   const changed = () => {
-    md = fromPM(editor.getJSON(), dialect);
+    md = fromPM(jsonOf(editor.state.doc), dialect);
     emit("change", md);
     options.onChange?.(md, api);
     schedulePreview();
@@ -421,7 +421,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
   const renderPreview = () => {
     if (!previewOn) return;
     try {
-      const doc = mode === "source" ? parseMarkdown(md, dialect) : pmToDoc(editor.getJSON(), dialect);
+      const doc = mode === "source" ? parseMarkdown(md, dialect) : pmToDoc(jsonOf(editor.state.doc), dialect);
       previewDoc.innerHTML = renderHtml(doc, { resolveImage });
     } catch (e) {
       previewDoc.textContent = e instanceof MdError ? errorText(e) : String(e);
@@ -867,7 +867,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
     }
   });
 
-  const applyMode = (next: EditorMode) => {
+  const applyMode = (next: MDitorMode) => {
     mode = next;
     root.dataset.mode = next;
     scroll.hidden = next === "source";
@@ -880,7 +880,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
   };
 
   // ───── 밖으로 내놓는 손잡이
-  const api: MarkdownEditor = {
+  const api: MDitor = {
     get tiptap() {
       return editor;
     },
@@ -892,16 +892,16 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
       const doc = parseMarkdown(markdown, dialect);
       showError(null);
       editor.commands.setContent(toPM(doc), { emitUpdate: false });
-      md = fromPM(editor.getJSON(), dialect);
+      md = fromPM(jsonOf(editor.state.doc), dialect);
       if (mode === "source") source.value = markdown;
       schedulePreview();
       updateStatus();
     },
-    getDoc: () => (mode === "source" ? parseMarkdown(md, dialect) : pmToDoc(editor.getJSON(), dialect)),
+    getDoc: () => (mode === "source" ? parseMarkdown(md, dialect) : structuredClone(pmToDoc(jsonOf(editor.state.doc), dialect))), // 바깥에 내주는 값 — 편집기가 기억해 둔 변환 결과와 나눠 쓰지 않는다
     setDoc(doc: Doc) {
       if (!dialectFixed && doc.dialect) dialect = doc.dialect;
       editor.commands.setContent(toPM(doc), { emitUpdate: false });
-      md = fromPM(editor.getJSON(), dialect);
+      md = fromPM(jsonOf(editor.state.doc), dialect);
       if (mode === "source") source.value = md;
       schedulePreview();
       updateStatus();
@@ -947,7 +947,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
       schedulePreview();
     },
     getMode: () => mode,
-    setMode(next: EditorMode) {
+    setMode(next: MDitorMode) {
       if (next === mode) return true;
       pops.current?.close();
       if (next === "source") {
@@ -969,7 +969,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
       }
       showError(null);
       const before = md;
-      md = fromPM(editor.getJSON(), dialect);
+      md = fromPM(jsonOf(editor.state.doc), dialect);
       applyMode("wysiwyg");
       if (md !== before) {
         emit("change", md);
@@ -1017,7 +1017,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
     setDialect(d: Dialect) {
       if (d === dialect) return;
       dialect = d;
-      if (mode === "wysiwyg") md = fromPM(editor.getJSON(), dialect);
+      if (mode === "wysiwyg") md = fromPM(jsonOf(editor.state.doc), dialect);
     },
     slot: (name) => slots[name],
     focus: () => (mode === "source" ? source.focus() : editor.commands.focus()),

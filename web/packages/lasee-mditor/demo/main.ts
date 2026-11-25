@@ -1,4 +1,4 @@
-import { createEditor, type MarkdownEditor } from "../src/index";
+import { createMDitor, type MDitor } from "../src/index";
 import "../src/style.css";
 
 const SAMPLE = `# 편집기 데모
@@ -30,7 +30,7 @@ const SAMPLE = `# 편집기 데모
 ## 4. 코드 · 가로줄 · 쪽 나눔
 
 \`\`\`ts
-const editor = createEditor({ element, markdown });
+const mditor = createMDitor({ element, markdown });
 \`\`\`
 
 ---
@@ -41,16 +41,16 @@ const editor = createEditor({ element, markdown });
 `;
 
 const out = document.querySelector<HTMLPreElement>("#out")!;
-const host = document.querySelector<HTMLDivElement>("#editor")!;
+const host = document.querySelector<HTMLDivElement>("#mditor")!;
 let locale: "ko" | "en" = "ko";
 let editable = true;
-let ed: MarkdownEditor;
+let ed: MDitor;
 
 function mount(markdown: string) {
   ed?.destroy();
-  ed = createEditor({ element: host, markdown, locale, preview: true, placeholder: locale === "ko" ? "여기에 쓰세요" : "Start writing", onChange: (md) => (out.textContent = md) });
+  ed = createMDitor({ element: host, markdown, locale, preview: true, placeholder: locale === "ko" ? "여기에 쓰세요" : "Start writing", onChange: (md) => (out.textContent = md) });
   out.textContent = ed.getMarkdown();
-  (window as unknown as { editor: MarkdownEditor }).editor = ed;
+  (window as unknown as { mditor: MDitor }).mditor = ed;
 }
 
 mount(SAMPLE);

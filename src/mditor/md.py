@@ -2,7 +2,7 @@
 
 원본은 구조 문서(JSON)이고 MD 는 편집 표현이다. MD 파서는 여기 하나뿐이다 —
 화면(TipTap)은 MD 를 직접 파싱하지 않고 ``apply_md`` 가 되읽은 문서를 받아 연다.
-쓰기 · 읽기 규칙은 화면 쪽 web/packages/editor/src/core/{parse,write}.ts 와 **같다**(화면 쪽이 기준 구현이다).
+쓰기 · 읽기 규칙은 화면 쪽 web/packages/lasee-mditor/src/core/{parse,write}.ts 와 **같다**(화면 쪽이 기준 구현이다).
 고치면 둘 다 고친다(공유 기준 파일 tests/test_fixture.py 가 잡는다).
 
 문서 = {title, sections: [{key, title, blocks: [블록]}], dialect}   dialect: 문서의 태그 언어("ko" | "en")

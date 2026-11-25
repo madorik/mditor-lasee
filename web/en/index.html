@@ -184,6 +184,35 @@
       </section>
       -->
 
+      <section class="band desk" id="lasee-mditor">
+        <div class="wrap cols2">
+          <div>
+            <h2>Put this editor in your app</h2>
+            <p class="intro" style="margin-bottom:18px">
+              LaSee’s document editor is available as an npm package. You get the same toolbar, tables with merged cells, text colors and preview — and you get Markdown back.
+              It runs in the browser with no server, and works with React or a single &lt;script&gt; tag. MIT licensed.
+            </p>
+            <div class="actions">
+              <a class="button ghost" href="https://www.npmjs.com/package/@watalabs/lasee-mditor">View on npm</a>
+              <a class="button ghost" href="https://github.com/madorik/mditor-lasee">View on GitHub</a>
+            </div>
+          </div>
+          <div class="codebox">
+<pre>$ npm i @watalabs/lasee-mditor
+
+import { createMDitor } from "@watalabs/lasee-mditor";
+import "@watalabs/lasee-mditor/style.css";
+
+const mditor = createMDitor({
+  element: document.querySelector("#mditor"),
+  markdown: "# Meeting notes\n\n- First item",
+  preview: true,
+  onChange: (md) =&gt; save(md),
+});</pre>
+          </div>
+        </div>
+      </section>
+
       <section class="band">
         <div class="wrap">
           <h2>Frequently asked questions</h2>
@@ -233,6 +262,8 @@
         <!-- 숨김(2026-11-13, 개발자 안내는 당분간 내놓지 않는다) — 다시 보이려면 이 주석을 푼다: <a href="/en/developers">Developers</a> -->
         <a href="/en/privacy">Privacy</a>
         <a href="/en/terms">Terms</a>
+        <a href="https://github.com/madorik/mditor-lasee">GitHub</a>
+        <a href="https://www.npmjs.com/package/@watalabs/lasee-mditor">npm</a>
         <a href="/" hreflang="ko" lang="ko">한국어</a>
       </div>
     </footer>

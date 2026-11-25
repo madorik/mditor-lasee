@@ -1,6 +1,6 @@
 {
   "name": "@watalabs/lasee-mditor",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Markdown document editor — edit what you see, keep Markdown as the source. Toolbar, tables with merged cells, lists, code blocks, find & replace, source mode, preview.",
   "license": "MIT",
   "author": "WataLabs (https://watalabs.com)",
@@ -8,7 +8,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/madorik/mditor-lasee.git",
-    "directory": "web/packages/editor"
+    "directory": "web/packages/lasee-mditor"
   },
   "bugs": {
     "url": "https://github.com/madorik/mditor-lasee/issues"

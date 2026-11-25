@@ -1,6 +1,6 @@
-import { DEFAULT_TOOLBAR, type MarkdownEditor, type PageMarks, type ToolbarItem } from "@watalabs/lasee-mditor";
+import { DEFAULT_TOOLBAR, type MDitor, type PageMarks, type ToolbarItem } from "@watalabs/lasee-mditor";
 import "@watalabs/lasee-mditor/style.css";
-import { MarkdownEditorView } from "@watalabs/lasee-mditor/react";
+import { MDitorView } from "@watalabs/lasee-mditor/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { lang } from "../lib/i18n";
@@ -29,7 +29,7 @@ export default function RichEditor({ doc, dialect, maxLength, maxPaste, onTooLon
   onFile.current = onImageFile;
   const tooLong = useRef(onTooLong);
   tooLong.current = onTooLong;
-  const [editor, setEditor] = useState<MarkdownEditor | null>(null);
+  const [editor, setEditor] = useState<MDitor | null>(null);
   const [fontSlot] = useState(() => document.createElement("span"));
 
   const toolbar = useMemo<ToolbarItem[]>(() => {
@@ -64,7 +64,7 @@ export default function RichEditor({ doc, dialect, maxLength, maxPaste, onTooLon
 
   return (
     <>
-      <MarkdownEditorView
+      <MDitorView
         className="rich"
         doc={doc}
         dialect={dialect}

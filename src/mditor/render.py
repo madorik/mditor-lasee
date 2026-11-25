@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
 import threading
 from dataclasses import asdict, dataclass
@@ -30,6 +31,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (
     BaseDocTemplate,
     CondPageBreak,
@@ -405,6 +407,29 @@ class KeepBlock(Flowable):
         return [FrameBreak(), *self._content]
 
 
+class _NoFileCanvas(Canvas):
+    """쪽 배치만 볼 때의 캔버스 — PDF 파일을 만들지 않는다(쪽 내용 묶기 · 글꼴 넣기 · 인코딩을 건너뛴다)."""
+
+    def save(self) -> None:
+        pass
+
+
+def _skip_draw(self: Any, canvas: Any, x: float, y: float, _sW: float = 0) -> None:  # noqa: N803 — reportlab 이름
+    pass
+
+
+@contextlib.contextmanager
+def _no_drawing() -> Any:
+    """쪽 배치만 볼 때 글 · 표 · 그림을 그리지 않는다. 놓을 자리는 wrap · split 이 정하므로 배치는 그대로다
+    (그리기는 칠하기만 한다 — test_render 의 '배치만 = 그린 PDF 의 배치' 가 지킨다). _LOCK 안에서만 쓴다."""
+    original = Flowable.drawOn
+    Flowable.drawOn = _skip_draw  # type: ignore[method-assign]
+    try:
+        yield
+    finally:
+        Flowable.drawOn = original  # type: ignore[method-assign]
+
+
 class _Doc(BaseDocTemplate):
     def __init__(self, *args: Any, **kw: Any) -> None:
         super().__init__(*args, **kw)
@@ -650,7 +675,7 @@ def _figure(b: dict[str, Any], images: dict[str, Any], sizes: dict[str, Any], av
 
 
 def _build(
-    doc: dict[str, Any], opts: Options, images: dict[str, Any] | None, sizes: dict[str, Any] | None
+    doc: dict[str, Any], opts: Options, images: dict[str, Any] | None, sizes: dict[str, Any] | None, draw: bool = True
 ) -> tuple[bytes, dict[str, Any]]:
     _register()
     font, bold = _family(opts.font)
@@ -757,7 +782,11 @@ def _build(
     frame = Frame(margin, margin + foot, frame_w, frame_h, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     pdf.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=on_page)])
     try:
-        pdf.build(story)
+        if draw:
+            pdf.build(story)
+        else:
+            with _no_drawing():
+                pdf.build(story, canvasmaker=_NoFileCanvas)
     except LayoutError as e:
         raise RenderError(t("문서를 쪽에 배치하지 못했습니다. 한 쪽보다 큰 그림이나 표 머리글이 있는지 확인하세요.")) from e
     layout = pdf.layout
@@ -767,7 +796,7 @@ def _build(
             first = next((layout["blocks"].get(b["id"]) for b in s.get("blocks") or [] if b["id"] in layout["blocks"]), None)
             if first:
                 layout["sections"][s["key"]] = first
-    return buf.getvalue(), layout
+    return (buf.getvalue() if draw else b""), layout
 
 
 def render(
@@ -775,12 +804,14 @@ def render(
     options: Options | None = None,
     images: dict[str, Any] | None = None,
     image_sizes: dict[str, Any] | None = None,
+    *,
+    draw: bool = True,
 ) -> tuple[bytes, dict[str, Any]]:
-    """문서 → (PDF 바이트, 쪽 배치).
+    """문서 → (PDF 바이트, 쪽 배치). draw=False 면 그리지 않고 쪽 배치만 낸다(PDF 바이트는 b"", 두 배쯤 빠르다).
 
     쪽 배치 = {sections: {key: 쪽}, blocks: {id: 쪽}, items: {블록id: {순번: 쪽}},
               rows: {블록id: {조각의 첫 본문 행: 쪽}}, total}
     images: {이름: 바이트 | data URI}. image_sizes: {이름: [가로px, 세로px]} — 바이트 없이 자리만 잡을 때.
     """
     with _LOCK:
-        return _build(doc, options or Options(), images, image_sizes)
+        return _build(doc, options or Options(), images, image_sizes, draw)
