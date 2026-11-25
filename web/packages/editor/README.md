@@ -1,4 +1,4 @@
-# @mditor/editor
+# @watalabs/lasee-mditor
 
 보이는 모양 그대로 고치고, 원본은 **Markdown** 으로 남기는 문서 편집기.
 [MDitor LaSee](https://lasee.watalabs.com) 의 편집기를 떼어 낸 라이브러리다. 서버 없이 브라우저에서 돈다.
@@ -15,7 +15,7 @@
 ## 설치
 
 ```bash
-npm install @mditor/editor
+npm install @watalabs/lasee-mditor
 ```
 
 > 지금은 저장소 안(`web/packages/editor`)에서만 쓴다. npm 에 내는 법은 아래 ‘묶기 · 내기’.
@@ -25,8 +25,8 @@ npm install @mditor/editor
 ### 프레임워크 없이(ESM)
 
 ```ts
-import { createEditor } from "@mditor/editor";
-import "@mditor/editor/style.css";
+import { createEditor } from "@watalabs/lasee-mditor";
+import "@watalabs/lasee-mditor/style.css";
 
 const editor = createEditor({
   element: document.querySelector("#editor")!,
@@ -43,19 +43,19 @@ editor.setMarkdown("## 새 글\n");
 ### `<script>` 하나로(UMD)
 
 ```html
-<link rel="stylesheet" href="https://unpkg.com/@mditor/editor/dist/style.css" />
-<script src="https://unpkg.com/@mditor/editor/dist/mditor-editor.umd.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@watalabs/lasee-mditor/dist/style.css" />
+<script src="https://unpkg.com/@watalabs/lasee-mditor/dist/lasee-mditor.umd.js"></script>
 <div id="editor" style="height: 600px"></div>
 <script>
-  const editor = MDitorEditor.createEditor({ element: document.getElementById("editor"), markdown: "# 안녕\n" });
+  const editor = LaSeeMDitor.createEditor({ element: document.getElementById("editor"), markdown: "# 안녕\n" });
 </script>
 ```
 
 ### React
 
 ```tsx
-import { MarkdownEditorView } from "@mditor/editor/react";
-import "@mditor/editor/style.css";
+import { MarkdownEditorView } from "@watalabs/lasee-mditor/react";
+import "@watalabs/lasee-mditor/style.css";
 
 function Page() {
   const [md, setMd] = useState("# 제목\n");
@@ -68,7 +68,7 @@ function Page() {
 ### 화면 없이(읽기 · 쓰기 · HTML)
 
 ```ts
-import { parseMarkdown, docToMarkdown, renderHtml } from "@mditor/editor/core"; // TipTap 을 싣지 않는다
+import { parseMarkdown, docToMarkdown, renderHtml } from "@watalabs/lasee-mditor/core"; // TipTap 을 싣지 않는다
 
 const doc = parseMarkdown(md);   // MD → 문서(JSON). 고칠 곳이 있으면 MdError(line, code)
 docToMarkdown(doc);              // 문서 → 표준 꼴 MD
@@ -206,12 +206,19 @@ editor.setPageMarksVisible(true);             // 또는 도구 막대 항목 "pa
 
 ```bash
 cd web/packages/editor
-npm run build      # dist/: index.js · core.js · react.js(ESM) + mditor-editor.umd.js + style.css + types/
+npm run build      # dist/: index.js · core.js · react.js(ESM) + lasee-mditor.umd.js + style.css + types/
 npm run dev        # demo/ — 서버 없이 돌려 보기
 cd ../.. && npx vitest run packages   # 시험(서버와 같은 결과인지 공유 기준 파일로 확인)
 ```
 
-npm 에 낼 때: `package.json` 의 `"private": true` 를 빼고, 이름(`@mditor/editor`)과 라이선스를 정한 뒤 `npm publish --access public`.
+npm 에 낼 때(라이선스 MIT, 공개 설정은 `package.json` 에 들어 있다):
+1. `npm login` — 이 패키지를 낼 npm 계정으로.
+2. npmjs.com 에서 `watalabs` 조직을 만들고(공개 패키지는 무료) 그 계정을 넣는다. 이 패키지는 그 조직의 스코프(`@watalabs/…`)로 나간다.
+3. 이 폴더에서 `npm publish` — 내기 전에 저절로 묶는다(`prepublishOnly`). 무엇이 올라가는지는 `npm pack --dry-run` 으로 본다.
+
+## 라이선스
+
+MIT — [`LICENSE`](LICENSE)
 
 ## 구조
 

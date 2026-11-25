@@ -5,7 +5,7 @@ import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
 import { DEFAULT_MAX_FILE_BYTES, droppedImages, imageName, imageSrc, preload, prepareImage, readImage } from "../lib/images";
 import { FONT_CSS, loadFont } from "../lib/fonts";
-import { dialectOf, parseMarkdown, type Dialect } from "@mditor/editor/core";
+import { dialectOf, parseMarkdown, type Dialect } from "@watalabs/lasee-mditor/core";
 import { editorMarks } from "../lib/pages";
 import { encodeLink } from "../lib/share";
 import { isPersistent, putDoc, withVersion, type StoredDoc } from "../lib/store";

@@ -55,7 +55,7 @@ function preloadEditor(): Plugin {
 export default defineConfig({
   plugins: [react(), cleanUrls(), preloadEditor()],
   // 편집기 패키지(web/packages/editor)는 소스를 바로 쓴다 — npm 으로 낼 때는 그 폴더에서 따로 묶는다
-  resolve: { alias: { "@mditor/editor": resolve(import.meta.dirname, "packages/editor/src") } },
+  resolve: { alias: { "@watalabs/lasee-mditor": resolve(import.meta.dirname, "packages/editor/src") } },
   build: {
     rollupOptions: { input: Object.fromEntries(entries.map((p) => [p, resolve(import.meta.dirname, `${p}.html`)])) },
   },

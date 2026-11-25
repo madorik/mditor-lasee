@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
 import { t } from "../lib/i18n";
 import { droppedImages } from "../lib/images";
-import { tag, type Dialect } from "@mditor/editor/core";
+import { tag, type Dialect } from "@watalabs/lasee-mditor/core";
 import { insertBlockLine, insertBreak, insertCodeBlock, insertLink, insertTable, lineRange, prefixLines, wrapSelection, type Edit } from "../lib/mdedit";
 import type { MdError, Options } from "../lib/types";
 import { FontPicker } from "./Dialogs";

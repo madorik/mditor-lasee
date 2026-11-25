@@ -1,11 +1,11 @@
-import { DEFAULT_TOOLBAR, type MarkdownEditor, type PageMarks, type ToolbarItem } from "@mditor/editor";
-import "@mditor/editor/style.css";
-import { MarkdownEditorView } from "@mditor/editor/react";
+import { DEFAULT_TOOLBAR, type MarkdownEditor, type PageMarks, type ToolbarItem } from "@watalabs/lasee-mditor";
+import "@watalabs/lasee-mditor/style.css";
+import { MarkdownEditorView } from "@watalabs/lasee-mditor/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { lang } from "../lib/i18n";
 import { imageSrc } from "../lib/images";
-import type { Dialect } from "@mditor/editor/core";
+import type { Dialect } from "@watalabs/lasee-mditor/core";
 import type { StoredImage } from "../lib/store";
 import type { Doc, Options } from "../lib/types";
 import { FontPicker } from "./Dialogs";
@@ -17,7 +17,7 @@ export type ImageApi = { insert: (src: string) => void; replace: (from: string, 
 const HIDDEN = new Set(["source", "preview", "fullscreen"]);
 
 /**
- * 문서 탭 — 보이는 모양 그대로 고친다(편집기 패키지 @mditor/editor).
+ * 문서 탭 — 보이는 모양 그대로 고친다(편집기 패키지 @watalabs/lasee-mditor).
  * 서버가 되읽은 문서(doc)로 열고, 고칠 때마다 MD 로 직렬화해 올린다. 밖에서 MD 가 바뀌면 부모가 key 를 올려 새로 연다.
  */
 export default function RichEditor({ doc, dialect, maxLength, maxPaste, onTooLong, pageMarks, showPageMarks, images, options, onOptions, onChange, onPickImage, onImageFile, register }: { doc: Doc; dialect: Dialect; maxLength: number; maxPaste: number; onTooLong: (kind: "paste" | "document", length: number) => void; pageMarks: PageMarks | null; showPageMarks: boolean; images: Record<string, StoredImage>; options: Options; onOptions: (o: Options) => void; onChange: (md: string) => void; onPickImage: () => void; onImageFile: (file: File) => void; register: (api: ImageApi | null) => void }) {

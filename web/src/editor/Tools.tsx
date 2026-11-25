@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { t } from "../lib/i18n";
-import { colorCss, INLINE_COLORS, SHADE } from "@mditor/editor/core";
+import { colorCss, INLINE_COLORS, SHADE } from "@watalabs/lasee-mditor/core";
 import { Menu } from "./ui";
 
 // 색 팔레트 — 7칸 × 5줄. 첫 칸("")은 기본 색(색 지우기). 빨강 · 파랑 · 회색 칸은 이름 태그({빨강})로 쓴다.

@@ -1,7 +1,7 @@
 // 쪽 경계 — 화면은 쪽을 짐작하지 않는다. 서버가 PDF 를 그려 본 결과(PageLayout)에서
 // 쪽 번호가 바뀌는 자리를 찾아 그 앞에 'n쪽' 경계를 그린다.
 
-import type { PageMarks } from "@mditor/editor";
+import type { PageMarks } from "@watalabs/lasee-mditor";
 import type { Doc, PageLayout } from "./types";
 
 export type BlockPages = {

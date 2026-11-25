@@ -21,10 +21,10 @@
       "vite/client"
     ],
     "paths": {
-      "@mditor/editor": [
+      "@watalabs/lasee-mditor": [
         "./packages/editor/src/index.ts"
       ],
-      "@mditor/editor/*": [
+      "@watalabs/lasee-mditor/*": [
         "./packages/editor/src/*"
       ]
     }

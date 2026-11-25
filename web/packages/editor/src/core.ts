@@ -1,6 +1,6 @@
-// @mditor/editor/core — 화면 없이 쓰는 부분(브라우저 · Node 어디서나). TipTap 을 싣지 않는다.
+// @watalabs/lasee-mditor/core — 화면 없이 쓰는 부분(브라우저 · Node 어디서나). TipTap 을 싣지 않는다.
 //
-//   import { parseMarkdown, docToMarkdown, renderHtml } from "@mditor/editor/core";
+//   import { parseMarkdown, docToMarkdown, renderHtml } from "@watalabs/lasee-mditor/core";
 
 export { parseMarkdown, parseBlocks, splitCells, MAX_LEVEL, MAX_COLS } from "./core/parse";
 export { docToMarkdown, blockMd, sectionMd, itemLines, codeFence } from "./core/write";

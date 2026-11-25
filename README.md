@@ -8,10 +8,11 @@
   한국어(`/`)와 영어(`/en/`)로 낸다.
 - **MCP 서버** — AI 에이전트가 같은 문법으로 문서를 쓰고, 검사하고, 쪽 배치를 보고, PDF 로 낸다.
 - **HTTP API** — 같은 기능을 직접 부른다.
-- **편집기 라이브러리** `@mditor/editor` (`web/packages/editor`) — 웹 서비스의 문서 편집기를 떼어 낸 것. 서버 없이 돌고,
+- **편집기 라이브러리** `@watalabs/lasee-mditor` (`web/packages/editor`) — 웹 서비스의 문서 편집기를 떼어 낸 것. 서버 없이 돌고,
   npm(ESM) · `<script>`(UMD) · React 로 쓴다. 자세한 것은 [`web/packages/editor/README.md`](web/packages/editor/README.md).
 
-웹 서비스의 이름은 **MDitor LaSee**(한국어로는 **MDitor 라씨**)다. 문서 형식과 MCP 서버·패키지 이름은 `MDitor`/`mditor` 그대로 둔다.
+웹 서비스의 이름은 **MDitor LaSee**(한국어로는 **MDitor 라씨**)다. 문서 형식과 MCP 서버·Python 패키지 이름은 `MDitor`/`mditor` 그대로 둔다.
+npm 으로 내는 편집기는 회사 스코프의 **`@watalabs/lasee-mditor`** 다(npm 의 `mditor` 는 이미 다른 사람의 마크다운 편집기라 쓰지 않는다).
 
 셋 다 같은 파서와 렌더러(`src/mditor`)를 쓴다. 그래서 사람이 화면에서 보는 쪽과 에이전트가 보는 쪽과 PDF 의 쪽이 같다.
 
@@ -93,18 +94,18 @@ node web/e2e/editor.mjs       # 헤드리스 크롬으로 편집 화면 조작(�
 
 ## 편집기 패키지
 
-`web/packages/editor` 는 npm 으로 낼 수 있게 묶은 편집기다(이름 `@mditor/editor` 는 임시, `package.json` 의 `"private": true` 를 빼야 낼 수 있다).
-웹 서비스는 Vite 별칭(`web/vite.config.ts` · `tsconfig.json` 의 `@mditor/editor`)으로 소스를 바로 쓴다.
+`web/packages/editor` 는 npm 으로 낼 수 있게 묶은 편집기다(이름 `@watalabs/lasee-mditor` 는 임시, `package.json` 의 `"private": true` 를 빼야 낼 수 있다).
+웹 서비스는 Vite 별칭(`web/vite.config.ts` · `tsconfig.json` 의 `@watalabs/lasee-mditor`)으로 소스를 바로 쓴다.
 
 ```bash
 cd web/packages/editor
-npm run build   # dist/: index.js · core.js · react.js(ESM) · mditor-editor.umd.js · style.css · types/
+npm run build   # dist/: index.js · core.js · react.js(ESM) · lasee-mditor.umd.js · style.css · types/
 npm run dev     # demo/index.html(ESM) — 서버 없이. demo/umd.html 은 build 뒤 <script> 로 쓰는 예
 ```
 
-- `@mditor/editor` — `createEditor({ element, markdown, onChange })`. 도구 막대 · 표 도구 · 찾아 바꾸기 · 특수 문자 · MD 원문 · 미리보기(켜고 끄기) · 전체 화면 · 글자 수.
-- `@mditor/editor/core` — 화면 없이 `parseMarkdown` · `docToMarkdown` · `renderHtml`(TipTap 을 싣지 않는다).
-- `@mditor/editor/react` — `<MarkdownEditorView value onChange … />`.
+- `@watalabs/lasee-mditor` — `createEditor({ element, markdown, onChange })`. 도구 막대 · 표 도구 · 찾아 바꾸기 · 특수 문자 · MD 원문 · 미리보기(켜고 끄기) · 전체 화면 · 글자 수.
+- `@watalabs/lasee-mditor/core` — 화면 없이 `parseMarkdown` · `docToMarkdown` · `renderHtml`(TipTap 을 싣지 않는다).
+- `@watalabs/lasee-mditor/react` — `<MarkdownEditorView value onChange … />`.
 - 웹 서비스는 원문 · 미리보기 · 전체 화면 단추를 빼고(탭과 오른쪽 창이 맡는다) 글꼴 칸을 끼워 쓴다(`web/src/editor/RichEditor.tsx`).
 
 ## 언어

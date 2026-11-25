@@ -1,7 +1,7 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { t } from "../lib/i18n";
 import { hostedName, imageSrc } from "../lib/images";
-import { cellShade, colorCss, itemNumbers, MARK, safeHref, segments, SHADE, spans } from "@mditor/editor/core";
+import { cellShade, colorCss, itemNumbers, MARK, safeHref, segments, SHADE, spans } from "@watalabs/lasee-mditor/core";
 import { pageBreaks, type BlockPages } from "../lib/pages";
 import type { StoredImage } from "../lib/store";
 import type { Block, Changes, Doc, Options, PageLayout, TableBlock } from "../lib/types";

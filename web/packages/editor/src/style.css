@@ -1,4 +1,4 @@
-/* @mditor/editor — 편집기 모양. 모든 class 는 .mde 로 시작한다.
+/* @watalabs/lasee-mditor — 편집기 모양. 모든 class 는 .mde 로 시작한다.
    색 · 글꼴은 아래 변수로 바꾼다(.mde 나 그 바깥에서 다시 정하면 된다). */
 
 .mde {

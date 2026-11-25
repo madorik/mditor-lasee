@@ -1,28 +1,61 @@
 {
-  "name": "@mditor/editor",
+  "name": "@watalabs/lasee-mditor",
   "version": "0.1.0",
   "description": "Markdown document editor — edit what you see, keep Markdown as the source. Toolbar, tables with merged cells, lists, code blocks, find & replace, source mode, preview.",
-  "private": true,
+  "license": "MIT",
+  "author": "WataLabs (https://watalabs.com)",
+  "homepage": "https://lasee.watalabs.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/madorik/mditor-lasee.git",
+    "directory": "web/packages/editor"
+  },
+  "bugs": {
+    "url": "https://github.com/madorik/mditor-lasee/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
-  "unpkg": "./dist/mditor-editor.umd.js",
-  "jsdelivr": "./dist/mditor-editor.umd.js",
+  "unpkg": "./dist/lasee-mditor.umd.js",
+  "jsdelivr": "./dist/lasee-mditor.umd.js",
   "exports": {
-    ".": { "types": "./dist/types/index.d.ts", "import": "./dist/index.js" },
-    "./core": { "types": "./dist/types/core.d.ts", "import": "./dist/core.js" },
-    "./react": { "types": "./dist/types/react.d.ts", "import": "./dist/react.js" },
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/types/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./react": {
+      "types": "./dist/types/react.d.ts",
+      "import": "./dist/react.js"
+    },
     "./style.css": "./dist/style.css",
-    "./umd": "./dist/mditor-editor.umd.js"
+    "./umd": "./dist/lasee-mditor.umd.js"
   },
-  "files": ["dist", "README.md"],
-  "sideEffects": ["*.css"],
-  "keywords": ["markdown", "editor", "wysiwyg", "tiptap", "prosemirror", "korean"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "keywords": [
+    "markdown",
+    "editor",
+    "wysiwyg",
+    "tiptap",
+    "prosemirror",
+    "korean"
+  ],
   "scripts": {
     "build": "rm -rf dist && vite build && vite build --mode umd && cp src/style.css dist/style.css && tsc -p tsconfig.build.json",
     "dev": "vite --open /demo/",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@tiptap/core": "3.32.1",
@@ -38,7 +71,14 @@
     "react-dom": ">=18"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-dom": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

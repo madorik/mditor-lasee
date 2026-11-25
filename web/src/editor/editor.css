@@ -560,7 +560,7 @@ html[lang="en"] .tools select.font-pick {
   color: var(--guide-ink);
 }
 
-/* ───────── 문서 편집기(편집기 패키지 @mditor/editor) ───────── */
+/* ───────── 문서 편집기(편집기 패키지 @watalabs/lasee-mditor) ───────── */
 
 .rich {
   height: 100%;

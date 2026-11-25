@@ -1,6 +1,6 @@
-// @mditor/editor/react — React 로 감싼 편집기.
+// @watalabs/lasee-mditor/react — React 로 감싼 편집기.
 //
-//   import { MarkdownEditorView } from "@mditor/editor/react";
+//   import { MarkdownEditorView } from "@watalabs/lasee-mditor/react";
 //   <MarkdownEditorView defaultValue={md} onChange={setMd} locale="ko" preview />
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type ReactNode } from "react";

@@ -1,9 +1,9 @@
 // 서버 응답의 모양.
-import type { Doc } from "@mditor/editor/core";
+import type { Doc } from "@watalabs/lasee-mditor/core";
 import type { FontKey } from "./fonts";
 
 // 문서 모양(Doc · Block …)은 편집기 패키지에 있다 — 서버 md.py 와 같은 모양이다.
-export type { Align, Item, TextBlock, ListBlock, TableBlock, ImageBlock, CodeBlock, RuleBlock, PageBreakBlock, Block, Section, Doc } from "@mditor/editor/core";
+export type { Align, Item, TextBlock, ListBlock, TableBlock, ImageBlock, CodeBlock, RuleBlock, PageBreakBlock, Block, Section, Doc } from "@watalabs/lasee-mditor/core";
 
 /** PDF 를 실제로 그려 본 쪽 배치. */
 export type PageLayout = {
