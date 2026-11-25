@@ -93,7 +93,7 @@ const boundary = () =>
 
 // 처음 모습: 왼쪽은 문서 맨 위, 오른쪽은 쪽 경계가 아래쪽 2/3 쯤
 await page.evaluate(() => {
-  document.querySelector(".rich-scroll").scrollTop = 0;
+  document.querySelector(".rich .mde-scroll").scrollTop = 0;
   const desk = document.querySelector(".desk");
   const m = document.querySelector(".paper .pagemark");
   desk.scrollTop += m.getBoundingClientRect().top - desk.getBoundingClientRect().top - desk.clientHeight * 0.68;
