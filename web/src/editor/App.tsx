@@ -59,8 +59,12 @@ export function App() {
         const shared = await decodeHash(location.hash);
         if (shared !== null) {
           history.replaceState(null, "", location.pathname + location.search);
-          await open(newDoc(titleOf(shared, t("받은 문서")), shared));
-          return;
+          if (shared.length > cfg.maxChars) {
+            say(t("받은 링크의 문서가 너무 깁니다. {max}자까지 열 수 있습니다.", { max: cfg.maxChars.toLocaleString() }));
+          } else {
+            await open(newDoc(titleOf(shared, t("받은 문서")), shared));
+            return;
+          }
         }
         // 2) 지난번에 열어 둔 문서, 3) 가장 최근 문서, 4) 없으면 새 문서를 바로 연다
         const all = await listDocs();

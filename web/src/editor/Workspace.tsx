@@ -4,8 +4,8 @@ import * as api from "../lib/api";
 import { clearDraft, readDraft, writeDraft, type Draft } from "../lib/drafts";
 import { lang, LANG_NAMES, langPath, localPath, otherLang, t } from "../lib/i18n";
 import { DEFAULT_MAX_FILE_BYTES, droppedImages, imageName, imageSrc, preload, prepareImage, readImage } from "../lib/images";
-import { FONT_CSS } from "../lib/fonts";
-import { dialectOf, type Dialect } from "@mditor/editor/core";
+import { FONT_CSS, loadFont } from "../lib/fonts";
+import { dialectOf, parseMarkdown, type Dialect } from "@mditor/editor/core";
 import { editorMarks } from "../lib/pages";
 import { encodeLink } from "../lib/share";
 import { isPersistent, putDoc, withVersion, type StoredDoc } from "../lib/store";
@@ -33,6 +33,15 @@ function download(blob: Blob, name: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** 화면의 파서로 읽는다(서버와 같은 규칙 · 같은 결과). 읽을 수 없으면 null. */
+function localDoc(md: string, dialect?: Dialect): Doc | null {
+  try {
+    return parseMarkdown(md, dialect ?? dialectOf(md) ?? lang);
+  } catch {
+    return null;
+  }
 }
 
 const fileStem = (name: string) => name.replace(/[\\/:*?"<>|]+/g, " ").trim() || t("문서");
@@ -75,6 +84,8 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     return d && d.md !== stored.md ? d : null;
   });
   const [text, setText] = useState(() => draft?.md ?? stored.md);
+  // 처음 미리보기 — 화면의 파서(서버와 같은 규칙)로 바로 그린다. 서버가 되읽은 문서(id 를 이은 것)가 오면 그것으로 바꾼다
+  const [firstDoc] = useState<Doc | null>(() => localDoc(draft?.md ?? stored.md));
   const [leftTab, setLeftTab] = useState<"doc" | "md">("doc");
   const [rightTab, setRightTab] = useState<"screen" | "pdf">("screen");
   const [side, setSide] = useState<"edit" | "view">("edit");
@@ -104,7 +115,7 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   const opened = useRef<string | null>(null); // 편집기를 연 MD
   const lastDoc = useRef<Doc | null>(stored.base); // 직전에 되읽은 문서 — id 를 잇는 기준
   const docFor = useRef(new Map<string, Doc>()); // MD → 되읽은 문서(쪽 배치·PDF 요청이 같은 id 를 쓰도록)
-  const shown = useRef<Doc>(stored.base ?? EMPTY); // 마지막으로 제대로 읽힌 문서(오류 중에도 미리보기를 유지)
+  const shown = useRef<Doc>(firstDoc ?? stored.base ?? EMPTY); // 마지막으로 제대로 읽힌 문서(오류 중에도 미리보기를 유지)
   const richImages = useRef<ImageApi | null>(null); // 문서 탭 편집기의 그림 손잡이
   const mdPane = useRef<MdPaneHandle>(null);
   const tabRef = useRef<"doc" | "md">("doc"); // 올리기가 끝났을 때의 탭(올리는 동안 탭을 바꿀 수 있다)
@@ -117,17 +128,33 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     window.setTimeout(() => setToast((t) => (t?.text === message ? null : t)), bad ? 6000 : 2600);
   }, []);
 
+  /** 한 번에 붙이는 글이 길거나 붙이면 문서가 한도를 넘는다 — 붙이지 않고 알린다(큰 글을 한 번에 붙여 서버가 무거워지지 않게). */
+  const maxPaste = config.maxPasteChars ?? 5000;
+  const tooLongPaste = useCallback(
+    (kind: "paste" | "document", length: number) =>
+      say(
+        kind === "paste"
+          ? t("한 번에 붙여 넣을 수 있는 글은 {max}자까지입니다(지금 {length}자). 나눠서 붙여 넣으세요.", { max: maxPaste.toLocaleString(), length: length.toLocaleString() })
+          : t("붙여 넣을 글이 너무 깁니다. 문서는 {max}자까지 쓸 수 있습니다(붙이면 {length}자).", { max: config.maxChars.toLocaleString(), length: length.toLocaleString() }),
+        true,
+      ),
+    [config.maxChars, maxPaste, say],
+  );
+
   const baseVersion = stored.versions.length;
   // 문서의 태그 언어 — 문서에 처음 나오는 태그를 따르고, 태그가 없으면 화면 언어. 서버(md.parse)와 같은 규칙이다.
   const dialect: Dialect = useMemo(() => dialectOf(text) ?? lang, [text]);
-  const dText = useDebounced(text, 300);
-  const pText = useDebounced(text, 1200);
+  // 큰 문서일수록 서버에 덜 자주 묻는다 — 읽기 · 쪽 계산(PDF 그려 보기)이 글 길이에 비례해 무거워진다
+  const size = text.length;
+  const tooLong = size > config.maxChars; // 서버가 받지 않는 길이 — 보내지 않는다
+  const dText = useDebounced(text, size > 150_000 ? 1500 : size > 50_000 ? 700 : 300);
+  const pText = useDebounced(text, size > 150_000 ? 6000 : size > 50_000 ? 3000 : 1200);
 
   // ── 미리보기(300ms): 되읽은 문서 · 변경 표시 · 오류 줄. 저장하지 않는다.
   const previewQ = useQuery({
     queryKey: ["preview", stored.id, baseVersion, dText],
     queryFn: async ({ signal }) => {
-      const r = await api.preview(dText, stored.base, lastDoc.current, signal);
+      const r = await api.preview(dText, stored.base, lastDoc.current, signal, true);
       if (r.ok) {
         lastDoc.current = r.doc;
         docFor.current.set(dText, r.doc);
@@ -138,7 +165,8 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     placeholderData: keepPreviousData,
     staleTime: Infinity,
     gcTime: 30_000,
-    retry: 1,
+    enabled: !tooLong,
+    retry: (n, e) => n < (api.isBusy(e) ? 3 : 1), // 서버가 더 새 요청을 하느라 건너뛰었으면 다시
   });
   const result: PreviewResult | undefined = previewQ.data;
   // 되읽은 문서는 "지금 text 로 만든 결과"일 때만 쓴다 — 이전 결과(placeholder)나 가져오는 중인 결과는 쓰지 않는다
@@ -154,13 +182,14 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
   );
   const pagesQ = useQuery({
     queryKey: ["pages", stored.id, pText, stored.options, sizes],
-    queryFn: ({ signal }) => api.pages({ md: pText, base: pDoc, options: stored.options, image_sizes: sizes }, signal),
-    enabled: !!pDoc && (previewOn || (marksOn && leftTab === "doc")), // 쪽 경계를 그릴 곳이 없으면 쪽 계산도 하지 않는다
+    queryFn: ({ signal }) => api.pages({ md: pText, base: pDoc, options: stored.options, image_sizes: sizes, live: true }, signal),
+    enabled: !!pDoc && !tooLong && (previewOn || (marksOn && leftTab === "doc")), // 쪽 경계를 그릴 곳이 없으면 쪽 계산도 하지 않는다
     placeholderData: keepPreviousData,
     staleTime: Infinity,
     gcTime: 30_000,
   });
   const layout = pagesQ.data ?? null;
+  const pagesBusy = pagesQ.isError && api.isBusy(pagesQ.error) && (pagesQ.error as api.ApiError).status === 429; // 큰 문서라 서버가 잠시 쉰다
   const pagesStale = pText !== text || pagesQ.isPlaceholderData || pagesQ.isFetching;
 
   // ── PDF(1.2s): 보는 중일 때만
@@ -168,24 +197,31 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
     queryKey: ["pdf", stored.id, pText, stored.options, sizes],
     queryFn: ({ signal }) =>
       api.pdf(
-        { md: pText, base: pDoc, options: stored.options, image_sizes: sizes, images: Object.fromEntries(Object.entries(stored.images).map(([k, v]) => [k, v.data])) },
+        { md: pText, base: pDoc, options: stored.options, image_sizes: sizes, images: Object.fromEntries(Object.entries(stored.images).map(([k, v]) => [k, v.data])), live: true },
         false,
         signal,
       ),
-    enabled: rightTab === "pdf" && !!pDoc && previewOn,
+    enabled: rightTab === "pdf" && !!pDoc && previewOn && !tooLong,
     placeholderData: keepPreviousData,
     staleTime: Infinity,
     gcTime: 15_000,
-    retry: false,
+    retry: (n, e) => api.isBusy(e) && n < 3,
   });
 
   // ── 문서 편집기 열기: 밖에서 MD 가 바뀌었을 때만(AI 수정안, MD 탭에서 고침, 판본 되돌리기 …)
+  // 서버가 되읽은 문서가 아직 없으면 화면의 파서로 바로 연다 — 서버가 식어 있어도(콜드 스타트) 기다리지 않는다.
+  // 읽을 수 없는 MD(표 구분선이 없는 등)면 서버의 오류 줄을 기다린다.
   useEffect(() => {
-    if (leftTab !== "doc" || !fresh || !result?.ok) return;
+    if (leftTab !== "doc") return;
     if (text === sent.current || text === opened.current) return;
+    const doc = fresh && result?.ok ? result.doc : localDoc(text, dialect);
+    if (!doc) return;
     opened.current = text;
-    setRich((r) => ({ key: (r?.key ?? 0) + 1, doc: result.doc }));
-  }, [leftTab, fresh, result, text]);
+    setRich((r) => ({ key: (r?.key ?? 0) + 1, doc }));
+  }, [leftTab, fresh, result, text, dialect]);
+
+  // 문서 글꼴 — 고른 글꼴의 웹 글꼴 정의만 불러온다
+  useEffect(() => loadFont(stored.options.font), [stored.options.font]);
 
   /** 밖에서 MD 를 바꾼다 — 편집기를 내렸다가 되읽은 문서로 새로 연다(옛 내용 위에 덮어쓰지 않도록). */
   const replaceText = useCallback((md: string) => {
@@ -488,6 +524,11 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
             )}
           </Menu>
         </header>
+        {tooLong && (
+          <div className="notice warn" role="status">
+            <span className="grow">{t("문서가 {max}자를 넘어 미리보기 · 쪽 계산 · PDF 를 만들 수 없습니다(지금 {length}자). 줄이면 다시 만듭니다.", { max: config.maxChars.toLocaleString(), length: size.toLocaleString() })}</span>
+          </div>
+        )}
         {!isPersistent() && (
           <div className="notice warn">
             <span className="grow">{t("이 브라우저 창에서는 문서를 보관할 수 없습니다. 창을 닫기 전에 ‘내보내기 → MD 내려받기’ 로 챙겨 두세요.")}</span>
@@ -533,11 +574,16 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           </div>
           <div className="pane-body">
             {leftTab === "md" ? (
-              <MdPane value={text} dialect={dialect} onChange={setText} error={error} options={stored.options} onOptions={setOptions} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} handle={mdPane} />
+              <MdPane value={text} dialect={dialect} maxLength={config.maxChars} maxPaste={maxPaste} onTooLong={tooLongPaste} onChange={setText} error={error} options={stored.options} onOptions={setOptions} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} handle={mdPane} />
             ) : rich ? (
               <Suspense fallback={<div className="hint">{t("편집기를 불러오는 중입니다")}</div>}>
-                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} pageMarks={marks} showPageMarks={marksOn} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} register={registerImages} />
+                <RichEditor key={rich.key} doc={rich.doc} dialect={dialect} maxLength={config.maxChars} maxPaste={maxPaste} onTooLong={tooLongPaste} pageMarks={marks} showPageMarks={marksOn} images={stored.images} options={stored.options} onOptions={setOptions} onChange={onRichChange} onPickImage={() => fileInput.current?.click()} onImageFile={(f) => void addImage(f)} register={registerImages} />
               </Suspense>
+            ) : tooLong ? (
+              <div className="hint">
+                <strong>{t("MD 에 고칠 곳이 있어 문서 모드로 열 수 없습니다")}</strong>
+                <button type="button" className="btn primary" onClick={() => switchLeft("md")}>{t("MD 탭에서 고치기")}</button>
+              </div>
             ) : error ? (
               <div className="hint">
                 <strong>{t("MD 에 고칠 곳이 있어 문서 모드로 열 수 없습니다")}</strong>
@@ -560,7 +606,13 @@ export function Workspace({ stored, temp, config, onStored, file }: Props) {
           <div className="pane-head">
             <Tabs label={t("미리보기 방식")} value={rightTab} onChange={setRightTab} items={[["screen", t("미리보기")], ["pdf", "PDF"]]} />
             <span className="pane-info" aria-live="polite">
-              {layout ? <><b>{layout.total === 1 ? t("전체 1쪽") : t("전체 {n}쪽", { n: layout.total })}</b>{pagesStale ? ` · ${t("쪽 다시 계산 중")}` : ""}</> : t("쪽 계산 중")}
+              {tooLong ? (
+                t("문서가 너무 길어 쪽을 계산하지 않습니다")
+              ) : layout ? (
+                <><b>{layout.total === 1 ? t("전체 1쪽") : t("전체 {n}쪽", { n: layout.total })}</b>{pagesBusy ? ` · ${t("문서가 커서 쪽 계산을 잠시 쉽니다")}` : pagesStale ? ` · ${t("쪽 다시 계산 중")}` : ""}</>
+              ) : (
+                t("쪽 계산 중")
+              )}
               {dirty && changeCount > 0 && <span className="chg"> · {changeCount === 1 ? t("저장본에서 바뀐 블록 1개") : t("저장본에서 바뀐 블록 {n}개", { n: changeCount })}</span>}
             </span>
           </div>

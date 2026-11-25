@@ -100,6 +100,15 @@ export type MarkdownEditorOptions = {
   image?: ImageOptions;
   /** 글이 바뀔 때마다(MD). */
   onChange?: (markdown: string, editor: MarkdownEditor) => void;
+  /**
+   * 문서(MD) 길이 한도. 붙이면 이 길이를 넘는 붙여넣기는 받지 않는다(한 번에 큰 글을 붙여 서버 · 브라우저가 무거워지지 않게).
+   * 손으로 치는 글은 막지 않는다.
+   */
+  maxLength?: number;
+  /** 한 번에 붙여 넣을 수 있는 글자 수. 넘는 붙여넣기는 받지 않는다(나눠서 붙이게). */
+  maxPaste?: number;
+  /** maxPaste · maxLength 때문에 붙여넣기를 막았을 때(kind: 어느 한도인지). 주지 않으면 편집기 위 줄에 알린다. */
+  onTooLong?: (info: { kind: "paste" | "document"; length: number; max: number }) => void;
   /** 더 붙일 TipTap 확장. */
   extensions?: AnyExtension[];
 };
@@ -216,6 +225,31 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
   }
 
   // ───── 파일
+  /**
+   * 붙여넣기를 받을 수 있는가 — 한 번에 붙이는 글(added)이 maxPaste 를 넘거나, 붙인 뒤 문서(next)가 maxLength 를 넘으면
+   * 알리고 true. 문서를 줄이는 붙여넣기(고른 글을 짧은 글로 바꾸기)는 막지 않는다.
+   */
+  let tooLongTimer = 0;
+  const blocksPaste = (added: number, next: number, now: number): boolean => {
+    let info: { kind: "paste" | "document"; length: number; max: number } | null = null;
+    if (options.maxPaste && added > options.maxPaste) info = { kind: "paste", length: added, max: options.maxPaste };
+    else if (options.maxLength && next > options.maxLength && next > now) info = { kind: "document", length: next, max: options.maxLength };
+    if (!info) return false;
+    if (options.onTooLong) options.onTooLong(info);
+    else {
+      errorBar.textContent = fill(info.kind === "paste" ? msg.pasteTooLong : msg.tooLong, { max: info.max.toLocaleString(), length: info.length.toLocaleString() });
+      errorBar.hidden = false;
+      window.clearTimeout(tooLongTimer);
+      tooLongTimer = window.setTimeout(() => (errorBar.hidden = true), 6000);
+    }
+    return true;
+  };
+  const pastedText = (data: DataTransfer | null) => {
+    if (!data) return "";
+    const plain = data.getData("text/plain");
+    return plain || data.getData("text/html").replace(/<[^>]*>/g, "");
+  };
+
   const fileInput = h("input", { attrs: { type: "file", accept: "image/png,image/jpeg,image/gif,image/webp,image/svg+xml", hidden: true, multiple: true } });
   root.append(fileInput);
   const addFiles = async (files: File[]) => {
@@ -343,7 +377,13 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
     editable: options.editable ?? true,
     editorProps: {
       attributes: { class: contentClass, "aria-label": msg.editorLabel, spellcheck: "false" },
-      handlePaste: (_view, event) => {
+      handlePaste: (view, event) => {
+        if (options.maxLength || options.maxPaste) {
+          const { from, to } = view.state.selection;
+          const add = pastedText(event.clipboardData).length;
+          const next = md.length - view.state.doc.textBetween(from, to, "\n").length + add;
+          if (add && blocksPaste(add, next, md.length)) return true;
+        }
         const files = imageFiles(event.clipboardData);
         if (!files.length) return false;
         void addFiles(files);
@@ -814,6 +854,12 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
     schedulePreview();
     updateStatus();
   });
+  source.addEventListener("paste", (e) => {
+    if (!options.maxLength && !options.maxPaste) return;
+    const add = pastedText(e.clipboardData).length;
+    const next = source.value.length - (source.selectionEnd - source.selectionStart) + add;
+    if (add && blocksPaste(add, next, source.value.length)) e.preventDefault();
+  });
   source.addEventListener("keydown", (e) => {
     if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
@@ -981,6 +1027,7 @@ export function createEditor(options: MarkdownEditorOptions): MarkdownEditor {
     },
     destroy() {
       window.clearTimeout(previewTimer);
+      window.clearTimeout(tooLongTimer);
       if (refreshFrame) cancelAnimationFrame(refreshFrame);
       pops.current?.close();
       document.removeEventListener("keydown", escFullscreen);

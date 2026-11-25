@@ -42,9 +42,14 @@ class Settings:
         default_factory=lambda: Path(os.environ.get("MDITOR_CACHE_DIR") or Path(tempfile.gettempdir()) / "mditor-cache")
     )
     max_md_chars: int = field(default_factory=lambda: _int("MDITOR_MAX_MD_CHARS", 400_000))
+    # 한 번에 붙여 넣을 수 있는 글자 수(화면이 지킨다) — 큰 글을 한꺼번에 붙여 서버가 무거워지지 않게
+    max_paste_chars: int = field(default_factory=lambda: _int("MDITOR_MAX_PASTE_CHARS", 5_000))
     max_body_bytes: int = field(default_factory=lambda: _int("MDITOR_MAX_BODY_BYTES", 12_000_000))
     max_image_bytes: int = field(default_factory=lambda: _int("MDITOR_MAX_IMAGE_BYTES", 8_000_000))
     rate_per_minute: int = field(default_factory=lambda: _int("MDITOR_RATE_PER_MINUTE", 240))
+    # 화면이 고칠 때마다 보내는 쪽 계산(PDF 를 그려 보기)의 IP 당 분당 글자 수 — 큰 문서를 붙여 넣고 계속 고쳐도 서버가 버티게.
+    # 40만 자 문서면 분에 다섯 번, 2만 자 문서면 백 번이다. PDF 내려받기 · API · MCP 는 세지 않는다.
+    live_render_chars_per_minute: int = field(default_factory=lambda: _int("MDITOR_LIVE_RENDER_CHARS_PER_MINUTE", 2_000_000))
     download_ttl: int = field(default_factory=lambda: _int("MDITOR_DOWNLOAD_TTL", 1800))
     trust_proxy: bool = field(default_factory=lambda: _flag("MDITOR_TRUST_PROXY", True))
 

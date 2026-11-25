@@ -9,6 +9,8 @@ export type Config = {
   ai: boolean;
   aiMaxChars: number;
   maxChars: number;
+  /** 한 번에 붙여 넣을 수 있는 글자 수 */
+  maxPasteChars?: number;
   maxImageBytes: number;
   /** 그림을 저장소(R2)에 올린다. 아니면 문서와 함께 브라우저에 둔다. */
   images?: boolean;
@@ -49,10 +51,25 @@ async function fail(res: Response): Promise<never> {
   throw new ApiError(message, res.status);
 }
 
+/**
+ * 이 창(탭)의 열쇠 — 서버는 고치는 동안 저절로 가는 요청을 탭마다 줄 세워 가장 최근 것만 계산한다.
+ * 같은 IP(회사 망 등)를 쓰는 다른 사람의 요청과 섞이지 않게 IP 대신 쓴다.
+ */
+const CLIENT = (() => {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  }
+})();
+
+/** 서버가 '더 새 요청이 있어 건너뛰었다'(409) · '큰 문서라 잠시 쉰다'(429) 고 답했는가 — 화면은 다음 요청에서 다시 받는다. */
+export const isBusy = (e: unknown): boolean => e instanceof ApiError && (e.status === 409 || e.status === 429);
+
 async function post(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
   let res: Response;
   try {
-    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang }, body: JSON.stringify(body), signal });
+    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang, "X-Mditor-Client": CLIENT }, body: JSON.stringify(body), signal });
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
     throw new ApiError(t("서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요."), 0);
@@ -66,8 +83,9 @@ export async function loadConfig(): Promise<Config> {
   return res.ok ? res.json() : fail(res);
 }
 
-export async function preview(md: string, base: Doc | null, prev: Doc | null, signal?: AbortSignal): Promise<Preview> {
-  return (await post("/api/md/preview", { md, base, prev }, signal)).json();
+/** live: 고치는 동안 저절로 보내는 요청(서버가 더 새 요청이 오면 건너뛴다). 저장할 때는 쓰지 않는다. */
+export async function preview(md: string, base: Doc | null, prev: Doc | null, signal?: AbortSignal, live = false): Promise<Preview> {
+  return (await post("/api/md/preview", { md, base, prev, live }, signal)).json();
 }
 
 export type RenderInput = {
@@ -77,6 +95,8 @@ export type RenderInput = {
   image_sizes?: Record<string, [number, number]>;
   images?: Record<string, string>;
   filename?: string;
+  /** 고치는 동안 저절로 보내는 요청 */
+  live?: boolean;
 };
 
 export async function pages(input: RenderInput, signal?: AbortSignal): Promise<PageLayout | null> {

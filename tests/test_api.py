@@ -71,7 +71,11 @@ def test_site_pages(client):
     assert "pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-123" in home.text
     cfg = json.loads(home.text.split("window.__MDITOR__=")[1].split("</script>")[0])
     assert cfg["ads"] == {"client": "ca-pub-123", "content": "111", "editor": ""} and cfg["publicUrl"] == "https://mditor.test"
-    assert client.get("/edit").status_code == 200
+    assert cfg["maxPasteChars"] == 5000  # 한 번에 붙여 넣는 글 한도(화면이 지킨다)
+    edit = client.get("/edit")
+    assert edit.status_code == 200
+    # 편집 화면은 광고 코드를 쪽이 뜬 뒤에 받는다(편집기가 먼저)
+    assert '<script async src="https://pagead2' not in edit.text and 'addEventListener("load"' in edit.text and "adsbygoogle.js?client=ca-pub-123" in edit.text
     assert client.get("/assets/a.js").headers["cache-control"].startswith("public, max-age=31536000")
     assert client.get("/ads.txt").text == "google.com, pub-123, DIRECT, f08c47fec0942fa0\n"
     assert "Sitemap: https://mditor.test/sitemap.xml" in client.get("/robots.txt").text
@@ -96,3 +100,64 @@ def test_download_link(client, tmp_path):
     assert client.get(f"/d/{token}/report.pdf").content == b"%PDF-1.4 test"
     assert client.get("/d/../../etc/passwd").status_code == 404
     assert client.get(f"/d/{'x' * 32}/a.pdf").status_code == 404
+
+
+# ───────────── 큰 문서 · 붙여넣기에 버티기 ─────────────
+
+
+def test_latest_turn_skips_superseded_requests():
+    """같은 열쇠의 요청은 하나씩, 차례가 왔을 때 더 새 요청이 와 있으면 건너뛴다."""
+    import threading
+    import time
+
+    latest = api._Latest()
+    order: list[tuple[str, bool]] = []
+    first_in = threading.Event()
+
+    def run(name: str, hold: float = 0.0) -> None:
+        with latest.turn("pages", "c:tab") as mine:
+            if name == "a":
+                first_in.set()
+            order.append((name, mine))
+            time.sleep(hold)
+
+    a = threading.Thread(target=run, args=("a", 0.3))
+    a.start()
+    first_in.wait(2)
+    b = threading.Thread(target=run, args=("b",))
+    b.start()
+    time.sleep(0.05)
+    c = threading.Thread(target=run, args=("c",))
+    c.start()
+    for th in (a, b, c):
+        th.join(5)
+    assert order[0] == ("a", True)
+    assert sorted(order[1:]) == [("b", False), ("c", True)]  # b 는 c 에 밀려 하지 않는다
+    with latest.turn("pages", "c:other") as mine:
+        assert mine  # 다른 탭은 따로 줄을 선다
+
+
+def test_live_layout_budget_counts_characters(tmp_path):
+    web = tmp_path / "web"
+    web.mkdir()
+    settings = Settings(web_dir=web, cache_dir=tmp_path, ai_enabled=False, rate_per_minute=1000, live_render_chars_per_minute=30_000)
+    big = "# 큰 문서\n\n" + "\n\n".join(f"문단 {i} " + "가" * 90 for i in range(120)) + "\n"  # 약 1만 2천 자
+    with TestClient(api.create_app(settings)) as c:
+        live = {"X-Mditor-Client": "tab-0001"}
+        codes = [c.post("/api/md/preview-pages", json={"md": big, "live": True}, headers=live).status_code for _ in range(4)]
+        assert codes == [200, 200, 429, 429]  # 분당 3만 자 — 두 번까지
+        assert "쪽 계산을 잠시 쉽니다" in c.post("/api/md/preview-pages", json={"md": big, "live": True}, headers=live).json()["detail"]
+        other = c.post("/api/md/preview-pages", json={"md": big, "live": True}, headers={"X-Mditor-Client": "tab-0002"})
+        assert other.status_code == 200  # 다른 탭(같은 IP 의 다른 사람)은 따로 센다
+        assert c.post("/api/md/preview-pages", json={"md": big}, headers=live).status_code == 200  # 저절로 간 요청이 아니면 세지 않는다
+        assert c.post("/api/md/pdf", json={"md": big}, headers=live).status_code == 200  # 내려받기는 막지 않는다
+
+
+def test_too_long_document_is_refused_before_any_work(tmp_path):
+    web = tmp_path / "web"
+    web.mkdir()
+    settings = Settings(web_dir=web, cache_dir=tmp_path, ai_enabled=False, rate_per_minute=1000, max_md_chars=1000)
+    with TestClient(api.create_app(settings)) as c:
+        for path in ("/api/md/preview", "/api/md/preview-pages", "/api/md/preview-pdf"):
+            r = c.post(path, json={"md": "가" * 1001, "live": True})
+            assert r.status_code == 413 and "1,000자까지" in r.json()["detail"], path

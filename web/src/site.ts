@@ -25,19 +25,34 @@ for (const el of document.querySelectorAll<HTMLElement>("[data-contact]")) {
   }
 }
 
-// 첫 화면 영상 — 움직임 줄이기를 켠 사람에게는 틀지 않고 포스터만 보인다(직접 틀 수 있게 단추는 준다).
+// 첫 화면 영상 — 쪽이 다 뜬 뒤에 받아서 튼다(처음부터 받으면 수백 KB 가 글꼴 · 그림과 망을 나눠 써 쪽이 늦게 떴다).
+// 그때까지는 포스터가 보인다. 움직임 줄이기 · 데이터 절약 · 아주 느린 망에서는 틀지 않고, 직접 틀 수 있게 단추를 준다.
 const still = matchMedia("(prefers-reduced-motion: reduce)");
+type Conn = { saveData?: boolean; effectiveType?: string };
+const slowNet = () => {
+  const c = (navigator as unknown as { connection?: Conn }).connection;
+  return !!c && (c.saveData === true || /(^|-)2g$/.test(c.effectiveType ?? ""));
+};
+const startVideos = () => {
+  for (const v of document.querySelectorAll<HTMLVideoElement>(".hero-video video[data-autoplay]")) {
+    if (still.matches || slowNet()) {
+      v.controls = true; // 포스터 그대로 — 원하면 직접 튼다
+      continue;
+    }
+    v.preload = "auto";
+    v.play().catch(() => (v.controls = true));
+  }
+};
 const holdVideos = () => {
   if (!still.matches) return;
-  for (const v of document.querySelectorAll<HTMLVideoElement>(".hero-video video")) {
-    if (!v.autoplay) continue;
-    v.autoplay = false;
+  for (const v of document.querySelectorAll<HTMLVideoElement>(".hero-video video[data-autoplay]")) {
     v.pause();
     v.controls = true;
     v.load(); // 처음 상태로 — 이미 그린 첫 장면 대신 포스터가 다시 보인다
   }
 };
-holdVideos();
+const afterLoad = (fn: () => void) => (document.readyState === "complete" ? setTimeout(fn, 300) : addEventListener("load", () => setTimeout(fn, 300), { once: true }));
+afterLoad(startVideos);
 still.addEventListener("change", holdVideos);
 
 // 광고 — 설정이 있을 때만 자리를 연다. 없으면 빈 상자를 남기지 않는다.
@@ -54,6 +69,8 @@ for (const el of document.querySelectorAll<HTMLElement>(".ad-slot")) {
     ins.dataset.fullWidthResponsive = "true";
     el.append(ins);
     el.hidden = false;
+    // 광고가 실제로 채워졌을 때만 자리를 펼친다(심사 중 · 광고 없음 · 차단이면 빈 상자를 남기지 않는다)
+    new MutationObserver(() => (ins.dataset.adStatus === "filled" ? (el.dataset.filled = "") : delete el.dataset.filled)).observe(ins, { attributes: true, attributeFilter: ["data-ad-status"] });
     try {
       const w = window as unknown as { adsbygoogle?: unknown[] };
       (w.adsbygoogle = w.adsbygoogle || []).push({});

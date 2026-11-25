@@ -11,7 +11,7 @@ import { ColorMenu, ImageButton } from "./Tools";
 export type MdPaneHandle = { insert: (text: string) => void; replace: (from: string, to: string | null) => void };
 
 /** MD 탭 — 글 그대로 고친다. 오류가 있으면 줄 번호와 함께 알려 준다. */
-export function MdPane({ value, dialect, onChange, error, options, onOptions, onPickImage, onImageFile, handle }: { value: string; dialect: Dialect; onChange: (v: string) => void; error: MdError | null; options: Options; onOptions: (o: Options) => void; onPickImage: () => void; onImageFile: (file: File) => void; handle?: Ref<MdPaneHandle> }) {
+export function MdPane({ value, dialect, maxLength, maxPaste, onTooLong, onChange, error, options, onOptions, onPickImage, onImageFile, handle }: { value: string; dialect: Dialect; maxLength: number; maxPaste: number; onTooLong: (kind: "paste" | "document", length: number) => void; onChange: (v: string) => void; error: MdError | null; options: Options; onOptions: (o: Options) => void; onPickImage: () => void; onImageFile: (file: File) => void; handle?: Ref<MdPaneHandle> }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => value.split("\n").length, [value]);
@@ -151,6 +151,15 @@ export function MdPane({ value, dialect, onChange, error, options, onOptions, on
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           onPaste={(e) => {
+            // 한 번에 붙이는 글이 길거나 붙이면 문서가 한도를 넘으면 붙이지 않는다(큰 글을 한 번에 붙여 서버가 무거워지지 않게)
+            const el = e.currentTarget;
+            const add = e.clipboardData.getData("text/plain").length;
+            const next = el.value.length - (el.selectionEnd - el.selectionStart) + add;
+            if (add > maxPaste || (next > maxLength && next > el.value.length)) {
+              e.preventDefault();
+              onTooLong(add > maxPaste ? "paste" : "document", add > maxPaste ? add : next);
+              return;
+            }
             const files = droppedImages(e.clipboardData);
             if (!files.length) return;
             e.preventDefault(); // 그림을 붙여 넣으면 이미지 단추와 똑같이 넣는다

@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -61,6 +62,8 @@ class PreviewIn(BaseModel):
     md: str
     base: dict[str, Any] | None = None  # 저장본 — 변경 표시의 기준
     prev: dict[str, Any] | None = None  # 직전에 되읽은 문서 — id 를 잇는 기준
+    # 화면이 고치는 동안 저절로 보내는 요청(미리보기 · 쪽 계산 · PDF 보기). 같은 IP 의 더 새 요청이 오면 건너뛴다.
+    live: bool = False
 
 
 class RenderIn(PreviewIn):
@@ -80,14 +83,47 @@ class _Limiter:
     def __init__(self) -> None:
         self._hits: dict[tuple[str, str, int], int] = defaultdict(int)
 
-    def check(self, key: str, ip: str, limit: int, window: int) -> bool:
+    def check(self, key: str, ip: str, limit: int, window: int, cost: int = 1) -> bool:
+        """이 창에서 ``cost`` 만큼 더 써도 ``limit`` 안이면 True(쓴 것으로 센다). 넘으면 세지 않고 False."""
         if limit <= 0:
             return True
         slot = int(time.time()) // window
         if len(self._hits) > 50_000:
             self._hits = defaultdict(int, {k: v for k, v in self._hits.items() if k[0] != key or k[2] == slot})
-        self._hits[(key, ip, slot)] += 1
-        return self._hits[(key, ip, slot)] <= limit
+        used = self._hits[(key, ip, slot)]
+        if used and used + cost > limit:
+            return False
+        self._hits[(key, ip, slot)] = used + cost
+        return used + cost <= limit or used == 0
+
+
+class _Latest:
+    """IP 마다 화면의 저절로 가는 요청을 한 줄로 세우고, 차례가 왔을 때 더 새 요청이 와 있으면 건너뛴다.
+
+    큰 문서를 붙여 넣고 계속 고치면 화면은 앞 요청을 버리고 새 요청을 보내지만, 서버는 버려진 요청도 끝까지
+    계산했다(PDF 그리기는 프로세스에 하나씩이라 다른 사람의 요청까지 밀렸다). 이제 같은 IP 의 요청은 하나씩 하고,
+    그사이 더 새 요청이 왔으면 그리지 않는다.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._ips: dict[tuple[str, str], list[Any]] = {}  # (종류, IP) → [잠금, 마지막 번호, 기다리는 수]
+
+    @contextlib.contextmanager
+    def turn(self, kind: str, ip: str):  # type: ignore[no-untyped-def]
+        with self._lock:
+            entry = self._ips.setdefault((kind, ip), [threading.Lock(), 0, 0])
+            entry[1] += 1
+            entry[2] += 1
+            seq = entry[1]
+        try:
+            with entry[0]:
+                yield entry[1] == seq  # False 면 더 새 요청이 있다 — 하지 않는다
+        finally:
+            with self._lock:
+                entry[2] -= 1
+                if entry[2] == 0:
+                    self._ips.pop((kind, ip), None)
 
 
 class _Lang:
@@ -153,6 +189,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
     elif store is None and settings.image_dir:
         store = images.DirStore(Path(settings.image_dir), settings.image_ttl_days)
     limiter = _Limiter()
+    latest = _Latest()
     mcp = mcp_server.build(settings, remote=True)
     mcp_app = mcp.streamable_http_app(
         streamable_http_path="/mcp",
@@ -179,6 +216,25 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             if fwd:
                 return fwd.split(",")[0].strip()
         return request.client.host if request.client else "?"
+
+    def client_key(request: Request) -> str:
+        """화면(브라우저 탭)마다 다른 열쇠 — 같은 IP(회사 망 등)를 쓰는 여러 사람이 서로의 요청을 밀어내지 않게. 없으면 IP."""
+        sid = request.headers.get("x-mditor-client", "")
+        return f"c:{sid}" if re.fullmatch(r"[A-Za-z0-9-]{8,64}", sid) else client_ip(request)
+
+    @contextlib.contextmanager
+    def live_turn(body: PreviewIn, request: Request, kind: str, budget: int = 0):  # type: ignore[no-untyped-def]
+        """화면이 저절로 보낸 요청이면 줄을 세워 가장 최근 것만 한다. budget 이 있으면 분당 글자 수도 센다."""
+        if not body.live:
+            yield
+            return
+        key = client_key(request)
+        with latest.turn(kind, key) as mine:
+            if not mine:
+                raise HTTPException(409, t("더 새 요청이 있어 건너뛰었습니다."))
+            if budget and not limiter.check(f"live-{kind}", key, budget, 60, cost=max(1, len(body.md))):
+                raise HTTPException(429, t("문서가 커서 쪽 계산을 잠시 쉽니다. 조금 뒤에 다시 계산합니다."))
+            yield
 
     def guard(request: Request) -> None:
         if not limiter.check("api", client_ip(request), settings.rate_per_minute, 60):
@@ -212,6 +268,7 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             "ai": settings.ai_enabled,
             "aiMaxChars": settings.ai_max_md_chars,
             "maxChars": settings.max_md_chars,
+            "maxPasteChars": settings.max_paste_chars,
             "maxImageBytes": settings.max_image_bytes,
             "images": store is not None,  # 그림을 저장소에 올린다(아니면 문서와 함께 브라우저에 둔다)
             "maxImageFileBytes": settings.max_image_file_bytes,
@@ -241,7 +298,9 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
     def preview(body: PreviewIn, request: Request) -> dict[str, Any]:
         """MD 를 되읽는다. {ok, doc, md, changes} 또는 {ok: false, error: {line, message}}."""
         guard(request)
-        return core.read(core.clean(body.md, settings.max_md_chars), body.base, body.prev)
+        text = core.clean(body.md, settings.max_md_chars)
+        with live_turn(body, request, "read"):
+            return core.read(text, body.base, body.prev)
 
     def _doc(body: RenderIn) -> tuple[dict[str, Any] | None, dict[str, Any]]:
         result = core.read(core.clean(body.md, settings.max_md_chars), body.base, body.prev)
@@ -251,15 +310,22 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
     def preview_pages(body: RenderIn, request: Request) -> dict[str, Any]:
         """PDF 를 실제로 그려 본 쪽 배치. 그림은 크기(image_sizes)만 받아 자리를 잡는다."""
         guard(request)
-        doc, result = _doc(body)
-        if doc is None:
-            return {"ok": False, "error": result["error"]}
-        pics = core.decode_images(body.images, settings.max_image_bytes)
-        sizes = {**(body.image_sizes or {}), **images.sizes(doc)}  # 올린 그림은 이름에 크기가 있다
-        return {"ok": True, "layout": core.layout(doc, body.options, pics, sizes)}
+        core.clean(body.md, settings.max_md_chars)
+        with live_turn(body, request, "pages", settings.live_render_chars_per_minute):
+            doc, result = _doc(body)
+            if doc is None:
+                return {"ok": False, "error": result["error"]}
+            pics = core.decode_images(body.images, settings.max_image_bytes)
+            sizes = {**(body.image_sizes or {}), **images.sizes(doc)}  # 올린 그림은 이름에 크기가 있다
+            return {"ok": True, "layout": core.layout(doc, body.options, pics, sizes)}
 
     def _pdf(body: RenderIn, request: Request, disposition: str) -> Response:
         guard(request)
+        core.clean(body.md, settings.max_md_chars)
+        with live_turn(body, request, "pdf", settings.live_render_chars_per_minute):
+            return _pdf_now(body, disposition)
+
+    def _pdf_now(body: RenderIn, disposition: str) -> Response:
         doc, result = _doc(body)
         if doc is None:
             err = result["error"]
@@ -373,10 +439,15 @@ def create_app(settings: Settings | None = None, store: images.Store | None = No
             if settings.bing_site_verification:
                 head.append(f'<meta name="msvalidate.01" content="{settings.bing_site_verification}">')
             if settings.adsense_client:
-                head.append(
-                    '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='
-                    f'{settings.adsense_client}" crossorigin="anonymous"></script>'
-                )
+                ads = f"https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={settings.adsense_client}"
+                if file.endswith("edit.html"):
+                    # 편집 화면은 편집기가 먼저 — 광고 코드(수백 KB)는 쪽이 다 뜨고 조금 뒤에 받는다. 다른 쪽은 그대로 머리에 둔다
+                    head.append(
+                        "<script>addEventListener(\"load\",function(){setTimeout(function(){var s=document.createElement(\"script\");"
+                        f"s.async=true;s.crossOrigin=\"anonymous\";s.src=\"{ads}\";document.head.appendChild(s)}},1500)}})</script>"
+                    )
+                else:
+                    head.append(f'<script async src="{ads}" crossorigin="anonymous"></script>')
             html = path.read_text(encoding="utf-8")
             html = html.replace("<!--mditor:head-->", "\n".join(head))
             pages[file] = html.replace("%PUBLIC_URL%", settings.public_url)

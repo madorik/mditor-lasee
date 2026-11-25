@@ -157,6 +157,7 @@ docker run -p 8000:8000 --env-file .env mditor
 | `MDITOR_MAX_IMAGE_FILE_BYTES` `MDITOR_MAX_UPLOAD_BYTES` `MDITOR_UPLOAD_DAILY_LIMIT` | 원본 그림 파일 한도(10MB) · 줄여 올리는 한 장 한도(3MB) · IP 당 하루 올리기 수(100) |
 | `MDITOR_IMAGE_TTL_DAYS` | 올린 그림을 두는 날 수(3). R2 는 버킷 수명 규칙과 맞춘다 |
 | `MDITOR_RATE_PER_MINUTE` | IP 당 분당 요청 수(미리보기·PDF·MCP) |
+| `MDITOR_LIVE_RENDER_CHARS_PER_MINUTE` | 고치는 동안 저절로 가는 쪽 계산 · PDF 보기의 탭 당 분당 글자 수(200만). 넘으면 잠시 쉰다(429) |
 | `MDITOR_TRUST_PROXY` | 프록시 뒤면 `1`(기본). `X-Forwarded-For` 로 IP 를 센다 |
 | `WEB_CONCURRENCY` | 프로세스 수. 2 이상이면 횟수 제한을 프로세스마다 따로 센다 |
 
@@ -193,6 +194,8 @@ vercel deploy --prod
 4. `/privacy` 와 `/terms` 의 운영자 정보를 실제에 맞게 고친다(`web/privacy.html`, `web/terms.html`).
 
 광고 자리는 `?ads=demo` 를 붙이면 볼 수 있다(예: `/edit?ads=demo`).
+광고가 실제로 채워졌을 때(`data-ad-status="filled"`)만 자리를 펼친다 — 심사 중 · 광고 없음 · 차단이면 빈 띠를 남기지 않는다.
+광고를 못 채우면 AdSense 가 바깥 요소에 `height: auto !important` 를 박아 편집 화면이 늘어나므로, 편집 화면은 그 높이를 곧바로 지운다(`web/src/editor/AdSlot.tsx`).
 
 **쿠팡 파트너스 추천 칸** — 한국어 첫 화면·문법·개발자 쪽의 광고 자리 위에 카드 넷(맥북·맥미니·에어팟·키보드)을 낸다. 팝업이 아니고 편집기에는 내지 않는다.
 
@@ -325,6 +328,15 @@ uvx --from git+https://github.com/madorik/mditor-lasee mditor-mcp
 ## 알아 둘 것
 
 - 서버가 여러 프로세스면 요청 횟수 제한을 프로세스마다 따로 센다. 정확히 제한하려면 앞단(프록시·CDN)에서 한다.
+- **큰 글에 버티기** — 문서는 `MDITOR_MAX_MD_CHARS`(40만 자)까지다.
+  - 화면: 붙이면 한도를 넘는 붙여넣기(문서 탭 · MD 탭)는 받지 않고 알린다. 한도를 넘은 문서는 서버에 보내지 않고 안내한다.
+    큰 문서일수록 미리보기(300ms → 1.5초) · 쪽 계산(1.2초 → 6초) 요청 간격을 늘린다.
+  - 서버: 화면이 고치는 동안 저절로 보내는 요청(`live: true`)은 탭(`X-Mditor-Client`, 없으면 IP)마다 한 줄로 세워
+    차례가 왔을 때 더 새 요청이 와 있으면 건너뛴다(409) — 버려진 요청까지 PDF 를 그려 다른 사람의 요청이 밀리던 것을 막는다.
+    쪽 계산 · PDF 보기는 탭 당 분당 글자 수(`MDITOR_LIVE_RENDER_CHARS_PER_MINUTE`)도 센다(429). 저장 · PDF 내려받기 · API · MCP 는 건너뛰지 않는다.
+- **로딩** — 편집기는 서버를 기다리지 않고 화면의 파서로 바로 연다(서버가 식어 있어도). 편집기 덩어리는 HTML 에서 미리 받는다
+  (`web/vite.config.ts` `preloadEditor`). 문서 글꼴(나눔 셋)의 웹 글꼴 정의는 고를 때 불러온다(`web/src/lib/fonts.ts`). 편집 화면은 광고 코드를
+  쪽이 뜬 뒤 받는다(다른 쪽은 그대로 머리에). 첫 화면 영상은 쪽이 뜬 뒤 받아 틀고, 데이터 절약 · 아주 느린 망 · 움직임 줄이기에서는 포스터만 보인다.
 - 문서 편집기 안의 쪽 경계(자동 쪽 나눔)는 기본으로 꺼져 있다. 켜면 미리보기와 같은 자리에 그리고, 서버가 쪽을 다시 계산하기 전까지는 글을 따라 움직인다.
   MD 탭에는 그리지 않는다.
 - 목록은 글머리(`-`)와 번호(`1.`)·할 일(`- [ ]`), 블록은 코드(```` ``` ````)·가로줄(`---`)·쪽 나눔(`<!-- pagebreak -->`), 글 서식은 링크 `[글](주소)`·`` `코드` ``·`==형광펜==`·위/아래 첨자(`<sup>` `<sub>`)·문단 정렬(`{가운데}`)이 있다. 표·그림은 위와 같다. 전부 `src/mditor/data/syntax.md` 에 있다.

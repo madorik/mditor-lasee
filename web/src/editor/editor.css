@@ -1,10 +1,5 @@
 @import "../styles/tokens.css";
-/* 문서 글꼴(쪽 설정) — 글자를 쓸 때 필요한 조각만 내려받는다 */
-@import "@fontsource/nanum-myeongjo/400.css";
-@import "@fontsource/nanum-myeongjo/700.css";
-@import "@fontsource/nanum-gothic/400.css";
-@import "@fontsource/nanum-gothic/700.css";
-@import "@fontsource/nanum-pen-script/400.css";
+/* 문서 글꼴(쪽 설정)의 웹 글꼴 정의는 고를 때 불러온다(lib/fonts.ts loadFont) */
 
 html,
 body,
@@ -52,6 +47,7 @@ body {
 }
 
 .brand .sub {
+  font-family: var(--font); /* 한글 두 글자 때문에 제목 글꼴(Hahmlet)의 한글 조각을 받지 않게 */
   font-weight: 500;
   color: var(--graphite);
 }
@@ -1080,6 +1076,13 @@ html[lang="en"] .rich .mde-toolbar select.font-pick {
   border-top: 1px solid var(--line);
   background: var(--paper);
   text-align: center;
+}
+
+/* 광고가 채워지기 전(심사 중 · 광고 없음 · 차단)에는 자리를 접어 빈 띠를 남기지 않는다. 광고는 폭만 있으면 그 안에서 채워진다 */
+.ad:not([data-filled]):not(.ad-demo) {
+  min-height: 0;
+  height: 0;
+  border-top: 0;
 }
 
 .ad-demo {

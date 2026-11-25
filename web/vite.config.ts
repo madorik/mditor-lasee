@@ -27,8 +27,33 @@ function cleanUrls(): Plugin {
   };
 }
 
+/**
+ * 편집 화면은 늘 문서 탭(편집기)으로 연다 — 늦게 불러오는 편집기 덩어리(RichEditor)를 HTML 에서 미리 받게 한다.
+ * 안 그러면 화면 코드가 다 돌고 나서야 받기 시작해(느린 망에서 수 초) 편집기가 늦게 열렸다.
+ */
+function preloadEditor(): Plugin {
+  return {
+    name: "mditor-preload-editor",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        if (!/(^|\/)edit\.html$/.test(ctx.path) || !ctx.bundle) return html;
+        const rich = Object.values(ctx.bundle).find((c) => c.type === "chunk" && !!c.facadeModuleId?.endsWith("/src/editor/RichEditor.tsx"));
+        if (!rich || rich.type !== "chunk") return html;
+        const js = [rich.fileName, ...rich.imports];
+        const css = [...(rich.viteMetadata?.importedCss ?? [])];
+        return [
+          ...js.map((f) => ({ tag: "link", attrs: { rel: "modulepreload", crossorigin: true, href: `/${f}` }, injectTo: "head" as const })),
+          ...css.map((f) => ({ tag: "link", attrs: { rel: "preload", as: "style", href: `/${f}` }, injectTo: "head" as const })),
+        ];
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), cleanUrls()],
+  plugins: [react(), cleanUrls(), preloadEditor()],
   // 편집기 패키지(web/packages/editor)는 소스를 바로 쓴다 — npm 으로 낼 때는 그 폴더에서 따로 묶는다
   resolve: { alias: { "@mditor/editor": resolve(import.meta.dirname, "packages/editor/src") } },
   build: {

@@ -124,6 +124,8 @@ export const ko = {
   "table-too-wide": "표는 {max}칸까지 쓸 수 있습니다(지금 {width}칸).",
   "table-row-too-long": "이 줄은 {cells}칸인데 머리글은 {width}칸입니다.",
   placeholder: "",
+  tooLong: "붙여 넣을 글이 너무 깁니다. 문서는 {max}자까지 쓸 수 있습니다(붙이면 {length}자).",
+  pasteTooLong: "한 번에 붙여 넣을 수 있는 글은 {max}자까지입니다(지금 {length}자). 나눠서 붙여 넣으세요.",
   // 단축키 표시
   shortcut: "{label} ({key})",
 };
@@ -242,6 +244,8 @@ export const en: Messages = {
   "table-too-wide": "Tables can have up to {max} columns (this one has {width}).",
   "table-row-too-long": "This row has {cells} cells but the header has {width}.",
   placeholder: "",
+  tooLong: "That paste is too long. Documents can have up to {max} characters (it would be {length}).",
+  pasteTooLong: "You can paste up to {max} characters at a time (this is {length}). Paste it in parts.",
   shortcut: "{label} ({key})",
 };
 

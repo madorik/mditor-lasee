@@ -20,13 +20,15 @@ const HIDDEN = new Set(["source", "preview", "fullscreen"]);
  * 문서 탭 — 보이는 모양 그대로 고친다(편집기 패키지 @mditor/editor).
  * 서버가 되읽은 문서(doc)로 열고, 고칠 때마다 MD 로 직렬화해 올린다. 밖에서 MD 가 바뀌면 부모가 key 를 올려 새로 연다.
  */
-export default function RichEditor({ doc, dialect, pageMarks, showPageMarks, images, options, onOptions, onChange, onPickImage, onImageFile, register }: { doc: Doc; dialect: Dialect; pageMarks: PageMarks | null; showPageMarks: boolean; images: Record<string, StoredImage>; options: Options; onOptions: (o: Options) => void; onChange: (md: string) => void; onPickImage: () => void; onImageFile: (file: File) => void; register: (api: ImageApi | null) => void }) {
+export default function RichEditor({ doc, dialect, maxLength, maxPaste, onTooLong, pageMarks, showPageMarks, images, options, onOptions, onChange, onPickImage, onImageFile, register }: { doc: Doc; dialect: Dialect; maxLength: number; maxPaste: number; onTooLong: (kind: "paste" | "document", length: number) => void; pageMarks: PageMarks | null; showPageMarks: boolean; images: Record<string, StoredImage>; options: Options; onOptions: (o: Options) => void; onChange: (md: string) => void; onPickImage: () => void; onImageFile: (file: File) => void; register: (api: ImageApi | null) => void }) {
   const imagesRef = useRef(images);
   imagesRef.current = images;
   const pick = useRef(onPickImage);
   pick.current = onPickImage;
   const onFile = useRef(onImageFile);
   onFile.current = onImageFile;
+  const tooLong = useRef(onTooLong);
+  tooLong.current = onTooLong;
   const [editor, setEditor] = useState<MarkdownEditor | null>(null);
   const [fontSlot] = useState(() => document.createElement("span"));
 
@@ -71,6 +73,9 @@ export default function RichEditor({ doc, dialect, pageMarks, showPageMarks, ima
         toolbar={toolbar}
         image={{ resolve: (src) => imageSrc(src, imagesRef.current), pick: () => pick.current(), onFiles: (files) => files.forEach((f) => onFile.current(f)) }}
         onChange={onChange}
+        maxLength={maxLength}
+        maxPaste={maxPaste}
+        onTooLong={({ kind, length }) => tooLong.current(kind, length)}
         onReady={setEditor}
       />
       {createPortal(<FontPicker options={options} onChange={onOptions} />, fontSlot)}

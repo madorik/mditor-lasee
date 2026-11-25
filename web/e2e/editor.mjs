@@ -912,6 +912,52 @@ console.log("새 문법 · 미리보기 끄기");
   await context.close();
 }
 
+// 큰 글 붙여넣기 — 한 번에 5,000자까지 · 넘으면 붙이지 않고 알린다 · 한도를 넘은 문서는 서버에 보내지 않는다
+console.log("큰 글 붙여넣기");
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  await settle();
+  const { maxChars, maxPasteChars } = await page.evaluate(() => window.__MDITOR__);
+  ok(maxPasteChars === 5000, "한 번에 붙여 넣는 한도는 5,000자", String(maxPasteChars));
+  const paste = (selector, text) =>
+    page.evaluate(
+      (selector, text) => {
+        const el = document.querySelector(selector);
+        el.focus();
+        const dt = new DataTransfer();
+        dt.setData("text/plain", text);
+        el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+      },
+      selector,
+      text,
+    );
+  const toast = () => page.$eval(".toast", (el) => el.textContent).catch(() => "");
+  const before = state.md;
+  await caret(page, "적으세요.");
+  await paste(".ProseMirror", "나".repeat(maxPasteChars + 1));
+  await settle();
+  ok(state.md === before && !(await page.evaluate(() => document.querySelector(".ProseMirror").textContent.includes("나나나"))), "문서 탭: 5,001자 붙여넣기는 받지 않는다");
+  ok((await toast()).includes("한 번에 붙여 넣을 수 있는 글은 5,000자까지"), "  └ 나눠서 붙이라고 알린다", await toast());
+  await paste(".ProseMirror", "다".repeat(maxPasteChars));
+  await settle();
+  ok(state.md.includes("다".repeat(maxPasteChars)), "  └ 5,000자는 그대로 받는다");
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdedit textarea");
+  await sleep(6500); // 앞 알림이 사라진 뒤
+  await paste(".mdedit textarea", "라".repeat(maxPasteChars + 1));
+  await sleep(200);
+  ok((await toast()).includes("한 번에 붙여 넣을 수 있는 글은 5,000자까지"), "MD 탭: 5,001자 붙여넣기는 받지 않고 알린다", await toast());
+  // 한도를 넘은 문서(다른 곳에서 고쳐 온 것 등) — 서버에 보내지 않고 안내한다
+  let posts = 0;
+  page.on("request", (r) => r.method() === "POST" && r.url().includes("/api/md/") && posts++);
+  await setMd(page, "# 큰 문서\n\n" + "가".repeat(maxChars + 10) + "\n");
+  await sleep(3000);
+  ok(posts === 0, "한도를 넘은 문서는 서버에 보내지 않는다", `보낸 요청 ${posts}개`);
+  ok((await page.$$eval(".notice", (els) => els.map((e) => e.textContent).join(" "))).includes("넘어 미리보기"), "  └ 넘었다고 안내한다");
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
 await browser.close();
 console.log(failed ? `\n실패 ${failed}건` : "\n모두 통과");
 process.exit(failed ? 1 : 0);

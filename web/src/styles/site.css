@@ -389,6 +389,12 @@ pre.wrapcode {
   display: none;
 }
 
+/* 광고가 채워지기 전에는 자리를 접는다 — 광고는 폭만 있으면 그 안에서 채워진다 */
+.ad-slot:not([data-filled]):not(.demo) {
+  min-height: 0;
+  padding: 0;
+}
+
 .ad-slot.demo {
   display: grid;
   place-content: center;

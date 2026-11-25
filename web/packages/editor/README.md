@@ -96,6 +96,8 @@ renderHtml(md);                  // MD → HTML(링크는 안전한 주소만)
 | `image.resolve` | 그대로 | 문서의 그림 이름 → 화면에 그릴 주소 |
 | `image.onFiles` / `image.pick` | | 그림 파일 · 이미지 단추를 직접 다룰 때 |
 | `onChange` | | `(markdown, editor) => void` |
+| `maxLength` | 없음 | 문서(MD) 길이 한도 — 붙이면 넘는 붙여넣기(문서 · 원문 모드)를 받지 않는다. 손으로 치는 글은 막지 않는다 |
+| `onTooLong` | 편집기 위 줄에 알림 | `({ length, max }) => void` — maxLength 때문에 붙여넣기를 막았을 때 |
 | `extensions` | | 더 붙일 TipTap 확장 |
 
 ### 도구 막대 항목
