@@ -3,7 +3,7 @@
 // 자리와 코드는 lib/banners.ts — 코드가 없는 자리는 아무것도 그리지 않는다(주소에 ?ads=demo 를 붙이면 자리만 보여 준다).
 //
 // 쿠팡 코드는 쪽에 직접 심는다(lib/coupangMount.ts): 우리 틀(iframe)이나 sandbox 안에 넣으면 쿠팡 위젯이 내용을 줄여서 그린다(사진 29장 → 1장).
-import { liveBanners, SIZES, type BannerSlot } from "./lib/banners";
+import { fitWidth, liveBanners, SIZES, withWidth, type BannerSlot } from "./lib/banners";
 import { mountBanner } from "./lib/coupangMount";
 import { DISCLOSURE } from "./lib/picks";
 import "./styles/banners.css";
@@ -20,18 +20,20 @@ interface Slot {
   run?: () => void;
 }
 
-/** 그 자리의 배너(없으면 null, 데모면 자리만) */
-function node(slot: BannerSlot): Slot | null {
+/** 그 자리의 배너(없으면 null, 데모면 자리만). fit: 배너 폭을 이 값으로(쪽 안 가로 배너 — 자리 폭에 맞춘다) */
+function node(slot: BannerSlot, fit?: number): Slot | null {
   const live = liveBanners(slot)[0];
   const box = document.createElement("div");
   if (live) {
+    const width = fit ?? live.width;
     box.className = "adframe adbox";
-    box.style.width = `${live.width}px`;
+    box.style.width = `${width}px`;
     box.style.height = `${live.height}px`;
-    return { el: box, width: live.width, height: live.height, run: () => mountBanner(box, live.html) };
+    return { el: box, width, height: live.height, run: () => mountBanner(box, fit ? withWidth(live.html, width) : live.html) };
   }
   if (!demo) return null;
-  const [width, height] = SIZES[slot];
+  const [w0, height] = SIZES[slot];
+  const width = fit ?? w0;
   box.className = "adframe demo";
   box.style.width = `${width}px`;
   box.style.height = `${height}px`;
@@ -39,15 +41,20 @@ function node(slot: BannerSlot): Slot | null {
   return { el: box, width, height };
 }
 
-/** 쪽 안의 가로 배너 — 폭이 모자라면 줄여서 맞춘다 */
+/** 쪽 안의 가로 배너 — 자리 폭에 맞춰 만들고(넓은 화면에서 짧게 남지 않게), 나중에 자리가 좁아지면 줄여서 맞춘다 */
 function inline(slot: "middle" | "bottom", anchor: Element | null, where: "before" | "after"): void {
-  const body = node(slot);
-  if (!anchor || !body) return;
+  if (!anchor || (!liveBanners(slot).length && !demo)) return;
   const section = document.createElement("section");
   section.className = `picks adinline adinline-${slot}`;
   section.setAttribute("aria-label", "광고 — 쿠팡 파트너스");
   section.innerHTML = '<div class="picks-head"><h2>쿠팡 추천 상품</h2><span class="picks-tag">광고</span></div><div class="adfit"></div>' + `<p class="picks-note">${DISCLOSURE}</p>`;
   const wrap = section.querySelector<HTMLElement>(".adfit")!;
+  anchor[where](section); // 먼저 쪽에 붙여 자리 폭을 잰다
+  const body = node(slot, fitWidth(wrap.clientWidth));
+  if (!body) {
+    section.remove();
+    return;
+  }
   body.el.style.transformOrigin = "top left";
   wrap.append(body.el);
   const fit = () => {
@@ -55,7 +62,6 @@ function inline(slot: "middle" | "bottom", anchor: Element | null, where: "befor
     body.el.style.transform = s < 1 ? `scale(${s})` : "";
     wrap.style.height = `${Math.round(body.height * s)}px`;
   };
-  anchor[where](section);
   body.run?.();
   new ResizeObserver(fit).observe(wrap);
   fit();

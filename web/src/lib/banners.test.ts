@@ -35,4 +35,14 @@ describe("쿠팡 다이나믹 배너", () => {
     }
     expect(Object.keys(SIZES).sort()).toEqual(["bottom", "export", "middle", "side"]);
   });
+
+  it("쪽 안 가로 배너는 자리 폭에 맞춘다(300~1200px) — 코드의 폭만 바꾸고 쿠팡 주소만 부르는 것은 그대로다", async () => {
+    const { fitWidth, withWidth, isSafeSnippet: safe } = await import("./banners");
+    expect([fitWidth(1124.6), fitWidth(2000), fitWidth(180), fitWidth(0)]).toEqual([1125, 1200, 300, 300]);
+    const code = `<script src="https://ads-partners.coupang.com/g.js"></script>\n<script>\n\tnew PartnersCoupang.G({"id":1,"template":"carousel","trackingCode":"AF1","width":"680","height":"140","tsource":""});\n</script>`;
+    const wide = withWidth(code, 1125);
+    expect(wide).toContain('"width":"1125","height":"140"');
+    expect(wide.replace('"width":"1125"', '"width":"680"')).toBe(code);
+    expect(safe(wide)).toBe(true);
+  });
 });
