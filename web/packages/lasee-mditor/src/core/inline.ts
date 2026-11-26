@@ -61,10 +61,13 @@ const AT = new RegExp(
   `(\\*\\*)|(~~)|(==)|\\{(/?)(${TAG_NAMES})\\}|(<br[ \\t]*/?>)|<(/?)(sup|sub)>|(\\[)|\\]\\((${URL})\\)|(\\])`,
   "iy",
 );
+// 칸 안의 그림: ![설명](주소){width=N%} — 설명은 대괄호 · 역슬래시 · 줄바꿈이 없는 글자, 폭은 1~100
+const IMG_AT = new RegExp(`!\\[([^\\[\\]\\\\\\n]*)\\]\\((${URL})\\)(?:\\{width=(100|[1-9][0-9]?)%\\})?`, "y");
+const ALT_DROP = /[[\]\\{}<>]/g;
 const TAG_AT = new RegExp(`\\{/?(?:${TAG_NAMES})\\}`, "iy");
 const BR_AT = /<br[ \t]*\/?>/iy;
 const SCRIPT_AT = /<\/?(?:sup|sub)>/iy;
-const PARA_BLOCK = new RegExp(`^(?:#{1,6}(?:${PS}|$)|>|[-*+](?:${PS}|$)|\\||!\\[.*\\]\\(.*\\)$)`, "s");
+const PARA_BLOCK = new RegExp(`^(?:#{1,6}(?:${PS}|$)|>|[-*+](?:${PS}|$)|\\||!\\[.*\\]\\(.*\\)(?:\\{width=(?:100|[1-9][0-9]?)%\\})?$)`, "s");
 const PARA_ORDERED = new RegExp(`^(\\d{1,9})([.)])(?:${PS}|$)`, "s");
 const PAGEBREAK = /^<!--[ \t]*pagebreak[ \t]*-->$/i;
 const RULE = /^([-*_])(?:[ \t]*\1){2,}$/; // 가로줄(---)로 읽히는 문단
@@ -95,6 +98,10 @@ export type Seg = {
   color?: string | null;
   script?: Script | null;
   code?: boolean;
+  /** 그림 조각(표 칸 안): 주소. text 는 설명이고 서식은 없다 */
+  image?: string;
+  /** 그림 폭(칸 폭의 %) */
+  width?: number;
 };
 
 // 0 링크 · 1 굵게 · 2 취소선 · 3 기울임 · 4 밑줄 · 5 음영 · 6 형광펜 · 7 색 · 8 첨자 · 9 코드
@@ -127,27 +134,29 @@ function seg(text: string, st: Style): Seg {
   return out;
 }
 
-type Kind = "esc" | "bold" | "strike" | "mark" | "open" | "close" | "br" | "sopen" | "sclose" | "lopen" | "lclose" | "rclose" | "code";
+type Kind = "esc" | "bold" | "strike" | "mark" | "open" | "close" | "br" | "sopen" | "sclose" | "lopen" | "lclose" | "rclose" | "code" | "img";
 
 type Tok = {
   start: number;
   end: number;
   kind: Kind;
   value: string; // esc: 글자, open/close: 태그 이름(안에서 쓰는 한국어 이름), sopen/sclose: sup|sub, lopen/lclose: 주소, code: 속 글자
-  raw: string; // open/close: 글에 적힌 태그 이름 그대로
+  raw: string; // open/close: 글에 적힌 태그 이름 그대로, img: 설명
   paired: boolean;
   opens: boolean;
   partner: number;
   active: boolean; // lopen: 링크를 열 수 있는가(링크 안에 링크는 없다)
+  width: number; // img: 폭(%), 없으면 0
 };
 
 const PAIRED_DELIMS = ["bold", "strike", "mark"] as const;
 
-function scan(s: string): Tok[] {
+/** images: 칸 안의 그림(`![설명](주소){width=N%}`)도 토큰으로 읽는다. */
+function scan(s: string, images = false): Tok[] {
   const toks: Tok[] = [];
   const n = s.length;
-  const push = (start: number, end: number, kind: Kind, value = "", raw = "", paired = false) =>
-    toks.push({ start, end, kind, value, raw, paired, opens: false, partner: -1, active: true });
+  const push = (start: number, end: number, kind: Kind, value = "", raw = "", paired = false, width = 0) =>
+    toks.push({ start, end, kind, value, raw, paired, opens: false, partner: -1, active: true, width });
   let i = 0;
   while (i < n) {
     const ch = s[i];
@@ -180,6 +189,18 @@ function scan(s: string): Tok[] {
         push(i, close + len, "code", body, "", true);
         i = close + len;
       } else i = j;
+      continue;
+    }
+    if (ch === "!") {
+      let m: RegExpExecArray | null = null;
+      if (images) {
+        IMG_AT.lastIndex = i;
+        m = IMG_AT.exec(s);
+      }
+      if (m && m[2]) {
+        push(i, i + m[0].length, "img", m[2], m[1], true, m[3] ? Number(m[3]) : 0);
+        i += m[0].length;
+      } else i++;
       continue;
     }
     AT.lastIndex = i;
@@ -260,9 +281,9 @@ function scan(s: string): Tok[] {
   return toks;
 }
 
-/** 서식 문자열 → 조각. 줄바꿈(<br>)은 글자 "\n" 으로 들어간다. */
-export function segments(s: string): Seg[] {
-  const toks = scan(s);
+/** 서식 문자열 → 조각. 줄바꿈(<br>)은 글자 "\n" 으로 들어간다. images: 칸 안의 그림도 읽는다(그림 조각). */
+export function segments(s: string, images = false): Seg[] {
+  const toks = scan(s, images);
   const out: Seg[] = [];
   let link: string | null = null;
   let bold = false;
@@ -288,7 +309,7 @@ export function segments(s: string): Seg[] {
     if (!text) return;
     const next = seg(text, now(code));
     const last = out[out.length - 1];
-    if (last && sameStyle(last, next)) last.text += text;
+    if (last && last.image === undefined && sameStyle(last, next)) last.text += text;
     else out.push(next);
   };
 
@@ -298,6 +319,7 @@ export function segments(s: string): Seg[] {
     pos = t.end;
     if (!t.paired) emit(s.slice(t.start, t.end));
     else if (t.kind === "esc") emit(t.value);
+    else if (t.kind === "img") out.push(t.width ? { text: t.raw, image: t.value, width: t.width } : { text: t.raw, image: t.value }); // 그림은 서식을 입지 않는다
     else if (t.kind === "br") emit("\n");
     else if (t.kind === "code") emit(t.value, true);
     else if (t.kind === "bold") bold = t.opens;
@@ -326,9 +348,13 @@ export function segments(s: string): Seg[] {
 function merge(segs: Seg[]): Seg[] {
   const out: Seg[] = [];
   for (const s of segs) {
+    if (s.image !== undefined) {
+      out.push({ ...s }); // 그림은 합치지 않는다(설명이 비어도 남는다)
+      continue;
+    }
     if (!s.text) continue;
     const last = out[out.length - 1];
-    if (last && sameStyle(last, s)) last.text += s.text;
+    if (last && last.image === undefined && sameStyle(last, s)) last.text += s.text;
     else out.push(seg(s.text, style(s)));
   }
   return out;
@@ -404,15 +430,22 @@ function trimEdges(segs: Seg[], field: number): Seg[] {
  */
 export function normalize(segs: Seg[]): Seg[] {
   // 코드 안의 줄바꿈은 빈칸, 링크 주소는 MD 에 쓸 꼴(linkHref)로 — 그래야 쓰고 다시 읽어도 같다
-  const pre = segs.map((s) => {
+  const pre: Seg[] = [];
+  for (const s of segs) {
+    if (s.image !== undefined) {
+      // 그림: 주소는 링크처럼, 설명은 한 줄로, 폭은 1~100
+      const src = linkHref(s.image);
+      if (src) pre.push(s.width && s.width >= 1 && s.width <= 100 ? { text: imageAlt(s.text), image: src, width: s.width } : { text: imageAlt(s.text), image: src });
+      continue;
+    }
     const st = style(s);
     let text = s.text;
     if (st[CODE] && text.includes("\n")) text = text.replace(/\n/g, " ");
     if (st[0]) st[0] = linkHref(st[0]) || null;
-    return seg(text, st);
-  });
-  let cur = merge(pre);
-  while (cur.length) {
+    pre.push(seg(text, st));
+  }
+  let cur = aroundImages(merge(pre));
+  while (cur.length && cur[0].image === undefined) {
     const t = cur[0].text.slice(lstripLen(cur[0].text, WS + "\n"));
     if (t) {
       cur[0] = seg(t, style(cur[0]));
@@ -420,7 +453,7 @@ export function normalize(segs: Seg[]): Seg[] {
     }
     cur.shift();
   }
-  while (cur.length) {
+  while (cur.length && cur[cur.length - 1].image === undefined) {
     const last = cur[cur.length - 1];
     const t = last.text.slice(0, last.text.length - rstripLen(last.text, WS + "\n"));
     if (t) {
@@ -433,6 +466,36 @@ export function normalize(segs: Seg[]): Seg[] {
   cur = merge(trimEdges(cur, 2));
   cur = merge(trimEdges(cur, 6));
   return cur;
+}
+
+/** 그림 설명의 표준 꼴 — `[ ] \\ { } < >` 를 빼고 빈칸 · 줄바꿈은 빈칸 하나로(서버 image_alt). */
+export function imageAlt(alt: string): string {
+  return pyStrip(alt.replace(ALT_DROP, "").replace(SPACES, " "));
+}
+
+/** 그림은 칸 안에서 한 줄을 차지한다 — 그림 바로 앞뒤의 공백 · 줄바꿈은 뜻이 없어 버린다(서버 _around_images). */
+function aroundImages(segs: Seg[]): Seg[] {
+  const out = segs.slice();
+  out.forEach((s, i) => {
+    if (s.image === undefined) return;
+    for (let j = i - 1; j >= 0 && out[j].image === undefined; j--) {
+      const x = out[j].text;
+      const t = x.slice(0, x.length - rstripLen(x, WS + "\n"));
+      out[j] = seg(t, style(out[j]));
+      if (t) break;
+    }
+    for (let j = i + 1; j < out.length && out[j].image === undefined; j++) {
+      const t = out[j].text.slice(lstripLen(out[j].text, WS + "\n"));
+      out[j] = seg(t, style(out[j]));
+      if (t) break;
+    }
+  });
+  return out.filter((s) => s.image !== undefined || s.text);
+}
+
+/** 그림 조각 → `![설명](주소){width=N%}`. */
+export function imageMd(s: Seg): string {
+  return `![${s.text}](${linkHref(s.image ?? "")})` + (s.width ? `{width=${s.width}%}` : "");
 }
 
 /** 태그 이름을 문서의 태그 언어로(`tag("음영", "en") === "shade"`). */
@@ -507,7 +570,10 @@ export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): st
   // [기호인지, 글자, 링크 안인지]
   const pieces: [boolean, string, boolean][] = [];
   let cur: Style = OFF;
-  for (const [st, text] of [...segs.map((s) => [style(s), s.text] as [Style, string]), [OFF, ""] as [Style, string]]) {
+  for (const sg of [...segs, null]) {
+    const img = sg !== null && sg.image !== undefined;
+    const st: Style = sg === null || img ? OFF : style(sg);
+    const text = sg === null || img ? "" : sg.text;
     let first = -1;
     for (let i = 0; i < CODE; i++) {
       if (cur[i] !== st[i]) {
@@ -519,7 +585,8 @@ export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): st
       for (let j = CODE - 1; j >= first; j--) if (cur[j]) pieces.push([true, closeTag(j, cur[j], dialect), false]);
       for (let j = first; j < CODE; j++) if (st[j]) pieces.push([true, openTag(j, st[j], dialect), false]);
     }
-    if (text) pieces.push(st[CODE] ? [true, codeSpan(text), false] : [false, text, !!st[0]]);
+    if (img) pieces.push([true, imageMd(sg!), false]);
+    else if (text) pieces.push(st[CODE] ? [true, codeSpan(text), false] : [false, text, !!st[0]]);
     cur = st;
   }
 
@@ -578,7 +645,7 @@ export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): st
     result = chars.join("");
     // 글자로 쓴 * · ~ · = 가 서식 기호로 읽히거나 글자로 쓴 [ 가 링크를 열면 그 자리만 이스케이프하고 다시 본다
     let offender: number[] = [];
-    for (const t of scan(result)) {
+    for (const t of scan(result, ctx === "cell")) {
       if (t.kind === "bold" || t.kind === "strike" || t.kind === "mark") {
         const p0 = origin[t.start];
         const p1 = origin[t.start + 1];
@@ -586,6 +653,15 @@ export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): st
         const literal = [p0, p1].filter((p) => !markup[p]);
         if (literal.length < 2 || t.paired) {
           offender = literal;
+          break;
+        }
+      } else if (t.kind === "img") {
+        // 글자로 쓴 ! · ![…](…) · {width=…} 가 그림으로 읽히면 — 글자 ! 를, 아니면 그림 뒤에 붙은 첫 글자를 이스케이프
+        const literal: number[] = [];
+        for (let k = t.start; k < t.end; k++) if (origin[k] >= 0 && !markup[origin[k]]) literal.push(origin[k]);
+        if (literal.length) {
+          const p0 = origin[t.start];
+          offender = p0 >= 0 && !markup[p0] ? [p0] : [literal[0]];
           break;
         }
       } else if (t.kind === "lopen" && t.paired) {
@@ -621,7 +697,7 @@ export function write(segs: Seg[], ctx: Ctx = null, dialect: Dialect = "ko"): st
 
 /** 서식 문자열을 표준 꼴로. */
 export function canon(s: string, ctx: Ctx = null, dialect: Dialect = "ko"): string {
-  return write(normalize(segments(s)), ctx, dialect);
+  return write(normalize(segments(s, ctx === "cell")), ctx, dialect);
 }
 
 /** 줄바꿈·빈칸 문자를 빈칸 하나로, 이어진 빈칸은 조각 경계를 넘어서도 하나로(서버 _one_space). */

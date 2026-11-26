@@ -138,10 +138,17 @@ A body paragraph of the report.</pre></div></figure>
           <li><strong>Cell shading</strong>: wrap the whole cell content in <code>{shade}…{/shade}</code>.</li>
           <li>Inside a cell, write <code>|</code> as <code>\|</code> and a line break as <code>&lt;br&gt;</code>. To put a lone <code>&lt;</code> or <code>^</code> in a cell as text, write <code>\&lt;</code> or <code>\^</code>.</li>
           <li>Every row must have as many cells as the header. Missing cells are filled in as empty; extra cells are reported as an error with the line number.</li>
+          <li><strong>Images in cells</strong>: write <code>![caption](image address)</code> inside the cell. Add <code>{width=40%}</code> to draw it at 40% of the cell width. An image takes a line of its own in the cell and follows the column alignment. In the editor, put the cursor in a cell and press Image, or drag an image from the body into a cell. To write <code>![</code> as text, use <code>\![</code>.</li>
         </ul>
 
         <h2>Images</h2>
         <p>Write <code>![caption](image address)</code> on a line of its own. When you add an image with the editor’s Image button, it is uploaded to the service’s image storage and its address is filled in for you, so the image comes along when you download the MD file or send a link. The caption appears below the image.</p>
+        <p><strong>Size</strong>: add a width, as in <code>![caption](image address){width=60%}</code>, to draw the image at 60% of the body width (1–100). Without it, the image keeps its original size within the body width and page height. In the editor, drag the handle at the image’s bottom-right corner, or select the image and use the 25 · 50 · 75 · 100% · Original size buttons (double-click the handle for the original size). Drag an image to move it, into table cells too.</p>
+        <div class="sample"><pre>![Revenue trend](chart.png){width=60%}
+
+| Product | Photo |
+|:---|:---:|
+| Bookmark | ![Bookmark](bookmark.png){width=50%} |</pre></div>
         <p>Each image file can be up to 10 MB, and images whose longer side is over 1600px are scaled down before upload. PNG, JPEG, GIF and WebP are supported.</p>
         <p>Uploaded images are deleted automatically after 3 days. To keep a document with its images, download it as a PDF, which contains the images.</p>
 

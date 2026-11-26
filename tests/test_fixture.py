@@ -34,6 +34,14 @@ def _json(segs):
 
 # 블록 읽기 사례(화면의 parseMarkdown 이 같은 문서를 만드는지 본다). (MD, 부르는 쪽의 태그 언어)
 PARSE: list[tuple[str, str | None]] = [
+    # 그림 폭 · 표 칸 안의 그림
+    ("![설명](a.png){width=60%}\n", None),
+    ("![설명](a.png){width=100%}\n", None),
+    ("![설명](a.png){width=0%}\n", None),
+    ("![설명](a.png){width=60%} 뒤\n", None),
+    ("| a | b |\n|---|---|\n| ![x](y.png){width=50%} | 글<br>![z](w.png) |\n", None),
+    ("| 사진 | < |\n|:---:|---|\n| ![a](a.png) 설명 | ![b](b.png){width=30%}![c](c.png) |\n", None),
+    ("| a |\n|---|\n| \\![글자](x) |\n", None),
     # 번호 목록 · 할 일 · 단계
     ("1. a\n2. b\n3. c\n", None),
     ("1) a\n2) b\n", None),
@@ -298,6 +306,27 @@ def build() -> dict:
             "raw": _json(raw), "norm": _json(norm),
             "md": [inline.write(norm, c) for c in CTX], "mdEn": [inline.write(norm, c, "en") for c in CTX],
         })
+    # 표 칸(그림이 섞인 조각) — 칸 문맥으로 쓰고 다시 읽는다
+    cell_alphabet = [*alphabet, "!", "![", "{width=50%}", "](b)", "%}"]
+    rand_cell = []
+    for _ in range(400):
+        raw = []
+        for _ in range(rnd.randint(1, 5)):
+            if rnd.random() < 0.25:
+                raw.append(Seg(
+                    "".join(rnd.choice(cell_alphabet) for _ in range(rnd.randint(0, 3))),
+                    image=rnd.choice(["a.png", "https://x.y/(a)", "a b", "x|y", "!", " "]),
+                    width=rnd.choice([None, None, 40, 100, 0, 150]),
+                ))
+            else:
+                raw.append(Seg(
+                    "".join(rnd.choice(cell_alphabet) for _ in range(rnd.randint(1, 5))),
+                    rnd.random() < 0.3, rnd.random() < 0.3, rnd.random() < 0.2,
+                    link=rnd.choice([None, None, None, "u", "a b"]),
+                    code=rnd.random() < 0.1,
+                ))
+        norm = inline.normalize(raw)
+        rand_cell.append({"raw": _json(raw), "norm": _json(norm), "md": inline.write(norm, "cell"), "mdEn": inline.write(norm, "cell", "en")})
     grids = [
         [["a", "<", "c"], ["^", "^", "d"], ["e", "f", "<"]],
         [["기준", "<"], ["^", "따로"]],
@@ -330,6 +359,7 @@ def build() -> dict:
             {
                 "src": s,
                 "segs": _json(inline.normalize(inline.segments(s))),
+                "segsCell": _json(inline.normalize(inline.segments(s, True))),
                 "canon": [inline.canon(s, c) for c in CTX],
                 "canonEn": [inline.canon(s, c, "en") for c in CTX],
                 "cellShade": list(inline.cell_shade(s)),
@@ -339,6 +369,7 @@ def build() -> dict:
         "parse": [{"src": src, "dialect": dl, "doc": md.parse(src, dl)} for src, dl in PARSE],
         "write": _write_cases(),
         "random": rand,
+        "randomCell": rand_cell,
         "titles": [
             {"src": s, "ko": inline.title(s), "en": inline.title(s, "en")}
             for s in ("  **굵게**   보통  ", "줄<br>바꿈", "a {빨강} b{/빨강}", "{기울임} 앞 공백{/기울임}끝", "1.31** 각주", "a\u3000\u00a0b\x1cc",
@@ -363,3 +394,14 @@ def test_fixture_md_reads_back_to_itself():
     assert again == data["doc"] and md.doc_md(again) == data["md"]
     en = data["en"]
     assert md.doc_md(md.apply_md(en["doc"], en["md"])) == en["md"] and "{red}" in en["md"] and "{빨강}" not in en["md"]
+
+
+def test_cell_images_read_back_to_themselves():
+    """칸 문맥: 그림이 섞인 조각을 쓰고 다시 읽으면 같은 조각이다(글자 ! · {width=…} 는 이스케이프된다)."""
+    data = build()
+    assert len(data["randomCell"]) == 400
+    for c in data["randomCell"]:
+        assert _json(inline.normalize(inline.segments(c["md"], True))) == c["norm"], c["md"]
+        assert _json(inline.normalize(inline.segments(c["mdEn"], True))) == c["norm"], c["mdEn"]
+    assert any(any("image" in x for x in c["norm"]) for c in data["randomCell"])
+

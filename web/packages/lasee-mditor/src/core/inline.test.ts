@@ -9,6 +9,7 @@ describe("글 서식 — 서버와 같은 결과", () => {
   it("읽기 · 표준 꼴 · 칸 음영", () => {
     for (const c of fixture.inline) {
       expect(normalize(segments(c.src)), c.src).toEqual(c.segs);
+      expect(normalize(segments(c.src, true)), `${c.src} (칸)`).toEqual(c.segsCell);
       CTX.forEach((ctx, i) => expect(canon(c.src, ctx), `${c.src} (${ctx})`).toBe(c.canon[i]));
       CTX.forEach((ctx, i) => expect(canon(c.src, ctx, "en"), `${c.src} (${ctx}, en)`).toBe(c.canonEn[i]));
       expect(cellShade(c.src), c.src).toEqual(c.cellShade);
@@ -28,6 +29,25 @@ describe("글 서식 — 서버와 같은 결과", () => {
         expect(normalize(segments(en))).toEqual(c.norm);
       });
     }
+  });
+});
+
+describe("표 칸 안의 그림 — 서버와 같은 결과", () => {
+  it("그림이 섞인 무작위 조각 400개 — 다듬기 · 칸 문맥으로 쓰기 · 다시 읽기", () => {
+    const cases = (fixture as unknown as { randomCell: { raw: Seg[]; norm: Seg[]; md: string; mdEn: string }[] }).randomCell;
+    expect(cases.length).toBe(400);
+    for (const c of cases) {
+      const norm = normalize(c.raw);
+      expect(norm).toEqual(c.norm);
+      expect(write(norm, "cell")).toBe(c.md);
+      expect(write(norm, "cell", "en")).toBe(c.mdEn);
+      expect(normalize(segments(c.md, true))).toEqual(c.norm);
+    }
+  });
+
+  it("칸 밖에서는 그림이 아니다", () => {
+    expect(segments("![a](b.png)").some((s) => s.image !== undefined)).toBe(false);
+    expect(segments("![a](b.png){width=40%}", true)).toEqual([{ text: "a", image: "b.png", width: 40 }]);
   });
 });
 

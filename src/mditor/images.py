@@ -20,6 +20,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Protocol
 
+from . import inline
+
 from .i18n import t
 
 NAME = r"[0-9a-f]{32}-(\d{1,5})x(\d{1,5})\.(png|jpg)"
@@ -202,15 +204,27 @@ class Cached:
                 self._size -= len(old)
 
 
+def sources(doc: dict[str, Any]) -> list[str]:
+    """문서의 그림 주소 — 본문 그림과 표 칸 안의 그림."""
+    out: list[str] = []
+    for b in _blocks(doc):
+        if b.get("kind") == "image":
+            out.append(str(b.get("src") or ""))
+        elif b.get("kind") == "table":
+            for row in [*(b.get("head") or []), *(b.get("rows") or [])]:
+                for cell in row:
+                    if "![" in str(cell):
+                        out += [sg.image for sg in inline.segments(inline.cell_shade(str(cell))[1], True) if sg.image]
+    return out
+
+
 def hosted(doc: dict[str, Any]) -> dict[str, str]:
     """문서에서 이 저장소의 그림을 찾는다 — {그림 주소: 이름}."""
     out: dict[str, str] = {}
-    for b in _blocks(doc):
-        if b.get("kind") == "image":
-            src = str(b.get("src") or "")
-            name = name_of_src(src)
-            if name:
-                out[src] = name
+    for src in sources(doc):
+        name = name_of_src(src)
+        if name:
+            out[src] = name
     return out
 
 

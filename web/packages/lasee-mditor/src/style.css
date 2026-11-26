@@ -617,6 +617,132 @@ html.mde-noscroll body {
   outline-offset: 2px;
 }
 
+/* 그림: 자리(frame) 안의 상자(box)가 폭(%)을 받는다. 손잡이는 상자 오른쪽 아래, 옮기기 표시는 왼쪽 위 */
+.mde .ProseMirror figure.md-image .md-image-frame {
+  display: block;
+}
+
+.mde .ProseMirror figure.md-image .md-image-box {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.mde .ProseMirror figure.md-image .md-image-box > img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.mde .ProseMirror figure.md-image.is-editable {
+  cursor: grab;
+}
+
+.mde .md-image-grip,
+.mde .md-image-resize,
+.mde .md-image-badge,
+.mde .md-image-sizes {
+  display: none;
+}
+
+.mde .ProseMirror figure.md-image.is-editable:hover .md-image-grip,
+.mde .ProseMirror figure.md-image.is-editable.ProseMirror-selectednode .md-image-grip,
+.mde .ProseMirror figure.md-image.is-editable:hover .md-image-resize,
+.mde .ProseMirror figure.md-image.is-editable.ProseMirror-selectednode .md-image-resize,
+.mde .ProseMirror figure.md-image.is-resizing .md-image-resize {
+  display: block;
+}
+
+.mde .md-image-grip {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgb(27 36 48 / 70%);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: -2px;
+  pointer-events: none;
+}
+
+.mde .md-image-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  background: var(--mde-accent);
+  box-shadow: 0 0 0 1px rgb(27 36 48 / 25%);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.mde .ProseMirror figure.md-image.is-resizing .md-image-badge:not([hidden]) {
+  display: block;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgb(27 36 48 / 80%);
+  color: #fff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mde .ProseMirror figure.md-image.is-editable.ProseMirror-selectednode .md-image-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.mde .md-image-size {
+  padding: 2px 8px;
+  border: 1px solid var(--mde-line);
+  border-radius: 999px;
+  background: var(--mde-bg);
+  color: var(--mde-fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mde .md-image-size[aria-pressed="true"] {
+  border-color: var(--mde-accent);
+  background: var(--mde-accent-tint);
+  color: var(--mde-accent-ink);
+}
+
+/* 표 칸 안의 그림 — 칸 정렬을 따르고, 설명 칸은 두지 않는다(PDF 에도 설명은 나오지 않는다) */
+.mde .ProseMirror td figure.md-image,
+.mde .ProseMirror th figure.md-image {
+  margin: 2px 0;
+  padding: 2px;
+  text-align: inherit;
+}
+
+.mde .ProseMirror td .md-image-caption,
+.mde .ProseMirror th .md-image-caption {
+  display: none;
+}
+
+.mde .ProseMirror td .md-image-box > img,
+.mde .ProseMirror th .md-image-box > img {
+  max-height: none;
+}
+
+.mde-doc .md-cell-image {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
 .mde .md-image-missing {
   padding: 22px 12px;
   border: 1px dashed var(--mde-line);

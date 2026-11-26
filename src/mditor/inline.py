@@ -21,6 +21,8 @@ canon(s) = write(normalize(segments(s)))  — 저장하는 문자열은 언제�
 - ``<br>`` : 줄바꿈.
 - ``{왼쪽}`` ``{가운데}`` ``{오른쪽}`` ``{양쪽}`` : 문단 전체를 감쌀 때만 뜻이 있다(``block_align``). 글 안에서는 버린다.
 - ``\\`` 뒤의 ``\\ * ~ { } < > ^ | # - + ! ` [ ] = . _ )`` 는 글자 그대로(이스케이프).
+- ``![설명](주소){width=40%}`` : 표 칸 안의 그림(칸에서만 — ``segments(s, images=True)``). 그림은 칸 안에서 한 줄을 차지하고,
+  ``{width=N%}``(1~100)는 칸 폭에 대한 그림 폭이다. 설명에는 ``[ ] \\ { } < >`` 를 쓰지 않는다(쓸 때 뺀다). 서식은 입지 않는다.
 
 안에서는 한국어 태그 이름으로 다루고, 쓸 때만 문서의 태그 언어(dialect, ``ko`` | ``en``)로 쓴다.
 문서의 태그 언어는 처음 나오는 짝 맞은 태그가 정한다(``dialect_of``). 태그가 없으면 부르는 쪽이 정한다.
@@ -79,6 +81,9 @@ _AT = re.compile(
     r"|(\])",  # 11
     _FLAGS_RE,
 )
+# 칸 안의 그림: ![설명](주소){width=N%} — 설명은 대괄호 · 역슬래시 · 줄바꿈이 없는 글자, 폭은 1~100
+_IMG_AT = re.compile(r"!\[([^\[\]\\\n]*)\]\((" + _URL + r")\)(?:\{width=(100|[1-9][0-9]?)%\})?")
+_ALT_DROP = re.compile(r"[\[\]\\{}<>]")
 _TAG_AT = re.compile(r"\{/?(?:" + _TAG_NAMES + r")\}", _FLAGS_RE)
 _BR_AT = re.compile(r"<br[ \t]*/?>", _FLAGS_RE)
 _SCRIPT_AT = re.compile(r"</?(?:sup|sub)>", _FLAGS_RE)
@@ -87,7 +92,7 @@ _RULE = re.compile(r"^([-*_])(?:[ \t]*\1){2,}\Z")  # 가로줄(---)로 읽히는
 _ITEM_RULE = re.compile(r"^-(?:[ \t]*-)+\Z")  # "- " 뒤에 붙으면 가로줄이 되는 항목
 _ITEM_TASK = re.compile(r"^\[[ xX]\](?:\s|\Z)")  # 항목 글이 할 일 칸([ ])으로 읽힌다
 _SPACES = re.compile(r"\s+")  # str.split() 과 같은 빈칸 문자(\x1c-\x1f 포함)
-_PARA_BLOCK = re.compile(r"^(?:#{1,6}(?:\s|\Z)|>|[-*+](?:\s|\Z)|\||!\[.*\]\(.*\)\Z)")
+_PARA_BLOCK = re.compile(r"^(?:#{1,6}(?:\s|\Z)|>|[-*+](?:\s|\Z)|\||!\[.*\]\(.*\)(?:\{width=(?:100|[1-9][0-9]?)%\})?\Z)")
 _PARA_ORDERED = re.compile(r"^([0-9]{1,9})([.)])(?:\s|\Z)")  # \d 는 유니코드 숫자까지 잡는다 — 쓰지 않는다
 _SCHEME = re.compile(r"^([a-z][a-z0-9+.-]*):", re.IGNORECASE | re.ASCII)
 
@@ -111,6 +116,8 @@ class Seg:
     mark: bool = False
     script: str | None = None  # "sup" | "sub"
     code: bool = False
+    image: str | None = None  # 그림 조각(표 칸 안): 주소. text 는 설명이고 서식은 없다
+    width: int | None = None  # 그림 폭(칸 폭의 %)
 
     def style(self) -> Style:
         """바깥 → 안 순서(링크 · 굵게 · 취소선 · 기울임 · 밑줄 · 음영 · 형광펜 · 색 · 첨자 · 코드). 빈 링크 · 색 · 첨자는 없는 것으로 본다."""
@@ -140,6 +147,10 @@ class Seg:
             out["script"] = self.script
         if self.code:
             out["code"] = True
+        if self.image:
+            out["image"] = self.image
+            if self.width:
+                out["width"] = self.width
         return out
 
 
@@ -160,23 +171,28 @@ class _Tok:
     paired: bool = False
     opens: bool = False  # bold/strike/mark 가 짝일 때 여는 쪽인지
     partner: int = -1
-    raw: str = ""  # open/close: 글에 적힌 태그 이름 그대로
+    raw: str = ""  # open/close: 글에 적힌 태그 이름 그대로, img: 설명
     active: bool = True  # lopen: 링크를 열 수 있는가(링크 안에 링크는 없다)
+    width: int = 0  # img: 폭(%), 없으면 0
 
 
 _PAIRED_DELIMS = ("bold", "strike", "mark")
 _START = frozenset("\\`*~={<[]")  # 토큰의 첫 글자
 _NEXT_START = re.compile(r"[\\`*~={<\[\]]")
+_START_IMG = _START | {"!"}
+_NEXT_START_IMG = re.compile(r"[\\`*~={<\[\]!]")
 
 
-def _scan(s: str) -> list[_Tok]:
+def _scan(s: str, images: bool = False) -> list[_Tok]:
+    """``images``: 칸 안의 그림(``![설명](주소){width=N%}``)도 토큰으로 읽는다."""
     toks: list[_Tok] = []
     n = len(s)
     i = 0
+    start, next_start = (_START_IMG, _NEXT_START_IMG) if images else (_START, _NEXT_START)
     while i < n:
         ch = s[i]
-        if ch not in _START:  # 토큰이 시작할 수 없는 글자는 건너뛴다(긴 글을 빨리 읽으려고)
-            m = _NEXT_START.search(s, i)
+        if ch not in start:  # 토큰이 시작할 수 없는 글자는 건너뛴다(긴 글을 빨리 읽으려고)
+            m = next_start.search(s, i)
             if not m:
                 break
             i = m.start()
@@ -211,6 +227,14 @@ def _scan(s: str) -> list[_Tok]:
                 i = close + size
             else:
                 i = j
+            continue
+        if ch == "!":
+            m = _IMG_AT.match(s, i) if images else None
+            if m and m.group(2):
+                toks.append(_Tok(i, m.end(), "img", m.group(2), True, raw=m.group(1), width=int(m.group(3) or 0)))
+                i = m.end()
+            else:
+                i += 1
             continue
         m = _AT.match(s, i)
         if not m:
@@ -289,9 +313,9 @@ def _scan(s: str) -> list[_Tok]:
     return toks
 
 
-def segments(s: str) -> list[Seg]:
-    """서식 문자열 → 조각. 줄바꿈(<br>)은 글자 ``\\n`` 으로 들어간다."""
-    toks = _scan(s)
+def segments(s: str, images: bool = False) -> list[Seg]:
+    """서식 문자열 → 조각. 줄바꿈(<br>)은 글자 ``\\n`` 으로 들어간다. ``images``: 칸 안의 그림도 읽는다(그림 조각)."""
+    toks = _scan(s, images)
     out: list[Seg] = []
     link: str | None = None
     bold = strike = mark = False
@@ -306,7 +330,7 @@ def segments(s: str) -> list[Seg]:
             link, bold, strike, depth["기울임"] > 0, depth["밑줄"] > 0, depth["음영"] > 0, mark,
             colors[-1] if colors else None, scripts[-1] if scripts else None, code,
         )
-        if out and out[-1].style() == st:
+        if out and not out[-1].image and out[-1].style() == st:
             out[-1] = replace(out[-1], text=out[-1].text + text)
         else:
             out.append(_seg(text, st))
@@ -319,6 +343,8 @@ def segments(s: str) -> list[Seg]:
             emit(s[t.start : t.end])
         elif t.kind == "esc":
             emit(t.value)
+        elif t.kind == "img":  # 그림은 서식을 입지 않는다
+            out.append(Seg(t.raw, image=t.value, width=t.width or None))
         elif t.kind == "br":
             emit("\n")
         elif t.kind == "code":
@@ -358,9 +384,12 @@ def segments(s: str) -> list[Seg]:
 def _merge(segs: Iterable[Seg]) -> list[Seg]:
     out: list[Seg] = []
     for sg in segs:
+        if sg.image:  # 그림은 합치지 않는다(설명이 비어도 남는다)
+            out.append(sg)
+            continue
         if not sg.text:
             continue
-        if out and out[-1].style() == sg.style():
+        if out and not out[-1].image and out[-1].style() == sg.style():
             out[-1] = replace(out[-1], text=out[-1].text + sg.text)
         else:
             out.append(_seg(sg.text, sg.style()))
@@ -429,19 +458,24 @@ def normalize(segs: Iterable[Seg]) -> list[Seg]:
     굵게·취소선·형광펜 구간의 앞뒤 공백을 구간 밖으로 민다(짝 규칙 때문에 기호 안쪽에 공백을 둘 수 없다)."""
     pre: list[Seg] = []
     for sg in segs:  # 코드 안의 줄바꿈은 빈칸, 링크 주소는 MD 에 쓸 꼴(link_href)로 — 그래야 쓰고 다시 읽어도 같다
+        if sg.image is not None:  # 그림: 주소는 링크처럼, 설명은 한 줄로, 폭은 1~100
+            src = link_href(sg.image)
+            if src:
+                pre.append(Seg(image_alt(sg.text), image=src, width=sg.width if sg.width and 1 <= sg.width <= 100 else None))
+            continue
         st = list(sg.style())
         text = sg.text.replace("\n", " ") if st[CODE] and "\n" in sg.text else sg.text
         if st[0]:
             st[0] = link_href(st[0]) or None
         pre.append(_seg(text, tuple(st)))  # type: ignore[arg-type]
-    cur = _merge(pre)
-    while cur:
+    cur = _around_images(_merge(pre))
+    while cur and not cur[0].image:
         t = cur[0].text.lstrip(WS + "\n")
         if t:
             cur[0] = _seg(t, cur[0].style())
             break
         cur.pop(0)
-    while cur:
+    while cur and not cur[-1].image:
         t = cur[-1].text.rstrip(WS + "\n")
         if t:
             cur[-1] = _seg(t, cur[-1].style())
@@ -450,6 +484,34 @@ def normalize(segs: Iterable[Seg]) -> list[Seg]:
     for field in (1, 2, 6):
         cur = _merge(_trim_edges(cur, field))
     return cur
+
+
+def image_alt(alt: str) -> str:
+    """그림 설명의 표준 꼴 — ``[ ] \\ { } < >`` 를 빼고 빈칸 · 줄바꿈은 빈칸 하나로."""
+    return " ".join(_ALT_DROP.sub("", alt).split())
+
+
+def _around_images(segs: list[Seg]) -> list[Seg]:
+    """그림은 칸 안에서 한 줄을 차지한다 — 그림 바로 앞뒤의 공백 · 줄바꿈은 뜻이 없어 버린다."""
+    out = list(segs)
+    for i, sg in enumerate(out):
+        if not sg.image:
+            continue
+        j = i - 1
+        while j >= 0 and not out[j].image:
+            t = out[j].text.rstrip(WS + "\n")
+            out[j] = _seg(t, out[j].style())
+            if t:
+                break
+            j -= 1
+        j = i + 1
+        while j < len(out) and not out[j].image:
+            t = out[j].text.lstrip(WS + "\n")
+            out[j] = _seg(t, out[j].style())
+            if t:
+                break
+            j += 1
+    return [sg for sg in out if sg.image or sg.text]
 
 
 def is_color(name: str) -> bool:
@@ -564,7 +626,10 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
     """
     pieces: list[tuple[bool, str, bool]] = []  # (기호인지, 글자, 링크 안인지)
     cur: Style = OFF
-    for st, text in [*((sg.style(), sg.text) for sg in segs), (OFF, "")]:
+    for sg in [*segs, None]:
+        img = sg is not None and sg.image is not None
+        st = OFF if sg is None or img else sg.style()
+        text = "" if sg is None or img else sg.text
         first = next((i for i in range(CODE) if cur[i] != st[i]), None)
         if first is not None:
             for j in range(CODE - 1, first - 1, -1):
@@ -573,7 +638,9 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
             for j in range(first, CODE):
                 if st[j]:
                     pieces.append((True, _open(j, st[j], dialect), False))
-        if text:
+        if img:
+            pieces.append((True, image_md(sg), False))  # type: ignore[arg-type]
+        elif text:
             pieces.append((True, _code_span(text), False) if st[CODE] else (False, text, bool(st[0])))
         cur = st
 
@@ -625,7 +692,7 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
         result = "".join(chars)
         # 글자로 쓴 * · ~ · = 가 서식 기호로 읽히거나 글자로 쓴 [ 가 링크를 열면 그 자리만 이스케이프하고 다시 본다
         offender: list[int] = []
-        for t in _scan(result):
+        for t in _scan(result, ctx == "cell"):
             if t.kind in ("bold", "strike", "mark"):
                 p0, p1 = origin[t.start], origin[t.start + 1]
                 if p0 in token_at:
@@ -633,6 +700,13 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
                 literal = [p for p in (p0, p1) if not markup[p]]
                 if len(literal) < 2 or t.paired:
                     offender = literal
+                    break
+            elif t.kind == "img":
+                # 글자로 쓴 ! · ![…](…) · {width=…} 가 그림으로 읽히면 — 글자 ! 를, 아니면 그림 뒤에 붙은 첫 글자를 이스케이프
+                literal = [origin[k] for k in range(t.start, t.end) if origin[k] >= 0 and not markup[origin[k]]]
+                if literal:
+                    p0 = origin[t.start]
+                    offender = [p0] if p0 >= 0 and not markup[p0] else [literal[0]]
                     break
             elif t.kind == "lopen" and t.paired:
                 p0 = origin[t.start]
@@ -665,8 +739,13 @@ def write(segs: Iterable[Seg], ctx: str | None = None, dialect: str = "ko") -> s
     return result
 
 
+def image_md(sg: Seg) -> str:
+    """그림 조각 → ``![설명](주소){width=N%}``."""
+    return f"![{sg.text}]({link_href(sg.image or '')})" + (f"{{width={sg.width}%}}" if sg.width else "")
+
+
 def _canon(s: str, ctx: str | None, dialect: str) -> str:
-    return write(normalize(segments(s)), ctx, dialect)
+    return write(normalize(segments(s, ctx == "cell")), ctx, dialect)
 
 
 # 고치는 동안 문서의 대부분 줄은 그대로다 — 줄마다의 결과를 기억해 두면 다음 되읽기는 바뀐 줄만 계산한다.
@@ -768,14 +847,16 @@ def _mono_markup(text: str, wrap: Callable[[str], str] | None, bg: bool) -> str:
     return "".join(out)
 
 
-def rl_markup(s: str, wrap: Callable[[str], str] | None = None) -> str:
+def rl_markup(s: str | list[Seg], wrap: Callable[[str], str] | None = None) -> str:
     """reportlab Paragraph 마크업. ``wrap`` 은 이스케이프된 글자를 받아 글꼴 대체 등을 입힌다.
 
     링크는 http · https · mailto · tel 주소만 눌리는 링크(``<a>``)로 그린다 — 나머지는 링크 글만 보통 글자로 둔다.
     """
     out: list[str] = []
     href_of_last: str | None = None
-    for seg in segments(s):
+    for seg in segments(s) if isinstance(s, str) else s:
+        if seg.image:
+            continue  # 그림은 렌더러가 따로 그린다(칸 안에서 한 줄)
         parts = []
         for i, line in enumerate(seg.text.split("\n")):
             if i:

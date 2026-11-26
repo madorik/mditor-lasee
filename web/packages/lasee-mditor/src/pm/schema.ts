@@ -8,7 +8,7 @@
 //   mdList > mdItem{level, ordered, start, checked}   - 항목 / 1. 번호 / - [ ] 할 일 (Tab / Shift-Tab)
 //   table > 칸(paragraph+, shade, align)   MD 표 + < / ^ + 칸 음영
 //   mdNote (blockquote)              > 비고 (줄마다 하나)
-//   mdImage{src, caption} (atom)     ![설명](이름)
+//   mdImage{src, caption, width} (atom) ![설명](이름){width=N%} — 본문에도, 표 칸 안에도
 //   codeBlock{language}              ```언어
 //   horizontalRule                   ---
 //   pageBreak                        <!-- pagebreak -->
@@ -24,6 +24,7 @@ import { colorCss, isColor, MARK, SHADE, safeHref } from "../core/inline";
 import { fill, ko, type Messages } from "../ui/messages";
 import { backspaceItem, shiftItem, splitItem } from "./commands";
 import { CellSelectionGuard, ListNumbers } from "./plugins";
+import { imageWidth } from "./convert";
 
 // 문단을 맨 앞에 둔다 — Enter 로 새로 생기는 블록의 기본이 문단이 되도록.
 const TOP = "docTitle? (paragraph | sectionHead | blockTitle | mdList | table | mdNote | mdImage | codeBlock | horizontalRule | pageBreak)+";
@@ -234,6 +235,13 @@ const MdNote = Node.create({
 
 export type ImageResolver = (src: string) => string | undefined;
 
+const SIZES = [25, 50, 75, 100] as const;
+
+/**
+ * 그림 — 본문에도, 표 칸 안에도 놓인다(같은 노드라 끌어서 본문 ↔ 칸을 옮긴다).
+ * width: 들어 있는 자리(본문 · 칸) 폭에 대한 % — MD 로는 `![설명](주소){width=N%}`.
+ * 화면: 오른쪽 아래 손잡이를 끌어 크기를 바꾸고(두 번 누르면 원래 크기), 고른 그림은 25 · 50 · 75 · 100% · 원래 크기 단추로도 바꾼다.
+ */
 const MdImage = Node.create<{ resolve: ImageResolver; messages: Messages }>({
   name: "mdImage",
   group: "block",
@@ -249,13 +257,17 @@ const MdImage = Node.create<{ resolve: ImageResolver; messages: Messages }>({
         default: "",
         parseHTML: (el) => (el as HTMLElement).getAttribute("data-caption") ?? (el as HTMLElement).querySelector("figcaption")?.textContent ?? (el as HTMLElement).querySelector("img")?.getAttribute("alt") ?? "",
       },
+      width: {
+        default: null,
+        parseHTML: (el) => imageWidth((el as HTMLElement).getAttribute("data-width") ?? /^\s*(\d+)%\s*$/.exec((el as HTMLElement).querySelector("img")?.style.width ?? "")?.[1] ?? null),
+      },
     };
   },
   parseHTML() {
     return [{ tag: "figure[data-src]" }, { tag: "figure", getAttrs: (el) => ((el as HTMLElement).querySelector("img") ? null : false) }];
   },
   renderHTML({ node }) {
-    return ["figure", { class: "md-image", "data-src": node.attrs.src, "data-caption": node.attrs.caption }];
+    return ["figure", { class: "md-image", "data-src": node.attrs.src, "data-caption": node.attrs.caption, ...(node.attrs.width ? { "data-width": String(node.attrs.width) } : {}) }];
   },
   addNodeView() {
     return ({ node, getPos, editor }) => {
@@ -263,33 +275,83 @@ const MdImage = Node.create<{ resolve: ImageResolver; messages: Messages }>({
       let current = node;
       const dom = document.createElement("figure");
       dom.className = "md-image";
+      const frame = document.createElement("div"); // 그림이 들어 있는 자리(본문 · 칸) — 폭(%)의 기준
+      frame.className = "md-image-frame";
+      const box = document.createElement("div"); // 그림 상자 — 폭(%)을 받고, 손잡이가 오른쪽 아래 모서리에 붙는다
+      box.className = "md-image-box";
       const img = document.createElement("img");
+      img.draggable = false; // 끌기는 그림 노드(figure)가 맡는다 — 브라우저의 그림 끌기를 막는다
       const missing = document.createElement("div");
       missing.className = "md-image-missing";
+      const grip = document.createElement("span");
+      grip.className = "md-image-grip";
+      grip.title = msg.imageMove;
+      grip.setAttribute("aria-hidden", "true");
+      grip.textContent = "⋮⋮";
+      const handle = document.createElement("span");
+      handle.className = "md-image-resize";
+      handle.title = msg.imageResize;
+      handle.setAttribute("aria-hidden", "true");
+      const badge = document.createElement("span");
+      badge.className = "md-image-badge";
+      badge.hidden = true;
+      box.append(img, missing, grip, handle, badge);
+      frame.append(box);
+      const sizes = document.createElement("div"); // 고른 그림의 크기 단추
+      sizes.className = "md-image-sizes";
+      sizes.setAttribute("role", "group");
+      sizes.setAttribute("aria-label", msg.imageWidth);
+      sizes.contentEditable = "false";
+      const sizeButtons: [HTMLButtonElement, number | null][] = [...SIZES, null].map((w) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "md-image-size";
+        btn.textContent = w === null ? msg.imageOriginal : `${w}%`;
+        btn.addEventListener("mousedown", (e) => e.preventDefault()); // 고른 상태를 잃지 않게
+        btn.addEventListener("click", () => setWidth(w));
+        sizes.append(btn);
+        return [btn, w];
+      });
       const caption = document.createElement("input");
       caption.className = "md-image-caption";
       caption.placeholder = msg.imageCaption;
       caption.setAttribute("aria-label", msg.imageCaption);
-      dom.append(img, missing, caption);
+      dom.append(frame, sizes, caption);
       img.addEventListener("error", () => {
         img.hidden = true; // 올린 그림을 불러오지 못했다
         missing.hidden = false;
       });
 
+      const pos = () => (typeof getPos === "function" ? getPos() : undefined);
+      const setWidth = (w: number | null) => {
+        const at = pos();
+        if (at === undefined || w === (current.attrs.width ?? null)) return;
+        editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...current.attrs, width: w }));
+      };
+      const showWidth = (w: number | null) => {
+        box.style.width = w ? `${w}%` : "";
+        img.style.width = w ? "100%" : "";
+        img.style.maxHeight = w ? "none" : ""; // 폭을 정하면 높이 상한을 풀어 정한 폭대로 그린다
+      };
       const paint = () => {
         const url = this.options.resolve(current.attrs.src);
         img.hidden = !url;
         missing.hidden = !!url;
-        if (url) img.src = url;
+        if (url && img.getAttribute("src") !== url) img.src = url;
         img.alt = current.attrs.caption;
         missing.textContent = fill(msg.imageMissing, { src: current.attrs.src });
         if (document.activeElement !== caption) caption.value = current.attrs.caption;
         caption.readOnly = !editor.isEditable;
+        showWidth(current.attrs.width ?? null);
+        dom.toggleAttribute("data-width", !!current.attrs.width);
+        for (const [btn, w] of sizeButtons) btn.setAttribute("aria-pressed", String((current.attrs.width ?? null) === w));
+        dom.draggable = editor.isEditable;
+        dom.classList.toggle("is-editable", editor.isEditable);
       };
       const commit = () => {
-        const pos = typeof getPos === "function" ? getPos() : undefined;
-        if (pos === undefined || caption.value === current.attrs.caption) return;
-        editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, caption: caption.value }));
+        const at = pos();
+        if (at === undefined || caption.value === current.attrs.caption) return;
+        editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...current.attrs, caption: caption.value }));
       };
       caption.addEventListener("input", commit);
       caption.addEventListener("keydown", (e) => {
@@ -298,6 +360,44 @@ const MdImage = Node.create<{ resolve: ImageResolver; messages: Messages }>({
           caption.blur();
         }
       });
+
+      // 크기 조절 — 손잡이를 끄는 동안은 화면에서만 바꾸고, 놓을 때 한 번 문서에 적는다(되돌리기 한 번에 돌아간다)
+      handle.addEventListener("pointerdown", (e) => {
+        if (!editor.isEditable || e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const room = Math.max(1, frame.getBoundingClientRect().width); // 그림이 들어 있는 자리(본문 · 칸)의 폭 — 그림 폭의 % 기준
+        const startX = e.clientX;
+        const startW = box.getBoundingClientRect().width;
+        let next: number | null = current.attrs.width ?? null;
+        handle.setPointerCapture(e.pointerId);
+        dom.classList.add("is-resizing");
+        badge.hidden = false;
+        const move = (ev: PointerEvent) => {
+          const px = Math.min(room, Math.max(room * 0.05, startW + (ev.clientX - startX)));
+          next = Math.max(5, Math.min(100, Math.round((px / room) * 100)));
+          showWidth(next);
+          badge.textContent = `${next}%`;
+        };
+        const up = () => {
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", up);
+          handle.removeEventListener("pointercancel", up);
+          dom.classList.remove("is-resizing");
+          badge.hidden = true;
+          if (next !== (current.attrs.width ?? null)) setWidth(next);
+          else showWidth(current.attrs.width ?? null);
+        };
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", up);
+        handle.addEventListener("pointercancel", up);
+      });
+      handle.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (editor.isEditable) setWidth(null);
+      });
+
       paint();
       return {
         dom,
@@ -307,7 +407,14 @@ const MdImage = Node.create<{ resolve: ImageResolver; messages: Messages }>({
           paint();
           return true;
         },
-        stopEvent: (e) => e.target === caption,
+        selectNode() {
+          dom.classList.add("ProseMirror-selectednode");
+        },
+        deselectNode() {
+          dom.classList.remove("ProseMirror-selectednode");
+        },
+        // 설명 칸 · 크기 단추 · 크기 손잡이는 편집기가 다루지 않는다(끌어서 옮기기는 그림 노드에서 시작한다)
+        stopEvent: (e) => e.target === caption || sizes.contains(e.target as globalThis.Node) || e.target === handle,
         ignoreMutation: () => true,
       };
     };
@@ -462,15 +569,16 @@ const cellAttrs = {
   },
 };
 
+// 표 칸에는 문단과 그림을 둔다(그림은 칸 안에서 한 줄을 차지한다 — MD 로는 칸 글 안의 ![설명](주소){width=N%})
 const MdCell = TableCell.extend({
-  content: "paragraph+",
+  content: "(paragraph | mdImage)+",
   addAttributes() {
     return { ...this.parent?.(), ...cellAttrs };
   },
 });
 
 const MdHeaderCell = TableHeader.extend({
-  content: "paragraph+",
+  content: "(paragraph | mdImage)+",
   addAttributes() {
     return { ...this.parent?.(), ...cellAttrs };
   },

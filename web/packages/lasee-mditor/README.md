@@ -12,7 +12,8 @@ It is the editor from [MDitor LaSee](https://lasee.watalabs.com/en/), packaged a
 ## Features
 
 - **Toolbar** — undo/redo · block type (body, heading, subheading, list, note, code block, document title) · bold · italic · underline · strikethrough · text color (palette or color code) · shade · highlight · link · inline code · superscript/subscript · clear formatting · bulleted, numbered and to-do lists · indent/outdent · paragraph alignment · tables (pick a size) · images (URL, file, paste, drag and drop) · code block · horizontal line · page break · special characters · find and replace · Markdown source mode · preview on/off · full screen
-- **Tables** — insert/delete rows and columns, merge and split cells, cell shading, column alignment (a table toolbar appears when the cursor is in a table)
+- **Tables** — insert/delete rows and columns, merge and split cells, cell shading, column alignment (a table toolbar appears when the cursor is in a table), **images inside cells**
+- **Images** — resize by dragging the corner handle or with 25 · 50 · 75 · 100% · original-size buttons; drag to move, between the body and table cells. The width is kept in Markdown as `{width=N%}`
 - **Input rules** — `- ` bullets, `1. ` numbers, `[ ] ` to-dos, `## ` `### ` headings, `> ` note, ```` ``` ```` code block, `---` line, `**bold**`, `==highlight==`, `` `code` ``
 - **Smart paste** — pasted Markdown is parsed into the document (Shift-paste keeps plain text). Tables, lists and links pasted from Word or Google Docs are kept.
 - **Paste limits** — cap the characters per paste and the document length, so one huge paste can't freeze the page or your server
@@ -215,7 +216,7 @@ A subset of CommonMark/GFM plus MDitor's report syntax. Any Markdown viewer can 
 |:---|:---|---:|
 | Cell | {shade}Shaded cell{/shade} | 1 |
 
-![Caption](image.png)
+![Caption](image.png){width=60%}      ← width: % of the body width (optional)
 
 ---                     ← horizontal line
 <!-- pagebreak -->      ← page break (PDF)
@@ -225,6 +226,7 @@ Code blocks use ```` ``` ```` fences with an optional language.
 
 - Tags: `{red}` `{blue}` `{gray}` or any `{#rrggbb}`, `{italic}` `{underline}` `{shade}`, `{center}` `{right}` `{justify}`. Each also has a Korean name (`{빨강}` = `{red}`, `{가운데}` = `{center}`); a document uses one set.
 - In tables, `<` merges a cell into the one on its left and `^` into the one above.
+- Images can go inside table cells: `| ![Photo](a.png){width=40%} |` — the width is a % of the cell width, and the image takes a line of its own in the cell. To write `![` as text in a cell, escape it: `\![`.
 - Escape a symbol with `\` to write it literally: `\*\*`, `\[`, `` \` ``, `1\.`.
 - Not supported: `*italic*` (use `{italic}`), headings below `###`, footnotes, math, video.
 

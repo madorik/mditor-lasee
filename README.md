@@ -121,13 +121,17 @@ A subset of CommonMark/GFM plus a few report-friendly tags. Any Markdown viewer 
 |:---|---:|---:|
 | Fiction | {shade}412{/shade} | 96 |
 
-![Caption](image.png)
+![Caption](image.png){width=60%}
+
+| Product | Photo |
+|:---|:---:|
+| Bookmark | ![Bookmark](bookmark.png){width=50%} |
 
 ---
 <!-- pagebreak -->
 ```
 
-`<` merges a cell into the one on its left, `^` into the one above. Every tag also has a Korean name (`{빨강}` = `{red}`, `{가운데}` = `{center}`); a document uses one or the other. Full guide: [lasee.watalabs.com/en/syntax](https://lasee.watalabs.com/en/syntax).
+`<` merges a cell into the one on its left, `^` into the one above. Images can sit inside table cells, and `{width=N%}` sets an image's width as a share of the body (or cell) width — in the editor, drag the corner handle or drag the image between the body and cells. Every tag also has a Korean name (`{빨강}` = `{red}`, `{가운데}` = `{center}`); a document uses one or the other. Full guide: [lasee.watalabs.com/en/syntax](https://lasee.watalabs.com/en/syntax).
 
 ## Run your own server
 

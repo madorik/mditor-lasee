@@ -56,7 +56,17 @@ async function openPage(path = "/edit", viewport = { width: 1440, height: 900 },
   page.on("pageerror", (e) => state.errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && !m.text().includes("favicon") && state.errors.push(m.text()));
   page.on("request", (r) => {
-    if (r.method() === "POST" && r.url().endsWith("/api/md/preview")) state.md = JSON.parse(r.postData()).md;
+    if (r.method() !== "POST" || !r.url().endsWith("/api/md/preview")) return;
+    try {
+      state.md = JSON.parse(r.postData()).md;
+    } catch {
+      /* 읽을 수 없는 본문(압축 등)은 건너뛴다 */
+    }
+  });
+  // 큰 요청은 화면이 gzip 으로 줄여 보낸다 — 여기서는 미리보기 요청 본문(MD)을 읽어야 하므로 줄이기를 끈다
+  // (줄인 요청을 서버가 푸는 것은 tests/test_api.py 의 gzip 시험이 본다)
+  await page.evaluateOnNewDocument(() => {
+    delete window.CompressionStream;
   });
   await page.goto(base + path, { waitUntil: "networkidle0" });
   const cdp = await page.createCDPSession();
@@ -598,6 +608,122 @@ if (!(await (await fetch(`${base}/api/config`)).json()).images) {
   await page.waitForSelector(".toast.bad");
   ok((await page.$eval(".toast.bad", (el) => el.textContent)).includes("10MB"), "10MB 가 넘는 그림 파일은 넣지 않고 알린다", await page.$eval(".toast.bad", (el) => el.textContent));
 
+  rmSync(dir, { recursive: true, force: true });
+  ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
+  await context.close();
+}
+
+// ───────────────────────── 3-3. 표 칸 그림 · 크기 · 옮기기 ─────────────────────────
+console.log("표 칸 그림 · 크기 · 옮기기");
+{
+  const { page, state, context } = await openPage("/edit", undefined, { start: "new" });
+  const mdUntil = async (test, ms = 15000) => {
+    for (const end = Date.now() + ms; Date.now() < end; await sleep(150)) if (test(state.md)) return true;
+    return false;
+  };
+  const rows = (md) => md.split("\n").filter((l) => l.startsWith("|"));
+  const dir = mkdtempSync(join(tmpdir(), "mditor-cell-"));
+  const pic = join(dir, "칸 그림.png");
+  writeFileSync(pic, makePng(400, 300));
+  const bodyPic = join(dir, "본문 그림.png");
+  writeFileSync(bodyPic, makePng(600, 300));
+  const BODY = "!\\[\\]\\(/i/[0-9a-f]{32}-600x300\\.png\\)"; // 본문에 올린 그림
+  const mod = process.platform === "darwin" ? "Meta" : "Control"; // 편집기 단축키는 맥에서 ⌘
+  await clickText(page, ".pane.left .tab", "MD");
+  await page.waitForSelector(".mdedit textarea");
+  await setMd(page, "# 그림 시험\n\n## 1. 표\n\n| 사진 | 설명 |\n|:---:|---|\n| 칸 | 글 |\n\n본문 끝\n");
+  await sleep(500);
+  await clickText(page, ".pane.left .tab", "문서");
+  await page.waitForSelector(".rich .ProseMirror td");
+  // 본문 그림을 먼저 올려 둔다(문서 끝 문단에서 이미지 단추)
+  await page.click(".rich .ProseMirror > p:last-of-type");
+  await page.keyboard.press("End");
+  const [chooser0] = await Promise.all([page.waitForFileChooser(), page.click('.rich .mde-btn[data-name="image"]')]);
+  await chooser0.accept([bodyPic]);
+  await mdUntil((md) => new RegExp(`^${BODY}$`, "m").test(md));
+  await page.waitForSelector(".rich .ProseMirror > figure.md-image img[src^='/i/']");
+
+  // 1) 표 칸에 커서를 두고 이미지 단추로 넣는다
+  await (await page.$$(".rich .ProseMirror td"))[0].click();
+  ok(!(await page.$eval('.rich .mde-btn[data-name="image"]', (b) => b.disabled)), "표 칸 안에서도 이미지 단추가 켜져 있다");
+  const [chooser] = await Promise.all([page.waitForFileChooser(), page.click('.rich .mde-btn[data-name="image"]')]);
+  await chooser.accept([pic]);
+  ok(await mdUntil((md) => rows(md).some((l) => /^\| 칸!\[\]\([^)]+\) \|/.test(l) && !l.includes("blob:"))), "표 칸 안에 그림을 넣으면 칸 글에 ![](주소)로 들어간다", JSON.stringify(rows(state.md)));
+  await page.waitForFunction(() => document.querySelector(".paper td img.md-cell-image")?.naturalWidth > 0, { timeout: 10000 });
+  ok(true, "  └ 미리보기의 표 칸에도 그림이 보인다");
+
+  // 2) 그림을 고르면 크기 단추 — 50%
+  await page.click(".rich .ProseMirror td figure.md-image .md-image-box");
+  await sleep(200);
+  ok((await page.$eval(".rich .ProseMirror td figure.md-image .md-image-sizes", (e) => getComputedStyle(e).display)) === "flex", "그림을 고르면 크기 단추(25 · 50 · 75 · 100% · 원래 크기)가 나온다");
+  await page.evaluate(() => [...document.querySelectorAll(".rich .ProseMirror td .md-image-size")].find((b) => b.textContent === "50%").click());
+  ok(await mdUntil((md) => rows(md).some((l) => /\)\{width=50%\} \|/.test(l))), "크기 단추로 폭을 바꾸면 {width=50%} 로 남는다", JSON.stringify(rows(state.md)));
+  await page.waitForFunction(() => document.querySelector(".paper td img.md-cell-image")?.style.width === "50%", { timeout: 8000 }).catch(() => {});
+  ok(
+    await page.$eval(".paper td img.md-cell-image", (img) => Math.abs(img.getBoundingClientRect().width / img.parentElement.getBoundingClientRect().width - 0.5) < 0.1),
+    "  └ 미리보기의 칸 그림도 칸 폭의 절반이다",
+  );
+
+  // 3) 본문 그림 — 오른쪽 아래 손잡이를 끌어 줄인다(그림을 올리면 뜨는 알림이 화면 아래를 덮으니 사라진 뒤에)
+  await page.waitForFunction(() => !document.querySelector(".toast"), { timeout: 12000 }).catch(() => {});
+  const fig = await page.$(".rich .ProseMirror > figure.md-image");
+  await fig.evaluate((e) => e.scrollIntoView({ block: "center" }));
+  await fig.hover();
+  await sleep(150);
+  const hb = await page.$eval(".rich .ProseMirror > figure.md-image .md-image-resize", (e) => {
+    const r = e.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await page.mouse.move(hb.x, hb.y);
+  await page.mouse.down();
+  await page.mouse.move(hb.x - 60, hb.y, { steps: 4 });
+  await page.mouse.move(hb.x - 120, hb.y + 4, { steps: 4 });
+  await page.mouse.up();
+  ok(await mdUntil((md) => new RegExp(`^${BODY}\\{width=([1-9]\\d?)%\\}$`, "m").test(md)), "손잡이를 끌어 줄이면 본문 그림에 {width=N%} 가 붙는다", (state.md.match(/\{width=\d+%\}/g) ?? []).join(" "));
+
+  // 4) 본문 그림을 끌어 둘째 칸('글')에 놓는다 — 편집기는 끌기 이벤트(dragstart → drop)를 받는다
+  await page.evaluate(() => {
+    const fig = document.querySelector(".rich .ProseMirror > figure.md-image");
+    const p = [...document.querySelectorAll(".rich .ProseMirror td")][1].querySelector("p");
+    const fr = fig.querySelector(".md-image-box").getBoundingClientRect();
+    const tr = p.getBoundingClientRect();
+    const dt = new DataTransfer();
+    const at = (x, y) => ({ clientX: x, clientY: y, bubbles: true, cancelable: true, dataTransfer: dt });
+    fig.dispatchEvent(new MouseEvent("mousedown", { clientX: fr.x + 30, clientY: fr.y + 30, bubbles: true, button: 0 }));
+    fig.dispatchEvent(new DragEvent("dragstart", at(fr.x + 30, fr.y + 30)));
+    const x = tr.x + tr.width - 3;
+    const y = tr.y + tr.height / 2;
+    p.dispatchEvent(new DragEvent("dragover", at(x, y)));
+    p.dispatchEvent(new DragEvent("drop", at(x, y)));
+    fig.dispatchEvent(new DragEvent("dragend", at(x, y)));
+  });
+  ok(
+    await mdUntil((md) => rows(md).some((l) => new RegExp(`\\| 글${BODY}\\{width=\\d+%\\} \\|$`).test(l)) && !new RegExp(`^${BODY}`, "m").test(md)),
+    "본문 그림을 끌어 표 칸에 놓으면 칸 안으로 옮겨진다(폭도 함께)",
+    JSON.stringify(state.md.split("\n").slice(-5)),
+  );
+
+  // 5) 원래 크기 · 되돌리기
+  await page.click(".rich .ProseMirror td:nth-child(2) figure.md-image .md-image-box");
+  await sleep(200);
+  await page.evaluate(() => [...document.querySelectorAll(".rich .ProseMirror td:nth-child(2) .md-image-size")].find((b) => b.textContent === "원래 크기").click());
+  ok(await mdUntil((md) => rows(md).some((l) => new RegExp(`\\| 글${BODY} \\|$`).test(l))), "'원래 크기' 를 누르면 폭이 빠진다");
+  await page.focus(".rich .ProseMirror");
+  await page.keyboard.down(mod);
+  await page.keyboard.press("z");
+  await page.keyboard.up(mod);
+  // 되돌린 글은 앞서 보낸 글과 같아 미리보기 요청이 다시 가지 않는다(결과를 기억해 둔다) — MD 탭의 글로 본다
+  await sleep(400);
+  await clickText(page, ".pane.left .tab", "MD");
+  const afterUndo = await page.$eval(".mdedit textarea", (ta) => ta.value);
+  ok(rows(afterUndo).some((l) => new RegExp(`\\| 글${BODY}\\{width=\\d+%\\} \\|$`).test(l)), "  └ 되돌리면 폭이 돌아온다", JSON.stringify(rows(afterUndo)));
+  ok(/\{width=50%\}/.test(afterUndo) && /!\[\]\(/.test(afterUndo), "  └ MD 탭에도 칸 그림 문법(![](주소){width=N%})이 보인다");
+  await clickText(page, ".pane.left .tab", "문서");
+
+  // 6) PDF 도 그린다
+  await clickText(page, ".pane.right .tab", "PDF");
+  await page.waitForSelector('.pdfview iframe[src^="blob:"]', { timeout: 15000 });
+  ok(true, "표 칸 그림이 든 문서도 PDF 로 그린다");
   rmSync(dir, { recursive: true, force: true });
   ok(state.errors.length === 0, "콘솔 오류 없음", state.errors.join(" | "));
   await context.close();

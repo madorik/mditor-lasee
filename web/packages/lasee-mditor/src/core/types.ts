@@ -14,7 +14,8 @@ type BlockBase = { id: string; title: string | null; notes: string[] };
 export type TextBlock = BlockBase & { kind: "text"; text: string; align?: TextAlign };
 export type ListBlock = BlockBase & { kind: "list"; items: Item[] };
 export type TableBlock = BlockBase & { kind: "table"; head: string[][]; rows: string[][]; align: Align[] };
-export type ImageBlock = BlockBase & { kind: "image"; src: string; caption: string };
+/** width: 그림 폭(본문 폭의 %, 1~100). 없으면 원래 크기. */
+export type ImageBlock = BlockBase & { kind: "image"; src: string; caption: string; width?: number };
 export type CodeBlock = BlockBase & { kind: "code"; lang: string; code: string };
 export type RuleBlock = BlockBase & { kind: "rule" };
 export type PageBreakBlock = BlockBase & { kind: "pagebreak" };

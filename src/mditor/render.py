@@ -566,7 +566,11 @@ def _col_widths(b: dict[str, Any], avail: float, size: float, font: str = FONT, 
             for c, raw in enumerate(row):
                 if (r, c) in hidden or sp.get((r, c), (1, 1))[1] > 1:
                     continue
-                text = "".join(seg.text for seg in inline.segments(inline.cell_shade(raw)[1]))
+                segs = inline.segments(inline.cell_shade(raw)[1], True)
+                text = "".join("\n" if seg.image else seg.text for seg in segs)
+                if any(seg.image for seg in segs):  # 그림이 든 칸 — 그림이 너무 작아지지 않게
+                    nat[c] = max(nat[c], min(avail * 0.4, 160.0) + pad)
+                    low[c] = max(low[c], 48.0 + pad)
                 for line in text.split("\n"):
                     nat[c] = max(nat[c], pdfmetrics.stringWidth(line, face, size) + pad)
                     word = max((pdfmetrics.stringWidth(w, face, size) for w in line.split()), default=0.0)
@@ -581,16 +585,24 @@ def _col_widths(b: dict[str, Any], avail: float, size: float, font: str = FONT, 
     return [m + spare * e / sum(extra) for m, e in zip(low, extra)]
 
 
-def _table(b: dict[str, Any], st: dict[str, Any], avail: float) -> TagTable:
+_CELL_PAD = 5.0  # 칸 왼쪽 · 오른쪽 안 여백(아래 LEFTPADDING · RIGHTPADDING)
+_HALIGN = {"center": "CENTER", "right": "RIGHT"}
+
+
+def _table(
+    b: dict[str, Any], st: dict[str, Any], avail: float,
+    images: dict[str, Any] | None = None, sizes: dict[str, Any] | None = None, max_h: float = 600.0,
+) -> TagTable:
     head, rows = b["head"], b["rows"]
     ncol = len(head[-1])
+    widths = _col_widths(b, avail, st["small"], st["font"], st["bold"])
     align = [*(b.get("align") or []), *([None] * ncol)][:ncol]
     data: list[list[Any]] = []
     cmds: list[tuple] = [
         ("GRID", (0, 0), (-1, -1), 0.5, LINE),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), _CELL_PAD),
+        ("RIGHTPADDING", (0, 0), (-1, -1), _CELL_PAD),
         ("TOPPADDING", (0, 0), (-1, -1), 3.5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
         ("BACKGROUND", (0, 0), (-1, len(head) - 1), HEAD_BG),
@@ -607,13 +619,32 @@ def _table(b: dict[str, Any], st: dict[str, Any], avail: float) -> TagTable:
                 h, w = sp.get((r, c), (1, 1))
                 # 머리글은 가운데가 기본. 여러 열에 걸친 머리글은 열 정렬을 따르지 않는다
                 style = st["th"][None if w > 1 else align[c]] if is_head else st["cell"][align[c]]
-                line.append(Paragraph(st["markup"](inner), style))
+                segs = inline.segments(inner, True)
+                if any(sg.image for sg in segs):  # 칸 안의 그림 — 글과 그림을 차례로 쌓는다(그림은 한 줄을 차지한다)
+                    inner_w = max(10.0, sum(widths[c : c + w]) - 2 * _CELL_PAD)
+                    halign = "CENTER" if is_head and (w > 1 or not align[c]) else _HALIGN.get(align[c] or "", "LEFT")
+                    parts: list[Any] = []
+                    run: list[inline.Seg] = []
+                    for sg in [*segs, None]:
+                        if sg is not None and not sg.image:
+                            run.append(sg)
+                            continue
+                        if run:
+                            parts.append(Paragraph(st["markup"](run), style))
+                            run = []
+                        if sg is not None:
+                            parts.append(_picture(sg.image or "", images or {}, sizes or {}, inner_w, max_h, sg.width))
+                    line.append(parts)
+                    # 칸 안 그림의 가로 자리는 표 스타일(ALIGN)이 정한다 — 글 문단은 칸 폭을 다 써서 영향이 없다
+                    cmds.append(("ALIGN", (c, offset + r), (c + w - 1, offset + r + h - 1), halign))
+                else:
+                    line.append(Paragraph(st["markup"](inner), style))
                 if (h, w) != (1, 1):
                     cmds.append(("SPAN", (c, offset + r), (c + w - 1, offset + r + h - 1)))
                 if shaded:
                     cmds.append(("BACKGROUND", (c, offset + r), (c + w - 1, offset + r + h - 1), SHADE_BG))
             data.append(line)
-    t = TagTable(data, colWidths=_col_widths(b, avail, st["small"], st["font"], st["bold"]), repeatRows=len(head), splitByRow=1)
+    t = TagTable(data, colWidths=widths, repeatRows=len(head), splitByRow=1)
     t.setStyle(TableStyle(cmds))
     t._bid = b["id"]
     return t
@@ -654,7 +685,12 @@ def _items(b: dict[str, Any], st: dict[str, Any], whole: Any, size: float) -> li
 
 
 def _figure(b: dict[str, Any], images: dict[str, Any], sizes: dict[str, Any], avail_w: float, max_h: float) -> Figure:
-    src = str(b.get("src") or "")
+    """본문 그림. 폭(width, 본문 폭의 %)이 있으면 그 폭으로 — 높이는 쪽의 90% 를 넘지 않는다. 없으면 원래 크기(본문 폭 · 쪽 높이 45% 안)."""
+    return _picture(str(b.get("src") or ""), images, sizes, avail_w, max_h, b.get("width"), 0.9)
+
+
+def _picture(src: str, images: dict[str, Any], sizes: dict[str, Any], avail_w: float, max_h: float, width: Any = None, cap: float = 0.45) -> Figure:
+    """그림 하나 — avail_w 는 들어갈 자리의 폭(본문 · 칸), width 는 그 폭에 대한 %(1~100)."""
     data = decode_data_uri(src) if src.startswith("data:") else images.get(src)
     if isinstance(data, str):
         data = decode_data_uri(data)
@@ -669,7 +705,10 @@ def _figure(b: dict[str, Any], images: dict[str, Any], sizes: dict[str, Any], av
                 raise ValueError
         except Exception:  # noqa: BLE001 — 크기를 모르는 그림
             w, h = 640, 320
-    scale = min(1.0, avail_w / (w * PX), max_h * 0.45 / (h * PX))
+    if isinstance(width, int) and 1 <= width <= 100:  # 정한 폭 — 작은 그림도 그 폭까지 키운다
+        scale = min(avail_w * width / 100 / (w * PX), max_h * cap / (h * PX))
+    else:
+        scale = min(1.0, avail_w / (w * PX), max_h * 0.45 / (h * PX))
     label = "그림" if not src or src.startswith("data:") else f"그림: {src[:40]}"
     return Figure(reader, w * PX * scale, h * PX * scale, label)
 
@@ -717,7 +756,7 @@ def _build(
             elif kind == "list":
                 flow += _items(b, st, whole, opts.font_size)
             elif kind == "table":
-                flow.append(_table(b, st, frame_w))
+                flow.append(_table(b, st, frame_w, images, sizes, max_h))
             elif kind == "image":
                 flow.append(_figure(b, images, sizes, frame_w, max_h))
                 if b.get("caption"):

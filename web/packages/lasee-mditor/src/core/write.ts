@@ -71,7 +71,7 @@ export function blockMd(b: BlockBody, dialect: Dialect = "ko"): string {
       break;
     }
     case "image":
-      lines.push(`![${oneLine(b.caption)}](${pyStrip(String(b.src ?? ""))})`);
+      lines.push(`![${oneLine(b.caption)}](${pyStrip(String(b.src ?? ""))})` + (b.width ? `{width=${b.width}%}` : ""));
       break;
     case "code": {
       const fence = codeFence(b.code);

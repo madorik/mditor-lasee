@@ -10,7 +10,7 @@
   kind "text"     : text (문단 하나. 제목만 있는 블록이면 ""), align (가운데 · 오른쪽 · 양쪽 — 왼쪽이면 없다)
   kind "list"     : items [{text, level, ordered?, start?, checked?}]
   kind "table"    : head [[칸]], rows [[칸]], align [None|"left"|"center"|"right"]
-  kind "image"    : src, caption
+  kind "image"    : src, caption, width (그림 폭 — 본문 폭의 %, 1~100. 없으면 원래 크기)
   kind "code"     : lang, code
   kind "rule"     : (가로줄)
   kind "pagebreak": (쪽 나눔)
@@ -36,7 +36,7 @@ _LIST_ITEM = re.compile(r"^(\s*)(?:([-*+])|([0-9]{1,9})([.)]))\s+(.*)$")
 _EMPTY_ITEM = re.compile(r"^\s*(?:[-*+]|[0-9]{1,9}[.)])\s*$")
 _TASK = re.compile(r"^\[([ xX])\](?:\s+(.*))?$")
 _RULE = re.compile(r"^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$")
-_IMAGE = re.compile(r"^!\[(.*)\]\((.*)\)$")
+_IMAGE = re.compile(r"^!\[(.*)\]\((.*)\)(?:\{width=(100|[1-9][0-9]?)%\})?$")
 _NOTE = re.compile(r"^>\s?(.*)$")
 _DELIM_CELL = re.compile(r"^:?-+:?$")
 _PAGEBREAK = re.compile(r"^<!--[ \t]*pagebreak[ \t]*-->\Z", re.IGNORECASE | re.ASCII)
@@ -146,7 +146,8 @@ def block_md(b: Block, dialect: str = "ko") -> str:
         lines.append("|" + "".join(f"{_DELIM[a]}|" for a in align))
         lines += [_row(r) for r in b["rows"]]
     elif kind == "image":
-        lines.append(f"![{_one_line(b.get('caption'))}]({str(b.get('src') or '').strip()})")
+        width = b.get("width")
+        lines.append(f"![{_one_line(b.get('caption'))}]({str(b.get('src') or '').strip()})" + (f"{{width={width}%}}" if width else ""))
     elif kind == "code":
         code = b.get("code") or ""
         fence = code_fence(code)
@@ -289,6 +290,8 @@ def _finish(b: Block) -> Block | None:
         out.update(head=b["head"], rows=b["rows"], align=b["align"])
     elif kind == "image":
         out.update(src=b["src"], caption=b["caption"])
+        if b.get("width"):
+            out["width"] = b["width"]
     elif kind == "code":
         out.update(lang=b.get("lang") or "", code=b.get("code") or "")
     out["notes"] = notes
@@ -428,7 +431,10 @@ def parse_blocks(lines: list[tuple[int, str]], dialect: str = "ko") -> list[Bloc
             continue
         m = _IMAGE.match(text)
         if m:
-            body("image").update(src=m.group(2).strip(), caption=_one_line(m.group(1)))
+            img = body("image")
+            img.update(src=m.group(2).strip(), caption=_one_line(m.group(1)))
+            if m.group(3):
+                img["width"] = int(m.group(3))
             continue
         align, inner, _ = inline.block_align(text)
         para = inline.canon(inner, "para", dialect)
@@ -496,7 +502,8 @@ _KINDS = ("text", "list", "table", "image", "code", "rule", "pagebreak")
 def _sig(b: Block) -> str:
     """블록 내용 그대로(id 빼고). 같으면 손대지 않은 블록이다."""
     return json.dumps(
-        [b["kind"], b.get("title") or "", [b.get(k) for k in _BODY], b.get("notes") or []],
+        # 그림 폭은 있을 때만 넣는다 — 폭이 없는 블록의 지문(그리고 id)이 예전과 같게
+        [b["kind"], b.get("title") or "", [b.get(k) for k in _BODY] + ([b["width"]] if b.get("width") else []), b.get("notes") or []],
         ensure_ascii=False,
         sort_keys=True,
     )

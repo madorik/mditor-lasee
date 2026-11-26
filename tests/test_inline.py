@@ -78,7 +78,8 @@ def test_canon_is_stable(s):
     for ctx in (None, "cell", "para", "item"):
         once = inline.canon(s, ctx)
         assert inline.canon(once, ctx) == once
-        assert inline.normalize(inline.segments(once)) == inline.normalize(inline.segments(s))
+        cell = ctx == "cell"  # 칸 문맥에서는 그림도 읽는다
+        assert inline.normalize(inline.segments(once, cell)) == inline.normalize(inline.segments(s, cell))
 
 
 def test_random_roundtrip():

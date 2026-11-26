@@ -16,7 +16,7 @@ const LIST_ITEM = new RegExp(`^(${PS}*)(?:([-*+])|([0-9]{1,9})([.)]))${PS}+(.*)$
 const EMPTY_ITEM = new RegExp(`^${PS}*(?:[-*+]|[0-9]{1,9}[.)])${PS}*$`, "s");
 const TASK = new RegExp(`^\\[([ xX])\\](?:${PS}+(.*))?$`, "s");
 const RULE = /^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-const IMAGE = /^!\[(.*)\]\((.*)\)$/s;
+const IMAGE = /^!\[(.*)\]\((.*)\)(?:\{width=(100|[1-9][0-9]?)%\})?$/s;
 const NOTE = new RegExp(`^>${PS}?(.*)$`, "s");
 const DELIM_CELL = /^:?-+:?$/;
 const PAGEBREAK = /^<!--[ \t]*pagebreak[ \t]*-->$/i;
@@ -113,6 +113,7 @@ type Draft = {
   talign?: Align[];
   src?: string;
   caption?: string;
+  width?: number;
   lang?: string;
   code?: string;
   notes?: string[];
@@ -153,7 +154,7 @@ function finish(b: Draft): BlockBody | null {
   } else if (kind === "table") {
     out = { kind, title: titleText, head: b.head!, rows: b.rows!, align: b.talign!, notes };
   } else if (kind === "image") {
-    out = { kind, title: titleText, src: b.src!, caption: b.caption!, notes };
+    out = { kind, title: titleText, src: b.src!, caption: b.caption!, ...(b.width ? { width: b.width } : {}), notes };
   } else if (kind === "code") {
     out = { kind, title: titleText, lang: b.lang ?? "", code: b.code ?? "", notes };
   } else {
@@ -265,7 +266,7 @@ export function parseBlocks(lines: [number, string][], dialect: Dialect = "ko"):
     }
     m = IMAGE.exec(text);
     if (m) {
-      Object.assign(body("image"), { src: pyStrip(m[2]), caption: oneLine(m[1]) });
+      Object.assign(body("image"), { src: pyStrip(m[2]), caption: oneLine(m[1]), ...(m[3] ? { width: Number(m[3]) } : {}) });
       continue;
     }
     const [align, inner] = blockAlign(text);

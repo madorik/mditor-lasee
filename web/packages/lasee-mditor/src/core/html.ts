@@ -15,10 +15,31 @@ export type HtmlOptions = {
   linkTarget?: "_blank" | null;
 };
 
-/** 서식 문자열 → HTML. */
-export function inlineHtml(s: string, o: HtmlOptions = {}): string {
+/** 그림 주소 → 화면에 그릴 주소(열어도 되는 것만). */
+export function imageUrl(src: string, o: HtmlOptions = {}): string | null {
+  const url = o.resolveImage?.(src) ?? src;
+  return url && (url.startsWith("blob:") || url.startsWith("data:image/") ? url : safeHref(url));
+}
+
+const IMG_MARGIN: Record<string, string> = { center: "margin-left:auto;margin-right:auto", right: "margin-left:auto" };
+
+/** 칸 안의 그림 — 한 줄을 차지하고(display:block), 폭은 칸 폭의 %. 가로 자리는 열 정렬을 따른다. */
+function cellImageHtml(src: string, alt: string, width: number | undefined, align: string | null | undefined, o: HtmlOptions): string {
+  const url = imageUrl(src, o);
+  const style = ["display:block", "max-width:100%", "height:auto", width ? `width:${width}%` : "", align ? (IMG_MARGIN[align] ?? "") : ""].filter(Boolean).join(";");
+  return url
+    ? `<img class="md-cell-image" src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" style="${style}">`
+    : `<span class="md-cell-image md-image-missing" style="${style}">${escapeHtml(alt || src)}</span>`;
+}
+
+/** 서식 문자열 → HTML. images: 표 칸(그림도 읽는다), align: 칸의 정렬(그림의 가로 자리). */
+export function inlineHtml(s: string, o: HtmlOptions = {}, images = false, align: string | null = null): string {
   let out = "";
-  for (const seg of segments(s)) {
+  for (const seg of segments(s, images)) {
+    if (seg.image !== undefined) {
+      out += cellImageHtml(seg.image, seg.text, seg.width, align, o);
+      continue;
+    }
     let h = escapeHtml(seg.text).replace(/\n/g, "<br>");
     if (seg.code) h = `<code>${h}</code>`;
     if (seg.script) h = `<${seg.script}>${h}</${seg.script}>`;
@@ -72,7 +93,7 @@ function tableHtml(b: TableBlock, o: HtmlOptions): string {
             if (align) styles.push(`text-align:${align}`);
             const attrs = [sp[r][c].rowSpan > 1 ? ` rowspan="${sp[r][c].rowSpan}"` : "", sp[r][c].colSpan > 1 ? ` colspan="${sp[r][c].colSpan}"` : "", styles.length ? ` style="${styles.join(";")}"` : ""].join("");
             const tagName = head ? "th" : "td";
-            return `<${tagName}${attrs}>${inlineHtml(inner, o)}</${tagName}>`;
+            return `<${tagName}${attrs}>${inlineHtml(inner, o, true, align)}</${tagName}>`;
           })
           .join("");
         return `<tr>${cells}</tr>`;
@@ -103,9 +124,9 @@ export function blockHtml(b: Block, o: HtmlOptions = {}): string {
       body = tableHtml(b, o);
       break;
     case "image": {
-      const url = o.resolveImage?.(b.src) ?? b.src;
-      const safe = url && (url.startsWith("blob:") || url.startsWith("data:image/") ? url : safeHref(url));
-      body = `<figure class="md-image">${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(b.caption)}">` : ""}${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ""}</figure>`;
+      const safe = imageUrl(b.src, o);
+      const style = b.width ? ` style="width:${b.width}%"` : "";
+      body = `<figure class="md-image">${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(b.caption)}"${style}>` : ""}${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ""}</figure>`;
       break;
     }
     case "code":

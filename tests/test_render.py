@@ -329,6 +329,10 @@ _LAYOUT_DOCS = [
     + "\n\n![설명](a.png)\n\n```py\n"
     + "\n".join(f"print({i})  # 줄 {i}" for i in range(1, 90))
     + "\n```\n\n<!-- pagebreak -->\n\n### 새 쪽\n1. 하나\n- [x] 끝\n\n---\n\n{가운데}가운데{/가운데}\n",
+    # 표 칸 안의 그림 · 그림 폭
+    "## 사진\n\n| 사진 | 설명 |\n|:---:|---:|\n"
+    + "\n".join(f"| ![a{i}](a.png){{width={20 + i}%}} | 설명 {i}<br>![b](a.png) 뒤 |" for i in range(1, 9))
+    + "\n\n![큰 그림](a.png){width=90%}\n",
 ]
 
 
@@ -380,3 +384,46 @@ def test_core_layout_reuses_the_same_request():
     assert len(core._LAYOUTS) == 1
     core.layout(doc, {"font_size": 12})
     assert len(core._LAYOUTS) == 2
+
+
+# ───────── 표 칸 안의 그림 · 그림 폭 ─────────
+
+
+def _png(w: int, h: int) -> bytes:
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), "#336699").save(buf, "PNG")
+    return buf.getvalue()
+
+
+def test_cell_images_are_drawn_in_their_cells():
+    """칸 안의 그림은 칸 폭에 대한 % 로 그려지고, 쪽 배치는 그림 바이트가 있을 때와 크기만 알 때가 같다."""
+    doc = md.apply_md(None, "## 가\n\n| 사진 | 설명 |\n|:---:|---|\n| ![a](a.png){width=50%} | 글<br>![b](b.png) |\n")
+    cell = doc["sections"][0]["blocks"][0]["rows"][0]
+    assert cell == ["![a](a.png){width=50%}", "글![b](b.png)"]  # 그림 옆 줄바꿈은 뜻이 없어 버린다
+    pdf, with_bytes = render.render(doc, images={"a.png": _png(400, 300), "b.png": _png(200, 100)})
+    with_sizes = render.render(doc, image_sizes={"a.png": [400, 300], "b.png": [200, 100]})[1]
+    assert with_bytes == with_sizes
+    images = [x for page in PdfReader(io.BytesIO(pdf)).pages for x in page.images]
+    assert len(images) == 2  # 칸 안의 그림 둘이 PDF 에 들어갔다(같은 그림이면 PDF 가 하나로 합친다 — 그래서 다른 그림으로)
+    assert "글" in "".join(pages_text(pdf))
+
+
+def test_image_width_scales_the_figure():
+    """그림 폭(%)은 본문 폭에 대한 비율이다 — 폭을 줄이면 높이도 줄어 쪽이 덜 찬다."""
+    big = "\n\n".join(f"문단 {i}" for i in range(1, 30))
+    narrow = md.apply_md(None, f"## 가\n\n![a](a.png){{width=20%}}\n\n{big}\n")
+    wide = md.apply_md(None, f"## 가\n\n![a](a.png){{width=100%}}\n\n{big}\n")
+    sizes = {"a.png": [800, 600]}
+    assert render.render(wide, image_sizes=sizes)[1]["total"] >= render.render(narrow, image_sizes=sizes)[1]["total"]
+    assert md.doc_md(wide).count("{width=100%}") == 1 and wide["sections"][0]["blocks"][0]["width"] == 100
+
+
+def test_image_sources_include_table_cells():
+    from mditor import images
+
+    doc = md.apply_md(None, "![a](/i/" + "a" * 32 + "-10x20.png)\n\n| x |\n|---|\n| ![b](/i/" + "b" * 32 + "-30x40.png){width=40%} |\n")
+    assert images.sources(doc) == ["/i/" + "a" * 32 + "-10x20.png", "/i/" + "b" * 32 + "-30x40.png"]
+    assert images.sizes(doc) == {"/i/" + "a" * 32 + "-10x20.png": [10, 20], "/i/" + "b" * 32 + "-30x40.png": [30, 40]}
+

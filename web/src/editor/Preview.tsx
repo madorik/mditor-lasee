@@ -13,11 +13,29 @@ export function paperSize(o: Options): [number, number] {
   return o.landscape ? [h, w] : [w, h];
 }
 
-export function Inline({ s }: { s: string }) {
-  const segs = useMemo(() => segments(s), [s]);
+/** 표 칸 안의 그림 — 한 줄을 차지하고(display:block), 폭은 칸 폭의 %. 가로 자리는 열 정렬을 따른다(PDF 와 같다). */
+function CellImage({ src, alt, width, align, images }: { src: string; alt: string; width?: number; align?: string | null; images: Record<string, StoredImage> }) {
+  const url = imageSrc(src, images);
+  const [broken, setBroken] = useState<string | null>(null);
+  const style: CSSProperties = { display: "block", maxWidth: "100%", height: "auto", width: width ? `${width}%` : undefined };
+  if (align === "center") style.marginInline = "auto";
+  if (align === "right") style.marginLeft = "auto";
+  return url && broken !== url ? (
+    <img className="md-cell-image" src={url} alt={alt} style={style} onError={() => setBroken(url)} />
+  ) : (
+    <span className="md-cell-image image-missing" style={style}>
+      {alt || src}
+    </span>
+  );
+}
+
+/** 서식 문자열. cell: 표 칸(그림도 읽는다) — images 는 그림 이름 → 저장된 그림, align 은 칸의 정렬. */
+export function Inline({ s, cell }: { s: string; cell?: { images: Record<string, StoredImage>; align?: string | null } }) {
+  const segs = useMemo(() => segments(s, !!cell), [s, cell]);
   return (
     <>
       {segs.map((seg, i) => {
+        if (seg.image !== undefined) return <CellImage key={i} src={seg.image} alt={seg.text} width={seg.width} align={cell?.align} images={cell?.images ?? {}} />;
         let node: ReactNode = seg.text.split("\n").map((line, k) => (
           <Fragment key={k}>
             {k > 0 && <br />}
@@ -52,7 +70,7 @@ function PageMark({ n }: { n: number }) {
   );
 }
 
-function TableView({ b, pages }: { b: TableBlock; pages: BlockPages | undefined }) {
+function TableView({ b, pages, images }: { b: TableBlock; pages: BlockPages | undefined; images: Record<string, StoredImage> }) {
   const width = b.head[b.head.length - 1]?.length ?? 1;
   const rows = (grid: string[][], head: boolean) => {
     const sp = spans(grid);
@@ -74,9 +92,10 @@ function TableView({ b, pages }: { b: TableBlock; pages: BlockPages | undefined 
             if (shade) style.background = SHADE;
             if (align) style.textAlign = align;
             const Tag = head ? "th" : "td";
+            const centered = sp[r][c].colSpan > 1 && head;
             return (
-              <Tag key={c} rowSpan={sp[r][c].rowSpan} colSpan={sp[r][c].colSpan} style={sp[r][c].colSpan > 1 && head ? { ...style, textAlign: "center" } : style}>
-                <Inline s={inner} />
+              <Tag key={c} rowSpan={sp[r][c].rowSpan} colSpan={sp[r][c].colSpan} style={centered ? { ...style, textAlign: "center" } : style}>
+                <Inline s={inner} cell={{ images, align: centered ? "center" : (align ?? (head ? "center" : null)) }} />
               </Tag>
             );
           })}
@@ -93,13 +112,13 @@ function TableView({ b, pages }: { b: TableBlock; pages: BlockPages | undefined 
 }
 
 /** 그림. 올린 그림을 불러오지 못하면(지워졌거나 저장소가 꺼져 있으면) 없다고 알린다. */
-function FigureView({ src, caption, images }: { src: string; caption: string; images: Record<string, StoredImage> }) {
+function FigureView({ src, caption, width, images }: { src: string; caption: string; width?: number; images: Record<string, StoredImage> }) {
   const url = imageSrc(src, images);
   const [broken, setBroken] = useState<string | null>(null);
   return (
     <figure className="md-image">
       {url && broken !== url ? (
-        <img src={url} alt={caption} onError={() => setBroken(url)} />
+        <img src={url} alt={caption} style={width ? { width: `${width}%` } : undefined} onError={() => setBroken(url)} />
       ) : (
         <div className="image-missing">{hostedName(src) ? t("이미지를 불러오지 못했습니다. 올린 지 며칠이 지나 지워졌을 수 있습니다.") : t("그림 ‘{src}’ 이 이 문서에 없습니다", { src })}</div>
       )}
@@ -134,9 +153,9 @@ function BlockView({ b, pages, change, images }: { b: Block; pages: BlockPages |
       </div>
     );
   } else if (b.kind === "table") {
-    body = <TableView b={b} pages={pages} />;
+    body = <TableView b={b} pages={pages} images={images} />;
   } else if (b.kind === "image") {
-    body = <FigureView src={b.src} caption={b.caption} images={images} />;
+    body = <FigureView src={b.src} caption={b.caption} width={b.width} images={images} />;
   } else if (b.kind === "code") {
     body = (
       <pre className="md-code" data-lang={b.lang || undefined}>

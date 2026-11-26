@@ -160,3 +160,68 @@ describe("고치지 않은 블록은 다시 변환하지 않는다(jsonOf)", () 
     expect(fromPM(json)).toContain("둘");
   });
 });
+
+describe("표 칸 안의 그림 · 그림 폭", () => {
+  it("칸 안의 그림과 본문 그림 폭이 편집기를 거쳐도 그대로다", async () => {
+    const { parseMarkdown } = await import("../core/parse");
+    const { docToMarkdown } = await import("../core/write");
+    const md =
+      "## 가\n\n| 사진 | 설명 |\n|:---:|---|\n| ![a](a.png){width=60%} | 첫 줄![b](b.png)뒤 글 |\n| ![c](c.png)![d](d.png){width=30%} | 글<br>둘째 줄 |\n\n![큰 그림](a.png){width=80%}\n";
+    const doc = parseMarkdown(md);
+    expect(docToMarkdown(doc)).toBe(md);
+    const node = schema.nodeFromJSON(toPM(doc));
+    node.check(); // 칸에 문단과 그림이 함께 들어가도 스키마에 맞다
+    let cellImages = 0;
+    node.descendants((n, _p, parent) => {
+      if (n.type.name === "mdImage" && parent && (parent.type.name === "tableCell" || parent.type.name === "tableHeader")) cellImages++;
+    });
+    expect(cellImages).toBe(4);
+    expect(fromPM(node.toJSON())).toBe(md);
+  });
+
+  it("칸에 그림만 있거나, 문단 사이에 그림이 있어도 MD 로 돌아온다", () => {
+    const pm = {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            { type: "tableRow", content: [{ type: "tableHeader", content: [{ type: "paragraph", content: [{ type: "text", text: "머리" }] }] }] },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableCell",
+                  content: [
+                    { type: "paragraph", content: [{ type: "text", text: "위" }] },
+                    { type: "mdImage", attrs: { src: "x.png", caption: "설[명]", width: 45 } },
+                    { type: "paragraph" },
+                    { type: "paragraph", content: [{ type: "text", text: "{width=10%} 아래" }] },
+                  ],
+                },
+              ],
+            },
+            { type: "tableRow", content: [{ type: "tableCell", content: [{ type: "mdImage", attrs: { src: "y.png", caption: "", width: null } }] }] },
+            {
+              type: "tableRow",
+              content: [{ type: "tableCell", content: [{ type: "mdImage", attrs: { src: "z.png", caption: "", width: null } }, { type: "paragraph", content: [{ type: "text", text: "{width=20%}" }] }] }],
+            },
+          ],
+        },
+      ],
+    };
+    const md = fromPM(pm);
+    expect(md).toContain("| 위![설명](x.png){width=45%}{width=10%} 아래 |"); // 폭이 있는 그림 뒤의 {width=…} 는 글자 그대로 읽힌다
+    expect(md).toContain("| ![](y.png) |");
+    expect(md).toContain("| ![](z.png)\\{width=20%} |"); // 폭이 없는 그림 바로 뒤의 {width=…} 글자는 이스케이프
+    const back = schema.nodeFromJSON(toPM((parseMarkdownSync())(md)));
+    back.check();
+    expect(fromPM(back.toJSON())).toBe(md);
+  });
+});
+
+function parseMarkdownSync() {
+  // 위 시험에서 쓰는 파서(동적 import 를 피해서)
+  return parseMd;
+}
+import { parseMarkdown as parseMd } from "../core/parse";

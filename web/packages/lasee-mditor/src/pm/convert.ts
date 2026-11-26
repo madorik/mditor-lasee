@@ -30,8 +30,12 @@ function marksOf(s: Seg): JSONContent["marks"] {
 }
 
 export function inlineToPM(s: string): JSONContent[] {
+  return segsToPM(segments(s));
+}
+
+function segsToPM(segs: Seg[]): JSONContent[] {
   const out: JSONContent[] = [];
-  for (const sg of segments(s)) {
+  for (const sg of segs) {
     const marks = marksOf(sg);
     sg.text.split("\n").forEach((line, i) => {
       if (i) out.push(marks ? { type: "hardBreak", marks } : { type: "hardBreak" });
@@ -58,7 +62,7 @@ function tableToPM(b: TableBlock): JSONContent {
         if (sp[r][c].hidden) return;
         const [shade, inner] = cellShade(raw);
         cells.push(
-          node(head ? "tableHeader" : "tableCell", [node("paragraph", inlineToPM(inner))], {
+          node(head ? "tableHeader" : "tableCell", cellToPM(inner), {
             colspan: sp[r][c].colSpan,
             rowspan: sp[r][c].rowSpan,
             shade,
@@ -70,6 +74,28 @@ function tableToPM(b: TableBlock): JSONContent {
     });
   }
   return node("table", rows, { align: b.align });
+}
+
+/** 칸 글 → 칸 안의 문단 · 그림(그림은 칸 안에서 한 줄을 차지한다). 칸에는 무엇이든 하나는 있어야 한다. */
+function cellToPM(inner: string): JSONContent[] {
+  const segs = segments(inner, true);
+  if (!segs.some((sg) => sg.image !== undefined)) return [node("paragraph", segsToPM(segs))];
+  const out: JSONContent[] = [];
+  let run: Seg[] = [];
+  const flush = () => {
+    if (run.some((sg) => sg.text)) out.push(node("paragraph", segsToPM(run)));
+    run = [];
+  };
+  for (const sg of segs) {
+    if (sg.image === undefined) {
+      run.push(sg);
+      continue;
+    }
+    flush();
+    out.push(node("mdImage", [], { src: sg.image, caption: sg.text, width: sg.width ?? null }));
+  }
+  flush();
+  return out.length ? out : [node("paragraph", [])];
 }
 
 function bodyToPM(b: Block): JSONContent | null {
@@ -84,7 +110,7 @@ function bodyToPM(b: Block): JSONContent | null {
     case "table":
       return tableToPM(b);
     case "image":
-      return node("mdImage", [], { src: b.src, caption: b.caption });
+      return node("mdImage", [], { src: b.src, caption: b.caption, width: b.width ?? null });
     case "code":
       return node("codeBlock", b.code ? [{ type: "text", text: b.code }] : [], { language: b.lang || null });
     case "rule":
@@ -109,6 +135,12 @@ export function toPM(doc: Doc): JSONContent {
   });
   if (content.length === body) content.push({ type: "paragraph" }); // 본문이 하나는 있어야 한다
   return { type: "doc", content };
+}
+
+/** 그림 폭(%) — 1~100 의 정수만, 아니면 null(원래 크기). */
+export function imageWidth(v: unknown): number | null {
+  const n = typeof v === "string" ? Number(v.replace(/%$/, "")) : Number(v);
+  return v !== null && v !== "" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : null;
 }
 
 // ───────────── 편집기 → 문서 → MD ─────────────
@@ -212,10 +244,18 @@ function tableDataNow(t: JSONContent, dialect: Dialect): { head: string[][]; row
       const rs = Math.max(1, Number(cell.attrs?.rowspan ?? 1));
       const text = remember(cell, `c|${dialect}`, () => {
         const segs: Seg[] = [];
-        (cell.content ?? []).forEach((p, i) => {
-          if (i) segs.push({ text: "\n" });
+        let prevText = false; // 앞 칸 내용이 문단이었나 — 문단과 문단 사이만 줄바꿈이다(그림은 스스로 한 줄을 차지한다)
+        for (const p of cell.content ?? []) {
+          if (p.type === "mdImage") {
+            const w = imageWidth(p.attrs?.width);
+            segs.push(w ? { text: String(p.attrs?.caption ?? ""), image: String(p.attrs?.src ?? ""), width: w } : { text: String(p.attrs?.caption ?? ""), image: String(p.attrs?.src ?? "") });
+            prevText = false;
+            continue;
+          }
+          if (prevText) segs.push({ text: "\n" });
           segs.push(...segsOf(p.content));
-        });
+          prevText = true;
+        }
         return write(normalize(segs), "cell", dialect);
       });
       for (let dr = 0; dr < rs && r + dr < rows.length; dr++) {
@@ -359,9 +399,11 @@ export function pmToDoc(doc: JSONContent, dialect: Dialect = "ko", trace?: DocTr
       case "table":
         body({ kind: "table", title: null, notes: [], ...tableData(n, dialect) }).tableAt = i;
         break;
-      case "mdImage":
-        body({ kind: "image", title: null, notes: [], src: pyStrip(String(n.attrs?.src ?? "")), caption: oneLine(n.attrs?.caption ?? "") });
+      case "mdImage": {
+        const w = imageWidth(n.attrs?.width);
+        body({ kind: "image", title: null, notes: [], src: pyStrip(String(n.attrs?.src ?? "")), caption: oneLine(n.attrs?.caption ?? ""), ...(w ? { width: w } : {}) });
         break;
+      }
       case "codeBlock": {
         const lines = (n.content ?? []).map((t) => t.text ?? "").join("").split("\n");
         while (lines.length && !pyStrip(lines[lines.length - 1])) lines.pop();

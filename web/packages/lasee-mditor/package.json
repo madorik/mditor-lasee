@@ -1,6 +1,6 @@
 {
   "name": "@watalabs/lasee-mditor",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Markdown document editor — edit what you see, keep Markdown as the source. Toolbar, tables with merged cells, lists, code blocks, find & replace, source mode, preview.",
   "license": "MIT",
   "author": "WataLabs (https://watalabs.com)",

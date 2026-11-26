@@ -664,7 +664,8 @@ export function createMDitor(options: MDitorOptions): MDitor {
         enabled: (st) => editing(st) && !st.inTable && !st.inCode,
       }).wrap,
     image: () => {
-      if (img.pick) return button("image", msg.insertImage, icon("image"), () => img.pick!(), { enabled: (st) => editing(st) && !st.inTable });
+      // 표 칸 안에도 넣는다(칸 안에서 한 줄을 차지한다)
+      if (img.pick) return button("image", msg.insertImage, icon("image"), () => img.pick!(), { enabled: (st) => editing(st) && !st.inCode });
       return menuButton(
         "image",
         msg.insertImage,
@@ -675,7 +676,7 @@ export function createMDitor(options: MDitorOptions): MDitor {
             (src, caption) => (close(), api.insertImage(src, caption)),
             () => (close(), fileInput.click()),
           ),
-        { enabled: (st) => editing(st) && !st.inTable },
+        { enabled: (st) => editing(st) && !st.inCode },
       ).wrap;
     },
     codeBlock: () => button("codeBlock", msg.codeBlock, icon("codeBlock"), () => run(setBlockKind("codeBlock")), { pressed: (st) => st.kind === "codeBlock", enabled: (st) => editing(st) && !!st.kind, shortcut: "Alt+C" }),
