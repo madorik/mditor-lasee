@@ -45,4 +45,14 @@ describe("쿠팡 다이나믹 배너", () => {
     expect(wide.replace('"width":"1125"', '"width":"680"')).toBe(code);
     expect(safe(wide)).toBe(true);
   });
+
+  it("쿠팡 코드에 우리 상자(container)를 넣어 배너가 처음부터 상자 안에 생기게 한다 — G 를 안 부르는 코드는 그대로", async () => {
+    const { withContainer } = await import("./coupangMount");
+    const out = withContainer(SCRIPT, "#cpad-1");
+    expect(out).toContain('new PartnersCoupang.G({"container":"#cpad-1","id":1,');
+    expect(out.replace('"container":"#cpad-1",', "")).toBe(SCRIPT);
+    expect(isSafeSnippet(out)).toBe(true);
+    expect(withContainer(IFRAME, "#cpad-1")).toBe(IFRAME);
+    for (const x of BANNERS) expect(withContainer(x.html, "#a"), x.slot).toContain('G({"container":"#a",');
+  });
 });

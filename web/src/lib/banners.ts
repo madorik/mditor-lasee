@@ -3,7 +3,7 @@
 // 자리(그리는 곳: ../banners.ts, 한국어 정적 쪽만 — 편집기 · 영어 쪽에는 내지 않는다):
 //   middle  한국어 첫 화면의 첫 소개 바로 아래(680×140 으로 만들고, 그릴 때 폭은 자리에 맞춘다 — fitWidth)
 //   bottom  첫 화면 · 문법 · 개발자 쪽의 광고 자리 위(같다). 있으면 추천 카드(lib/picks.ts) 대신 그린다
-//   side    화면 폭 1500px 이상일 때만, 본문 오른쪽 옆(160×600). 쪽과 같이 올라가고 따라다니지 않는다
+//   side    화면 폭 1500px 이상일 때만, 본문 오른쪽 옆(160×1200 — 600 으로 만든 코드를 그릴 때 1200 으로 늘렸다). 쪽과 같이 올라가고 따라다니지 않는다
 // 쿠팡 코드는 쪽에 직접 심는다(banners.ts). 우리 iframe · sandbox · data: 주소 안에 넣거나 쿠팡 위젯 주소를 직접 쓰면 쿠팡 위젯이 내용을 줄여서
 // 그린다(사진 29장 → 1장, 2026-11-17 에 모두 해 봄 — 쿠팡이 '다른 틀 안(depth)'인지 보는 것으로 보인다). 그래서 보안 격리는 없다:
 // 쿠팡 스크립트는 이 사이트와 같은 출처에서 돌아 브라우저 저장소에 닿을 수 있다(구글 애드센스 스크립트가 모든 쪽에 이미 그렇듯).
@@ -23,7 +23,7 @@ export interface Banner {
 }
 
 /** 파트너스에서 만들 때 넣는 크기(안내용) */
-export const SIZES: Record<BannerSlot, [number, number]> = { middle: [680, 140], bottom: [680, 140], side: [160, 600], export: [680, 140] };
+export const SIZES: Record<BannerSlot, [number, number]> = { middle: [680, 140], bottom: [680, 140], side: [160, 1200], export: [680, 140] };
 
 export const BANNERS: Banner[] = [
   // 첫 화면 중간('라씨-중간2', 캐러셀 680×140). 하단(id 1051309)과 다른 배너라 첫 화면에서 서로 다른 상품이 나온다
@@ -46,14 +46,14 @@ export const BANNERS: Banner[] = [
 	new PartnersCoupang.G({"id":1051309,"template":"carousel","trackingCode":"AF2969243","width":"680","height":"140","tsource":""});
 </script>`,
   },
-  // 본문 오른쪽 옆('라씨-옆2', 160×600)
+  // 본문 오른쪽 옆('라씨-옆2', 160×600 으로 만들고 높이를 1200 으로 — 세로 캐러셀이라 길면 상품을 더 많이 보여 준다)
   {
     slot: "side",
     width: 160,
-    height: 600,
+    height: 1200,
     html: `<script src="https://ads-partners.coupang.com/g.js"></script>
 <script>
-	new PartnersCoupang.G({"id":1051316,"template":"carousel","trackingCode":"AF2969243","width":"160","height":"600","tsource":""});
+	new PartnersCoupang.G({"id":1051316,"template":"carousel","trackingCode":"AF2969243","width":"160","height":"1200","tsource":""});
 </script>`,
   },
   // 편집기 내보내기 안내 창('라씨-내보내기', 캐러셀 680×140)
